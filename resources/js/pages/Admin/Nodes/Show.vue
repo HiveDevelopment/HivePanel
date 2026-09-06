@@ -2,6 +2,7 @@
 import UsageChart from '@/components/charts/UsageChart.vue'
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
+import NodeNavigation from './NodeNavigation.vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import {
     Activity,
@@ -198,44 +199,7 @@ onUnmounted(() => {
                         </div>
                     </section>
 
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-1">
-                        <div class="flex flex-wrap gap-1">
-                            <Link :href="`/admin/nodes/${node.id}`" class="rounded-button bg-hive/10 px-4 pt-3 pb-2 text-sm font-black text-hive">
-                                <span class="inline-flex items-center gap-2">
-                                    <Activity class="size-4" />
-                                    Overview
-                                </span>
-                            </Link>
-
-                            <Link :href="`/admin/nodes/${node.id}/settings`" class="rounded-button px-4 pt-3 pb-2 text-sm font-bold text-zinc-400 transition hover:bg-surface-light hover:text-white">
-                                <span class="inline-flex items-center gap-2">
-                                    <Settings class="size-4" />
-                                    Settings
-                                </span>
-                            </Link>
-
-                            <Link :href="`/admin/nodes/${node.id}/configuration`" class="rounded-button px-4 pt-3 pb-2 text-sm font-bold text-zinc-400 transition hover:bg-surface-light hover:text-white">
-                                <span class="inline-flex items-center gap-2">
-                                    <SlidersHorizontal class="size-4" />
-                                    Configuration
-                                </span>
-                            </Link>
-
-                            <Link :href="`/admin/nodes/${node.id}/allocations`" class="rounded-button px-4 pt-3 pb-2 text-sm font-bold text-zinc-400 transition hover:bg-surface-light hover:text-white">
-                                <span class="inline-flex items-center gap-2">
-                                    <HardDrive class="size-4" />
-                                    Allocations
-                                </span>
-                            </Link>
-
-                            <Link :href="`/admin/nodes/${node.id}/cells`" class="rounded-button px-4 pt-3 pb-2 text-sm font-bold text-zinc-400 transition hover:bg-surface-light hover:text-white">
-                                <span class="inline-flex items-center gap-2">
-                                    <Server class="size-4" />
-                                    Cells
-                                </span>
-                            </Link>
-                        </div>
-                    </section>
+                    <NodeNavigation :node-id="node.id" active="overview" />
 
                     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                         <div class="rounded-panel border border-zinc-800 bg-surface p-5">

@@ -33,6 +33,7 @@ class Cell extends Model
         'worker_sync_checked_at',
         'worker_recovery_required',
         'worker_recreated_at',
+        'database_limit',
     ];
 
     protected $appends = [
@@ -55,6 +56,7 @@ class Cell extends Model
             'worker_sync_checked_at' => 'datetime',
             'worker_recovery_required' => 'boolean',
             'worker_recreated_at' => 'datetime',
+            'database_limit' => 'integer',
         ];
     }
 
@@ -211,5 +213,10 @@ class Cell extends Model
     public function backupMounts(): HasMany
     {
         return $this->hasMany(BackupMount::class);
+    }
+
+    public function databases(): HasMany
+    {
+        return $this->hasMany(CellDatabase::class);
     }
 }

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Node extends Model
 {
@@ -118,5 +120,15 @@ class Node extends Model
     public function sftpAddress(): string
     {
         return $this->sftpHost() . ':' . $this->sftp_port;
+    }
+
+    public function databaseHostAssignments(): HasMany
+    {
+        return $this->hasMany(NodeDatabaseHost::class);
+    }
+
+    public function databaseHosts(): BelongsToMany
+    {
+        return $this->belongsToMany(DatabaseHost::class, 'node_database_hosts')->withPivot(['id', 'priority', 'is_primary', 'enabled'])->withTimestamps();
     }
 }

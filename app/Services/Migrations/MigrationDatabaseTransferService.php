@@ -15,10 +15,18 @@ class MigrationDatabaseTransferService
     private const DATABASE_NAME_MAX_LENGTH = 64;
     private const USERNAME_MAX_LENGTH = 32;
 
+    public function __construct(
+        private readonly MigrationDatabaseRegistrationService $registration,
+    ) {
+    }
+
     public function transferServer(
         PlatformMigrationServer $server,
     ): array {
-        $server->loadMissing('migration');
+        $server->loadMissing([
+            'migration',
+            'destinationCell',
+        ]);
 
         $migration = $server->migration;
 
@@ -530,6 +538,25 @@ class MigrationDatabaseTransferService
             @rmdir($directory);
         }
 
+        $registered = false;
+
+        if ($server->destinationCell) {
+            $registered = $this->registration->register(
+                cell: $server->destinationCell,
+                destinationHost: $destinationConfig,
+                destinationDatabase: [
+                    'database' => $destinationDatabase,
+                    'username' => $destinationUsername,
+                    'allowed_host' => '%',
+                ],
+                password: $destinationPassword,
+                sourceReference:
+                    (string) $server->id
+                    . ':'
+                    . $credentialKey,
+            );
+        }
+
         return [
             'host' => (string) (
                 $destinationConfig['host']
@@ -545,6 +572,7 @@ class MigrationDatabaseTransferService
             'credential_key' => $credentialKey,
             'charset' => $charset,
             'collation' => $collation,
+            'registered_in_hivepanel' => $registered,
         ];
     }
 

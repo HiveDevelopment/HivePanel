@@ -11,6 +11,7 @@ use App\Services\AuditLogger;
 use App\Services\Node\BackupNodeClient;
 use App\Services\Node\CellNodeClient;
 use App\Services\Node\FileNodeClient;
+use App\Services\Node\FileArchiveNodeClient;
 use App\Services\Sftp\SftpAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,7 +19,11 @@ use Inertia\Inertia;
 
 class CellFileController extends CellBaseController
 {
-    public function index(string $id, CellNodeClient $cells, SftpAccessService $sftpAccess) {
+    public function index(
+        string $id,
+        CellNodeClient $cells,
+        SftpAccessService $sftpAccess,
+    ) {
         $cell = $this->panelCellOrFail($id);
 
         if ($response = $this->installationPageIfNeeded($cell)) {
@@ -84,7 +89,13 @@ class CellFileController extends CellBaseController
         ]);
     }
 
-    public function json(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, BackupNodeClient $backups) {
+    public function json(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        BackupNodeClient $backups,
+    ) {
         $cell = $this->panelCellOrFail($id);
         $this->abortUnlessInstalled($cell);
 
@@ -168,7 +179,13 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function download(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function download(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
         if ($response = $this->installationPageIfNeeded($cell)) {
             return $response;
@@ -200,7 +217,11 @@ class CellFileController extends CellBaseController
         );
     }
 
-    public function edit(string $id, Request $request, CellNodeClient $cells) {
+    public function edit(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+    ) {
         $cell = $this->panelCellOrFail($id);
         if ($response = $this->installationPageIfNeeded($cell)) {
             return $response;
@@ -217,7 +238,12 @@ class CellFileController extends CellBaseController
         ]);
     }
 
-    public function read(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files) {
+    public function read(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+    ) {
         $cell = $this->panelCellOrFail($id);
         if ($response = $this->installationPageIfNeeded($cell)) {
             return $response;
@@ -233,9 +259,17 @@ class CellFileController extends CellBaseController
         );
     }
 
-    public function write(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function write(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -262,9 +296,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function delete(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function delete(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -290,9 +332,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function restore(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function restore(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -317,9 +367,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function permanent(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function permanent(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -349,9 +407,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function createFile(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function createFile(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -376,9 +442,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function createFolder(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function createFolder(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -403,9 +477,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function uploadFromUrl(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function uploadFromUrl(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -434,9 +516,17 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
-    public function upload(string $id, Request $request, CellNodeClient $cells, FileNodeClient $files, AuditLogger $audit) {
+    public function upload(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileNodeClient $files,
+        AuditLogger $audit,
+    ) {
         $cell = $this->panelCellOrFail($id);
-        $this->abortUnlessInstalled($cell);
+        if ($response = $this->installationPageIfNeeded($cell)) {
+            return $response;
+        }
 
         $this->abortIfLocked($cell, $cells);
 
@@ -481,6 +571,121 @@ class CellFileController extends CellBaseController
         return response()->json($result);
     }
 
+    public function rename(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileArchiveNodeClient $archives,
+        AuditLogger $audit,
+    ) {
+        $cell = $this->panelCellOrFail($id);
+        $this->abortUnlessInstalled($cell);
+        $this->abortIfLocked($cell, $cells);
+
+        $data = $request->validate([
+            'old_path' => ['required', 'string', 'max:2000'],
+            'new_path' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $result = $archives->rename(
+            $cell,
+            $data['old_path'],
+            $data['new_path'],
+        );
+
+        $audit->log(
+            AuditEvent::FILE_EDITED,
+            $cell,
+            "File or folder \"{$data['old_path']}\" was renamed to \"{$data['new_path']}\".",
+            [
+                'old_path' => $data['old_path'],
+                'new_path' => $data['new_path'],
+                'action' => 'rename',
+            ],
+        );
+
+        return response()->json($result);
+    }
+
+    public function createArchive(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileArchiveNodeClient $archives,
+        AuditLogger $audit,
+    ) {
+        $cell = $this->panelCellOrFail($id);
+        $this->abortUnlessInstalled($cell);
+        $this->abortIfLocked($cell, $cells);
+
+        $data = $request->validate([
+            'paths' => ['required', 'array', 'min:1', 'max:500'],
+            'paths.*' => ['required', 'string', 'max:2000'],
+            'destination' => ['required', 'string', 'max:2000'],
+            'format' => ['required', 'string', 'in:zip,tar.gz'],
+        ]);
+
+        $result = $archives->createArchive(
+            $cell,
+            $data['paths'],
+            $data['destination'],
+            $data['format'],
+        );
+
+        $audit->log(
+            AuditEvent::FILE_CREATED,
+            $cell,
+            "Archive \"{$data['destination']}\" was created.",
+            [
+                'paths' => $data['paths'],
+                'destination' => $data['destination'],
+                'format' => $data['format'],
+                'action' => 'archive',
+            ],
+        );
+
+        return response()->json($result);
+    }
+
+    public function extractArchive(
+        string $id,
+        Request $request,
+        CellNodeClient $cells,
+        FileArchiveNodeClient $archives,
+        AuditLogger $audit,
+    ) {
+        $cell = $this->panelCellOrFail($id);
+        $this->abortUnlessInstalled($cell);
+        $this->abortIfLocked($cell, $cells);
+
+        $data = $request->validate([
+            'path' => ['required', 'string', 'max:2000'],
+            'destination' => ['nullable', 'string', 'max:2000'],
+            'overwrite' => ['required', 'boolean'],
+        ]);
+
+        $result = $archives->extractArchive(
+            $cell,
+            $data['path'],
+            $data['destination'] ?? '',
+            (bool) $data['overwrite'],
+        );
+
+        $audit->log(
+            AuditEvent::FILE_EDITED,
+            $cell,
+            "Archive \"{$data['path']}\" was extracted.",
+            [
+                'path' => $data['path'],
+                'destination' => $data['destination'] ?? '',
+                'overwrite' => (bool) $data['overwrite'],
+                'action' => 'extract',
+            ],
+        );
+
+        return response()->json($result);
+    }
+
     private function isMountedBackupPath(string $path): bool
     {
         return $path === '__backup_mount__'
@@ -490,7 +695,13 @@ class CellFileController extends CellBaseController
             );
     }
 
-    private function mountedBackupFiles(Cell $cell, string $path, int $page, int $perPage, BackupNodeClient $backups): array  {
+    private function mountedBackupFiles(
+        Cell $cell,
+        string $path,
+        int $page,
+        int $perPage,
+        BackupNodeClient $backups,
+    ): array {
         $segments = explode(
             '/',
             $path,
@@ -550,7 +761,10 @@ class CellFileController extends CellBaseController
         );
     }
 
-    private function prefixMountedBackupPaths(array $result, string $mountID): array  {
+    private function prefixMountedBackupPaths(
+        array $result,
+        string $mountID,
+    ): array {
         $prefix = '__backup_mount__/' . $mountID;
 
         if (
@@ -594,7 +808,11 @@ class CellFileController extends CellBaseController
         return $result;
     }
 
-    private function prefixMountedBackupEntry(array $entry, string $prefix, string $mountID): array  {
+    private function prefixMountedBackupEntry(
+        array $entry,
+        string $prefix,
+        string $mountID,
+    ): array {
         $entryPath = trim(
             (string) ($entry['path'] ?? $entry['name'] ?? ''),
             '/',

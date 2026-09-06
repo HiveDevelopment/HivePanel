@@ -353,6 +353,11 @@ const adminNav: SidebarNavEntry[] = [
         icon: Users,
     },
     {
+        title: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+    },
+    {
         type: 'group',
         title: 'Infrastructure',
         items: [
@@ -360,6 +365,11 @@ const adminNav: SidebarNavEntry[] = [
                 title: 'Nodes',
                 href: '/admin/nodes',
                 icon: CpuIcon,
+            },
+            {
+                title: 'Database Hosts',
+                href: '/admin/database-hosts',
+                icon: DatabaseIcon,
             },
             {
                 title: 'Cells',
@@ -376,11 +386,7 @@ const adminNav: SidebarNavEntry[] = [
                 href: '/admin/migrations',
                 icon: Rocket,
             },
-            {
-                title: 'Settings',
-                href: '/admin/settings',
-                icon: Settings,
-            },
+            
         ],
     },
 ]

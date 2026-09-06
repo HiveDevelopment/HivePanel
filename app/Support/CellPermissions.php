@@ -31,6 +31,7 @@ class CellPermissions
 
     public const DATABASES_VIEW = 'databases.view';
     public const DATABASES_CREATE = 'databases.create';
+    public const DATABASES_UPDATE = 'databases.update';
     public const DATABASES_DELETE = 'databases.delete';
 
     public const USERS_VIEW = 'users.view';
@@ -82,6 +83,7 @@ class CellPermissions
             'Databases' => [
                 self::DATABASES_VIEW => 'View databases',
                 self::DATABASES_CREATE => 'Create databases',
+                self::DATABASES_UPDATE => 'Edit databases',
                 self::DATABASES_DELETE => 'Delete databases',
             ],
             'Sub Users' => [
