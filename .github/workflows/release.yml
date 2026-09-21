@@ -37,12 +37,6 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend assets
-        run: npm run build
-
       - name: Install production PHP dependencies
         run: |
           composer install \
@@ -52,6 +46,12 @@ jobs:
             --no-progress \
             --optimize-autoloader \
             --no-scripts
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
 
       - name: Prepare release archive
         env:
@@ -64,12 +64,12 @@ jobs:
           # Start with tracked files from the tagged commit.
           git archive HEAD | tar -x -C release/hivepanel
 
-          # Include built assets and production dependencies.
+          # Include compiled assets and production PHP dependencies.
           mkdir -p release/hivepanel/public
           cp -a public/build release/hivepanel/public/build
           cp -a vendor release/hivepanel/vendor
 
-          # Do not distribute local configuration or development files.
+          # Exclude development files and local configuration.
           rm -rf \
             release/hivepanel/.git \
             release/hivepanel/.github \
@@ -80,14 +80,16 @@ jobs:
             release/hivepanel/phpunit.xml \
             release/hivepanel/coverage
 
-          # Keep .env.example for new installations.
+          # Validate essential installation files.
           test -f release/hivepanel/.env.example
           test -f release/hivepanel/vendor/autoload.php
           test -f release/hivepanel/public/build/manifest.json
 
+          # Create versioned release archive.
           tar -czf "hivepanel-${VERSION}.tar.gz" \
             -C release/hivepanel .
 
+          # Generate checksum.
           sha256sum "hivepanel-${VERSION}.tar.gz" \
             > "hivepanel-${VERSION}.tar.gz.sha256"
 
