@@ -1,0 +1,103 @@
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish HivePanel
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out tagged version
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, bcmath, pdo_mysql, gd
+          tools: composer:v2
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Install production PHP dependencies
+        run: |
+          composer install \
+            --no-dev \
+            --prefer-dist \
+            --no-interaction \
+            --no-progress \
+            --optimize-autoloader \
+            --no-scripts
+
+      - name: Prepare release archive
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p release/hivepanel
+
+          # Start with tracked files from the tagged commit.
+          git archive HEAD | tar -x -C release/hivepanel
+
+          # Include built assets and production dependencies.
+          mkdir -p release/hivepanel/public
+          cp -a public/build release/hivepanel/public/build
+          cp -a vendor release/hivepanel/vendor
+
+          # Do not distribute local configuration or development files.
+          rm -rf \
+            release/hivepanel/.git \
+            release/hivepanel/.github \
+            release/hivepanel/.env \
+            release/hivepanel/node_modules \
+            release/hivepanel/tests \
+            release/hivepanel/.phpunit.cache \
+            release/hivepanel/phpunit.xml \
+            release/hivepanel/coverage
+
+          # Keep .env.example for new installations.
+          test -f release/hivepanel/.env.example
+          test -f release/hivepanel/vendor/autoload.php
+          test -f release/hivepanel/public/build/manifest.json
+
+          tar -czf "hivepanel-${VERSION}.tar.gz" \
+            -C release/hivepanel .
+
+          sha256sum "hivepanel-${VERSION}.tar.gz" \
+            > "hivepanel-${VERSION}.tar.gz.sha256"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: HivePanel ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: |
+            hivepanel-${{ github.ref_name }}.tar.gz
+            hivepanel-${{ github.ref_name }}.tar.gz.sha256
