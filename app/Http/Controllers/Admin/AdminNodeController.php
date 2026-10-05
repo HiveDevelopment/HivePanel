@@ -175,7 +175,7 @@ node:
   id: ""
 
 paths:
-  data: "/var/lib/hivepanel"
+  data: "/var/lib/hivepanel/data"
   instances: "/var/lib/hivepanel/cells"
   backups: "/var/lib/hivepanel/backups"
 
@@ -193,13 +193,16 @@ YAML;
         $systemdService = <<<SERVICE
 [Unit]
 Description=HivePanel Worker
-After=network.target
+Documentation=https://hivepanel.dev
+After=network-online.target docker.service
+Wants=network-online.target docker.service
 
 [Service]
+Type=simple
 User=root
 WorkingDirectory=/var/lib/hivepanel
-ExecStart=/usr/local/bin/hivepanel-worker --config /etc/hivepanel/worker.yml
-Restart=always
+ExecStart=/usr/local/bin/hiveworker --config /etc/hivepanel/worker.yml
+Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576
 
@@ -215,12 +218,15 @@ SERVICE;
             'installScriptUrl' => $installScriptUrl,
             'oneClickCommand' => $oneClickCommand,
             'commands' => [
-                'sudo mkdir -p /etc/hivepanel /var/lib/hivepanel/cells /var/lib/hivepanel/backups',
+                'docker --version',
+                'sudo systemctl status docker',
+                'sudo mkdir -p /etc/hivepanel /var/lib/hivepanel/cells /var/lib/hivepanel/backups /var/lib/hivepanel/data',
                 'sudo nano /etc/hivepanel/worker.yml',
-                'sudo nano /etc/systemd/system/hivepanel-worker.service',
+                'sudo nano /etc/systemd/system/hiveworker.service',
                 'sudo systemctl daemon-reload',
-                'sudo systemctl enable --now hivepanel-worker',
-                'sudo systemctl status hivepanel-worker',
+                'sudo systemctl enable --now hiveworker',
+                'sudo systemctl status hiveworker',
+                'sudo journalctl -u hiveworker -f',
             ],
         ]);
     }
@@ -525,7 +531,6 @@ SERVICE;
             ]))
             ->implode(PHP_EOL);
     }
-
 
     private function bool(bool $value): string
     {

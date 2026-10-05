@@ -9,6 +9,9 @@ use Illuminate\Support\Str;
 
 class WorkerRegistrationController extends Controller
 {
+    /**
+     * Register a new HivePanel worker.
+     */
     public function __invoke(Request $request)
     {
         $data = $request->validate([
@@ -44,19 +47,57 @@ class WorkerRegistrationController extends Controller
             'worker_ip' => $request->ip(),
         ]);
 
+        $allocations = $node->allocations()
+            ->orderBy('ip')
+            ->orderBy('port')
+            ->get(['ip', 'port'])
+            ->map(fn ($allocation) => [
+                'ip' => $allocation->ip,
+                'port' => (int) $allocation->port,
+            ])
+            ->values()
+            ->all();
+
         return response()->json([
             'node_id' => $node->id,
             'token' => $workerToken,
-            'panel_url' => rtrim(config('app.url'), '/'),
-            'server' => [
-                'host' => '0.0.0.0',
-                'port' => $node->daemon_port,
-                'sftp_port' => $node->sftp_port,
-                'behind_proxy' => $node->behind_proxy,
-            ],
-            'paths' => [
-                'data' => '/var/lib/hivepanel/cells',
-                'backups' => '/var/lib/hivepanel/backups',
+
+            'configuration' => [
+                'panel' => [
+                    'url' => rtrim(config('app.url'), '/'),
+                ],
+
+                'worker' => [
+                    'listen' => "0.0.0.0:{$node->daemon_port}",
+                ],
+
+                'sftp' => [
+                    'enabled' => (bool) $node->sftp_enabled,
+                    'listen' => "0.0.0.0:{$node->sftp_port}",
+                    'public_fqdn' => $node->sftpHost(),
+                    'public_port' => (int) $node->sftp_port,
+                    'host_key_path' => '/etc/hivepanel/keys/sftp_host_ed25519',
+                    'auth_timeout_seconds' => 10,
+                ],
+
+                'paths' => [
+                    'data' => '/var/lib/hivepanel/data',
+                    'instances' => '/var/lib/hivepanel/cells',
+                    'backups' => '/var/lib/hivepanel/backups',
+                    'backup_mounts' => '/var/lib/hivepanel/backup_mounts',
+                ],
+
+                'runtime' => [
+                    'type' => 'docker',
+                ],
+
+                'docker' => [
+                    'network' => 'hivepanel',
+                ],
+
+                'allocations' => [
+                    'entries' => $allocations,
+                ],
             ],
         ]);
     }

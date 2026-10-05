@@ -8,15 +8,15 @@ use Illuminate\Http\Request;
 
 class WorkerHeartbeatController extends Controller
 {
+    /**
+     * Process a heartbeat from an authenticated worker.
+     */
     public function __invoke(Request $request)
     {
-        $token = $request->bearerToken();
+        /** @var Node|null $node */
+        $node = $request->attributes->get('worker_node');
 
-        abort_unless($token, 401, 'Missing worker token.');
-
-        $node = Node::query()
-            ->where('api_token', $token)
-            ->firstOrFail();
+        abort_unless($node, 401, 'Unauthenticated.');
 
         $data = $request->validate([
             'version' => ['nullable', 'string', 'max:100'],
