@@ -15,9 +15,17 @@ class ConfirmablePasswordController extends Controller
     /**
      * Show the confirm password page.
      */
-    public function show(): Response
+    public function show(Request $request): Response
     {
-        return Inertia::render('auth/ConfirmPassword');
+        $returnTo = $request->query('return');
+
+        if (is_string($returnTo) && $this->isSafeReturnPath($returnTo)) {
+            $request->session()->put('password_confirmation_return_to', $returnTo);
+        }
+
+        return Inertia::render('auth/ConfirmPassword', [
+            'returnTo' => $request->session()->get('password_confirmation_return_to'),
+        ]);
     }
 
     /**
@@ -25,6 +33,10 @@ class ConfirmablePasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
         if (! Auth::guard('web')->validate([
             'email' => $request->user()->email,
             'password' => $request->password,
@@ -36,6 +48,23 @@ class ConfirmablePasswordController extends Controller
 
         $request->session()->put('auth.password_confirmed_at', time());
 
+        $returnTo = $request->session()->pull('password_confirmation_return_to');
+
+        if (is_string($returnTo) && $this->isSafeReturnPath($returnTo)) {
+            return redirect($returnTo);
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    /**
+     * Determine whether a return path is safe to redirect to.
+     */
+    private function isSafeReturnPath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            && ! str_starts_with($path, '//')
+            && ! str_contains($path, "\r")
+            && ! str_contains($path, "\n");
     }
 }

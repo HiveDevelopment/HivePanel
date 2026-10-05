@@ -128,7 +128,7 @@ case "$ARCH" in
     ;;
 esac
 
-DOWNLOAD_URL="https://github.com/HiveOSSoftware/hiveworker/releases/latest/download/hiveworker_linux_${WORKER_ARCH}"
+DOWNLOAD_URL="https://github.com/HiveDevelopment/hiveworker/releases/latest/download/hiveworker_linux_${WORKER_ARCH}"
 
 echo "Downloading HivePanel Worker from:"
 echo "${DOWNLOAD_URL}"

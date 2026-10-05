@@ -10,6 +10,8 @@ use App\Models\OAuthProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
+use App\Models\OidcProvider;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class AdminSettingsController extends Controller
@@ -28,6 +30,7 @@ class AdminSettingsController extends Controller
                 'security' => $this->setting('security', [
                     'allow_registration' => false,
                     'require_email_verification' => false,
+                    'allow_passkeys' => true,
                     'session_lifetime' => 120,
                     'password_min_length' => 8,
                 ]),
@@ -38,6 +41,24 @@ class AdminSettingsController extends Controller
             ],
 
             'oauthProviders' => $this->oauthProviders(),
+
+            'oidcProviders' => OidcProvider::query()
+                ->orderBy('name')
+                ->get()
+                ->map(fn (OidcProvider $provider) => [
+                    'id' => $provider->id,
+                    'name' => $provider->name,
+                    'slug' => $provider->slug,
+                    'enabled' => $provider->enabled,
+                    'issuer' => $provider->issuer,
+                    'client_id' => $provider->client_id,
+                    'client_secret' => '',
+                    'redirect_url' => $provider->redirect_url
+                        ?: url("/oidc/{$provider->slug}/callback"),
+                    'scopes' => $provider->scopes ?? ['openid', 'profile', 'email'],
+                    'allow_registration' => $provider->allow_registration,
+                ])
+                ->values(),
         ]);
     }
 
@@ -46,11 +67,17 @@ class AdminSettingsController extends Controller
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:100'],
             'company_logo' => ['nullable', 'string', 'max:2048'],
-            'require_2fa' => ['required', 'in:not_required,admin_only,all_users'],
             'default_language' => ['required', 'string', 'max:10'],
         ]);
 
-        $this->setSetting('general', $data);
+        $existing = $this->setting('general', [
+            'require_2fa' => 'not_required',
+        ]);
+
+        $this->setSetting('general', [
+            ...$existing,
+            ...$data,
+        ]);
 
         return back()->with('success', 'General settings updated.');
     }
@@ -60,9 +87,24 @@ class AdminSettingsController extends Controller
         $data = $request->validate([
             'allow_registration' => ['boolean'],
             'require_email_verification' => ['boolean'],
+            'allow_passkeys' => ['boolean'],
             'session_lifetime' => ['required', 'integer', 'min:5', 'max:10080'],
             'password_min_length' => ['required', 'integer', 'min:8', 'max:128'],
+            'require_2fa' => ['required', 'in:not_required,admin_only,all_users'],
         ]);
+
+        $general = $this->setting('general', [
+            'company_name' => 'HivePanel',
+            'company_logo' => null,
+            'require_2fa' => 'not_required',
+            'default_language' => 'en',
+        ]);
+
+        $general['require_2fa'] = $data['require_2fa'];
+
+        $this->setSetting('general', $general);
+
+        unset($data['require_2fa']);
 
         $this->setSetting('security', $data);
 
@@ -233,5 +275,77 @@ class AdminSettingsController extends Controller
                 ],
             ])
             ->all();
+    }
+
+    public function storeOidc(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'issuer' => ['required', 'url', 'max:2048'],
+            'client_id' => ['required', 'string', 'max:255'],
+            'client_secret' => ['required', 'string', 'max:2048'],
+            'scopes' => ['nullable', 'array'],
+            'scopes.*' => ['string', 'max:100'],
+            'allow_registration' => ['boolean'],
+        ]);
+
+        $slug = Str::slug($data['name']);
+
+        $baseSlug = $slug;
+        $suffix = 2;
+
+        while (OidcProvider::where('slug', $slug)->exists()) {
+            $slug = "{$baseSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        OidcProvider::create([
+            'name' => $data['name'],
+            'slug' => $slug,
+            'enabled' => true,
+            'issuer' => rtrim($data['issuer'], '/'),
+            'client_id' => $data['client_id'],
+            'client_secret' => $data['client_secret'],
+            'redirect_url' => url("/oidc/{$slug}/callback"),
+            'scopes' => $data['scopes'] ?? ['openid', 'profile', 'email'],
+            'allow_registration' => (bool) ($data['allow_registration'] ?? false),
+        ]);
+
+        return back()->with('success', 'OpenID Connect provider added.');
+    }
+
+    public function updateOidc(Request $request, OidcProvider $oidcProvider)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'enabled' => ['boolean'],
+            'issuer' => ['required', 'url', 'max:2048'],
+            'client_id' => ['required', 'string', 'max:255'],
+            'client_secret' => ['nullable', 'string', 'max:2048'],
+            'scopes' => ['nullable', 'array'],
+            'scopes.*' => ['string', 'max:100'],
+            'allow_registration' => ['boolean'],
+        ]);
+
+        $oidcProvider->update([
+            'name' => $data['name'],
+            'enabled' => (bool) ($data['enabled'] ?? false),
+            'issuer' => rtrim($data['issuer'], '/'),
+            'client_id' => $data['client_id'],
+            'client_secret' => filled($data['client_secret'] ?? null)
+                ? $data['client_secret']
+                : $oidcProvider->client_secret,
+            'scopes' => $data['scopes'] ?? ['openid', 'profile', 'email'],
+            'allow_registration' => (bool) ($data['allow_registration'] ?? false),
+        ]);
+
+        return back()->with('success', 'OpenID Connect provider updated.');
+    }
+
+    public function destroyOidc(OidcProvider $oidcProvider)
+    {
+        $oidcProvider->delete();
+
+        return back()->with('success', 'OpenID Connect provider removed.');
     }
 }

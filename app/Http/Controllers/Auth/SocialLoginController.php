@@ -5,62 +5,133 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\OAuthProvider;
 use App\Models\User;
+use App\Support\AppSettings;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
+use SocialiteProviders\Manager\Config;
 
 class SocialLoginController extends Controller
 {
-    public function redirect(string $provider)
+    private const SUPPORTED_PROVIDERS = [
+        'discord',
+        'google',
+        'github',
+    ];
+
+    /**
+     * Redirect the user to the configured OAuth provider.
+     */
+    public function redirect(string $provider): RedirectResponse
     {
         $config = $this->providerConfig($provider);
 
-        abort_unless($config?->enabled, 404);
-
-        return Socialite::driver($provider)
-            ->setConfig(new \SocialiteProviders\Manager\Config(
-                $config->client_id,
-                $config->client_secret,
-                $config->redirect_url
-            ))
-            ->redirect();
+        return $this->socialiteDriver($provider, $config)->redirect();
     }
 
-    public function callback(string $provider)
+    /**
+     * Handle the OAuth provider callback.
+     */
+    public function callback(Request $request, string $provider): RedirectResponse
     {
         $config = $this->providerConfig($provider);
 
-        abort_unless($config?->enabled, 404);
+        $socialUser = $this->socialiteDriver($provider, $config)->user();
 
-        $socialUser = Socialite::driver($provider)
-            ->setConfig(new \SocialiteProviders\Manager\Config(
-                $config->client_id,
-                $config->client_secret,
-                $config->redirect_url
-            ))
-            ->user();
+        $user = $this->resolveUser($socialUser);
 
-        $email = $socialUser->getEmail();
+        if ($user->hasTwoFactorAuthenticationEnabled()) {
+            $request->session()->put([
+                'login.two_factor_user_id' => $user->getKey(),
+                'login.remember' => true,
+            ]);
 
-        abort_unless($email, 422, 'No email address was returned by the provider.');
+            $request->session()->regenerate();
 
-        $user = User::firstOrCreate(
-            ['email' => $email],
-            [
-                'name' => $socialUser->getName() ?: $socialUser->getNickname() ?: $email,
-                'password' => bcrypt(Str::random(64)),
-            ]
-        );
+            return redirect()->route('two-factor.login');
+        }
 
         Auth::login($user, true);
 
-        return redirect()->route('dashboard');
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
-    private function providerConfig(string $provider): ?OAuthProvider
+    /**
+     * Create the configured Socialite driver.
+     */
+    private function socialiteDriver(string $provider, OAuthProvider $config)
     {
-        abort_unless(in_array($provider, ['discord', 'google', 'github'], true), 404);
+        return Socialite::driver($provider)
+            ->setConfig(new Config(
+                $config->client_id,
+                $config->client_secret,
+                $config->redirect_url
+            ));
+    }
 
-        return OAuthProvider::where('provider', $provider)->first();
+    /**
+     * Resolve a local user from the OAuth identity.
+     */
+    private function resolveUser(SocialiteUser $socialUser): User
+    {
+        $email = $socialUser->getEmail();
+
+        abort_unless(
+            is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL),
+            422,
+            'No valid email address was returned by the provider.'
+        );
+
+        $email = Str::lower(trim($email));
+
+        $user = User::query()
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->first();
+
+        if ($user) {
+            return $user;
+        }
+
+        $security = AppSettings::security();
+
+        abort_unless(
+            (bool) $security['allow_registration'],
+            403,
+            'Registration is currently disabled.'
+        );
+
+        return User::create([
+            'name' => $socialUser->getName()
+                ?: $socialUser->getNickname()
+                ?: $email,
+            'email' => $email,
+            'email_verified_at' => now(),
+            'password' => Hash::make(Str::random(64)),
+        ]);
+    }
+
+    /**
+     * Get the enabled configuration for a supported provider.
+     */
+    private function providerConfig(string $provider): OAuthProvider
+    {
+        abort_unless(in_array($provider, self::SUPPORTED_PROVIDERS, true), 404);
+
+        $config = OAuthProvider::query()
+            ->where('provider', $provider)
+            ->where('enabled', true)
+            ->whereNotNull('client_id')
+            ->whereNotNull('client_secret')
+            ->first();
+
+        abort_unless($config, 404);
+
+        return $config;
     }
 }

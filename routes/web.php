@@ -124,6 +124,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/mail/test', [AdminSettingsController::class, 'testMail'])->name('mail.test');
             Route::patch('/captcha', [AdminSettingsController::class, 'updateCaptcha'])->name('captcha.update');
             Route::patch('/oauth', [AdminSettingsController::class, 'updateOAuth'])->name('oauth.update');
+            Route::post('/oidc', [AdminSettingsController::class, 'storeOidc'])->name('oidc.store');
+            Route::patch('/oidc/{oidcProvider}', [AdminSettingsController::class, 'updateOidc'])->name('oidc.update');
+            Route::delete('/oidc/{oidcProvider}', [AdminSettingsController::class, 'destroyOidc'])->name('oidc.destroy');
         });
 
         Route::prefix('migrations')->name('migrations.')->group(function () {

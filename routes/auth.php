@@ -5,11 +5,14 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OidcLoginController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\Auth\SocialLoginController;
+use App\Http\Controllers\Auth\TwoFactorChallengeController;
+use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
@@ -39,6 +42,23 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/auth/{provider}/callback', [SocialLoginController::class, 'callback'])
         ->name('social.callback');
+
+    Route::get('/auth/oidc/{provider}/redirect', [OidcLoginController::class, 'redirect'])
+        ->name('oidc.redirect');
+
+    Route::get('/auth/oidc/{provider}/callback', [OidcLoginController::class, 'callback'])
+        ->name('oidc.callback');
+
+    Route::get('two-factor-challenge', [TwoFactorChallengeController::class, 'create'])
+        ->name('two-factor.login');
+
+    Route::post('two-factor-challenge', [TwoFactorChallengeController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('two-factor.login.store');
+
+    Route::post('two-factor-challenge/recovery', [TwoFactorChallengeController::class, 'recovery'])
+        ->middleware('throttle:6,1')
+        ->name('two-factor.login.recovery');
 });
 
 Route::middleware('auth')->group(function () {
@@ -57,6 +77,10 @@ Route::middleware('auth')->group(function () {
         ->name('password.confirm');
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+
+    Route::get('setup/passkey', function () {
+        return Inertia::render('auth/PasskeySetup');
+    })->name('passkey.setup');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

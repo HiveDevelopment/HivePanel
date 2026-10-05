@@ -64,13 +64,13 @@ class AdminDashboardController extends Controller
                 [
                     'label' => 'GitHub',
                     'description' => 'View the source code.',
-                    'url' => 'https://github.com/HiveOSSoftware/HivePanel',
+                    'url' => 'https://github.com/HiveDevelopment/HivePanel',
                     'external' => true,
                 ],
                 [
                     'label' => 'Support Project',
                     'description' => 'Help fund development.',
-                    'url' => 'https://github.com/sponsors/HiveOSSoftware',
+                    'url' => 'https://github.com/sponsors/HiveDevelopment',
                     'external' => true,
                 ],
             ],
@@ -85,7 +85,7 @@ class AdminDashboardController extends Controller
             try {
                 $response = Http::timeout(5)
                     ->acceptJson()
-                    ->get('https://api.github.com/repos/HiveOSSoftware/HivePanel/releases/latest');
+                    ->get('https://api.github.com/repos/HiveDevelopment/HivePanel/releases/latest');
 
                 if (! $response->successful()) {
                     return null;

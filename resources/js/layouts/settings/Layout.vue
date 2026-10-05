@@ -1,56 +1,105 @@
 <script setup lang="ts">
-import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3'
+import {
+    Palette,
+    Settings,
+    ShieldCheck,
+    UserRound,
+} from 'lucide-vue-next'
 
-const sidebarNavItems: NavItem[] = [
+const navigation = [
     {
         title: 'Profile',
+        description: 'Personal information',
         href: '/settings/profile',
+        icon: UserRound,
     },
     {
-        title: 'Password',
-        href: '/settings/password',
+        title: 'Security',
+        description: 'Password and passkeys',
+        href: '/settings/security',
+        icon: ShieldCheck,
     },
     {
         title: 'Appearance',
+        description: 'Theme and display',
         href: '/settings/appearance',
+        icon: Palette,
     },
-];
+]
 
-const currentPath = window.location.pathname;
+const currentPath = window.location.pathname
 </script>
 
 <template>
-    <div class="px-4 py-6">
-        <Heading title="Settings" description="Manage your profile and account settings" />
+    <div class="p-4 sm:p-6 lg:p-8">
+        <div class="space-y-5">
+            <section class="rounded-2xl border border-white/[0.08] bg-[#111315] p-5 sm:p-6">
+                <div class="flex items-center gap-4">
+                    <div class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-hive/20 bg-hive/[0.06]">
+                        <Settings class="size-5 text-hive" />
+                    </div>
 
-        <div class="flex flex-col space-y-8 md:space-y-0 lg:flex-row lg:space-x-12 lg:space-y-0">
-            <aside class="w-full max-w-xl lg:w-48">
-                <nav class="flex flex-col space-x-0 space-y-1">
-                    <Button
-                        v-for="item in sidebarNavItems"
-                        :key="item.href"
-                        variant="ghost"
-                        :class="['w-full justify-start', { 'bg-muted': currentPath === item.href }]"
-                        as-child
+                    <div>
+                        <h1 class="text-2xl font-semibold tracking-tight text-white">
+                            Settings
+                        </h1>
+
+                        <p class="mt-1 text-sm text-zinc-500">
+                            Manage your account, security and preferences.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <nav class="grid gap-3 sm:grid-cols-3">
+                <Link
+                    v-for="item in navigation"
+                    :key="item.href"
+                    :href="item.href"
+                    :class="[
+                        'group flex min-w-0 items-center gap-3 rounded-xl border px-4 py-3.5 transition',
+                        currentPath === item.href
+                            ? 'border-hive/30 bg-hive/[0.07]'
+                            : 'border-white/[0.07] bg-[#111315] hover:border-white/[0.12] hover:bg-[#141719]',
+                    ]"
+                >
+                    <div
+                        :class="[
+                            'flex size-9 shrink-0 items-center justify-center rounded-lg border transition',
+                            currentPath === item.href
+                                ? 'border-hive/20 bg-hive/10 text-hive'
+                                : 'border-white/[0.06] bg-black/10 text-zinc-500 group-hover:text-zinc-300',
+                        ]"
                     >
-                        <Link :href="item.href">
+                        <component
+                            :is="item.icon"
+                            class="size-4"
+                        />
+                    </div>
+
+                    <div class="min-w-0">
+                        <div
+                            :class="[
+                                'text-sm font-semibold',
+                                currentPath === item.href
+                                    ? 'text-white'
+                                    : 'text-zinc-300',
+                            ]"
+                        >
                             {{ item.title }}
-                        </Link>
-                    </Button>
-                </nav>
-            </aside>
+                        </div>
 
-            <Separator class="my-6 md:hidden" />
+                        <div class="mt-0.5 truncate text-[11px] text-zinc-600">
+                            {{ item.description }}
+                        </div>
+                    </div>
+                </Link>
+            </nav>
 
-            <div class="flex-1 md:max-w-2xl">
-                <section class="max-w-xl space-y-12">
-                    <slot />
-                </section>
-            </div>
+            <main>
+                <slot />
+            </main>
         </div>
     </div>
 </template>

@@ -1,37 +1,105 @@
 <script setup lang="ts">
-import { useAppearance } from '@/composables/useAppearance';
-import { Monitor, Moon, Sun } from 'lucide-vue-next';
+import { useAppearance } from '@/composables/useAppearance'
+import {
+    Check,
+    Monitor,
+    Moon,
+    Sun,
+} from 'lucide-vue-next'
 
 interface Props {
-    class?: string;
+    class?: string
 }
 
-const { class: containerClass = '' } = defineProps<Props>();
+const { class: containerClass = '' } = defineProps<Props>()
 
-const { appearance, updateAppearance } = useAppearance();
+const { appearance, updateAppearance } = useAppearance()
 
-const tabs = [
-    { value: 'light', Icon: Sun, label: 'Light' },
-    { value: 'dark', Icon: Moon, label: 'Dark' },
-    { value: 'system', Icon: Monitor, label: 'System' },
-] as const;
+const options = [
+    {
+        value: 'light',
+        Icon: Sun,
+        label: 'Light',
+        description: 'Use the light HivePanel interface.',
+    },
+    {
+        value: 'dark',
+        Icon: Moon,
+        label: 'Dark',
+        description: 'Use the dark HivePanel interface.',
+    },
+    {
+        value: 'system',
+        Icon: Monitor,
+        label: 'System',
+        description: 'Automatically match your device setting.',
+    },
+] as const
 </script>
 
 <template>
-    <div :class="['inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800', containerClass]">
+    <div
+        :class="[
+            'grid gap-3 md:grid-cols-3',
+            containerClass,
+        ]"
+    >
         <button
-            v-for="{ value, Icon, label } in tabs"
+            v-for="{ value, Icon, label, description } in options"
             :key="value"
-            @click="updateAppearance(value)"
+            type="button"
+            :aria-pressed="appearance === value"
             :class="[
-                'flex items-center rounded-md px-3.5 py-1.5 transition-colors',
+                'group relative flex min-h-36 flex-col rounded-xl border p-4 text-left transition',
                 appearance === value
-                    ? 'bg-white shadow-sm dark:bg-neutral-700 dark:text-neutral-100'
-                    : 'text-neutral-500 hover:bg-neutral-200/60 hover:text-black dark:text-neutral-400 dark:hover:bg-neutral-700/60',
+                    ? 'border-hive/30 bg-hive/[0.06]'
+                    : 'border-white/[0.07] bg-[#0d0f11] hover:border-white/[0.13] hover:bg-[#101315]',
             ]"
+            @click="updateAppearance(value)"
         >
-            <component :is="Icon" class="-ml-1 h-4 w-4" />
-            <span class="ml-1.5 text-sm">{{ label }}</span>
+            <div class="flex items-start justify-between gap-3">
+                <div
+                    :class="[
+                        'flex size-10 items-center justify-center rounded-xl border transition',
+                        appearance === value
+                            ? 'border-hive/20 bg-hive/10 text-hive'
+                            : 'border-white/[0.06] bg-white/[0.025] text-zinc-500 group-hover:text-zinc-300',
+                    ]"
+                >
+                    <component
+                        :is="Icon"
+                        class="size-4"
+                    />
+                </div>
+
+                <div
+                    :class="[
+                        'flex size-5 items-center justify-center rounded-full border transition',
+                        appearance === value
+                            ? 'border-hive bg-hive text-black'
+                            : 'border-white/[0.1] bg-transparent text-transparent',
+                    ]"
+                >
+                    <Check class="size-3" />
+                </div>
+            </div>
+
+            <div class="mt-auto pt-5">
+                <div
+                    :class="[
+                        'text-sm font-semibold transition',
+                        appearance === value
+                            ? 'text-white'
+                            : 'text-zinc-300',
+                    ]"
+                >
+                    {{ label }}
+                </div>
+
+                <p class="mt-1 text-xs leading-5 text-zinc-600">
+                    {{ description }}
+                </p>
+            </div>
         </button>
     </div>
 </template>
