@@ -2,12 +2,12 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\ServiceProvider;
 use App\AI\AIManager;
 use Illuminate\Support\Facades\Event;
-use SocialiteProviders\Manager\SocialiteWasCalled;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Discord\Provider as DiscordProvider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('discord', DiscordProvider::class);
         });
 
-        if (app()->environment('production')) {
+        if (app()->environment('production') && str_starts_with(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
     }
