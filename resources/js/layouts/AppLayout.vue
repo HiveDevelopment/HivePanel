@@ -8,19 +8,21 @@ type CellStatus = 'offline' | 'starting' | 'running' | 'stopping'
 
 interface Props {
     breadcrumbs?: BreadcrumbItemType[]
-
+    context?: 'dashboard' | 'server' | 'admin'
     activeCell?: any
     activeCellStatus?: CellStatus
 }
 
 withDefaults(defineProps<Props>(), {
     breadcrumbs: () => [],
+    context: 'dashboard',
 })
 </script>
 
 <template>
     <AppLayout
         :breadcrumbs="breadcrumbs"
+        :context="context"
         :active-cell="activeCell"
         :active-cell-status="activeCellStatus"
     >

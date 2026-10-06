@@ -27,14 +27,14 @@ import {
     Glasses,
     Home,
     Network,
+    RefreshCw,
     Rocket,
     Server,
     Settings,
+    ShieldCheck,
     SlidersHorizontal,
     Terminal,
     Users,
-    RefreshCw,
-    ShieldCheck,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import AppLogo from './AppLogo.vue'
@@ -345,91 +345,145 @@ const serverNav = (
     return items
 }
 
-const adminPermissions = computed<string[]>(() => page.props.auth?.adminPermissions ?? [])
-const isSuperAdmin = computed(() => Boolean(page.props.auth?.user?.is_admin))
-const canAdmin = (permission: string) => isSuperAdmin.value || adminPermissions.value.includes(permission)
+/*
+ * Administrative navigation
+ *
+ * Super administrators bypass all permission checks.
+ * Restricted administrators only see navigation entries for
+ * permissions granted through their assigned roles.
+ */
+const adminPermissions = computed<string[]>(() => {
+    const permissions = page.props.auth?.adminPermissions
 
-const adminNav = computed<SidebarNavEntry[]>(() => [
-    {
-        title: 'Overview',
-        href: '/admin',
-        icon: Home,
-    },
-    {
-        title: 'Users',
-        href: '/admin/users',
-        icon: Users,
-    },
-    {
-        title: 'Roles',
-        href: '/admin/roles',
-        icon: ShieldCheck,
-    },
-    {
-        title: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-    },
-    {
-        title: 'Updates',
-        href: '/admin/updates',
-        icon: RefreshCw,
-    },
-    {
-        type: 'group',
-        title: 'Infrastructure',
-        items: [
-            {
-                title: 'Nodes',
-                href: '/admin/nodes',
-                icon: CpuIcon,
-            },
-            {
-                title: 'Database Hosts',
-                href: '/admin/database-hosts',
-                icon: DatabaseIcon,
-            },
-            {
-                title: 'Cells',
-                href: '/admin/cells',
-                icon: Server,
-            },
-            {
-                title: 'Combs',
-                href: '/admin/combs',
-                icon: Boxes,
-            },
-            {
-                title: 'Migrations',
-                href: '/admin/migrations',
-                icon: Rocket,
-            },
-        ],
-    },
-]).filter((entry: SidebarNavEntry) => {
-    if (entry.type === 'group') {
-        entry.items = entry.items.filter(item => {
-            const permissions: Record<string, string> = {
-                '/admin/nodes': 'admin.nodes.view',
-                '/admin/database-hosts': 'admin.database-hosts.view',
-                '/admin/cells': 'admin.cells.view',
-                '/admin/combs': 'admin.combs.view',
-                '/admin/migrations': 'admin.migrations.view',
+    return Array.isArray(permissions)
+        ? permissions
+        : []
+})
+
+const isSuperAdmin = computed(() => {
+    return Boolean(page.props.auth?.user?.is_admin)
+})
+
+const canAdmin = (permission: string): boolean => {
+    return isSuperAdmin.value ||
+        adminPermissions.value.includes(permission)
+}
+
+const adminPermissionMap: Record<string, string> = {
+    '/admin': 'admin.dashboard.view',
+    '/admin/users': 'admin.users.view',
+    '/admin/roles': 'admin.roles.view',
+    '/admin/settings': 'admin.settings.view',
+    '/admin/updates': 'admin.updates.view',
+    '/admin/nodes': 'admin.nodes.view',
+    '/admin/database-hosts': 'admin.database-hosts.view',
+    '/admin/cells': 'admin.cells.view',
+    '/admin/combs': 'admin.combs.view',
+    '/admin/migrations': 'admin.migrations.view',
+}
+
+const adminNav = computed<SidebarNavEntry[]>(() => {
+    const entries: SidebarNavEntry[] = [
+        {
+            title: 'Overview',
+            href: '/admin',
+            icon: Home,
+        },
+        {
+            title: 'Users',
+            href: '/admin/users',
+            icon: Users,
+        },
+        {
+            title: 'Roles',
+            href: '/admin/roles',
+            icon: ShieldCheck,
+        },
+        {
+            title: 'Settings',
+            href: '/admin/settings',
+            icon: Settings,
+        },
+        {
+            title: 'Updates',
+            href: '/admin/updates',
+            icon: RefreshCw,
+        },
+        {
+            type: 'group',
+            title: 'Infrastructure',
+            items: [
+                {
+                    title: 'Nodes',
+                    href: '/admin/nodes',
+                    icon: CpuIcon,
+                },
+                {
+                    title: 'Database Hosts',
+                    href: '/admin/database-hosts',
+                    icon: DatabaseIcon,
+                },
+                {
+                    title: 'Cells',
+                    href: '/admin/cells',
+                    icon: Server,
+                },
+                {
+                    title: 'Combs',
+                    href: '/admin/combs',
+                    icon: Boxes,
+                },
+                {
+                    title: 'Migrations',
+                    href: '/admin/migrations',
+                    icon: Rocket,
+                },
+            ],
+        },
+    ]
+
+    return entries
+        .map((entry): SidebarNavEntry | null => {
+            if (entry.type === 'group') {
+                const items = entry.items.filter(item => {
+                    const permission =
+                        adminPermissionMap[item.href]
+
+                    if (!permission) {
+                        return true
+                    }
+
+                    return canAdmin(permission)
+                })
+
+                if (!items.length) {
+                    return null
+                }
+
+                return {
+                    ...entry,
+                    items,
+                }
             }
-            return !permissions[item.href] || canAdmin(permissions[item.href])
+
+            const permission =
+                adminPermissionMap[entry.href]
+
+            if (
+                permission &&
+                !canAdmin(permission)
+            ) {
+                return null
+            }
+
+            return entry
         })
-        return entry.items.length > 0
-    }
-
-    const permissions: Record<string, string> = {
-        '/admin': 'admin.dashboard.view',
-        '/admin/users': 'admin.users.view',
-        '/admin/roles': 'admin.roles.view',
-        '/admin/settings': 'admin.settings.view',
-        '/admin/updates': 'admin.updates.view',
-    }
-
-    return !permissions[entry.href] || canAdmin(permissions[entry.href])
+        .filter(
+            (
+                entry,
+            ): entry is SidebarNavEntry =>
+                entry !== null,
+        )
 })
 
 const mainNavItems = computed<
@@ -521,9 +575,9 @@ const footerNavItems: NavItem[] = [
                                     : getInstallStatus(
                                           activeCell,
                                       ) ===
-                                        'pending'
-                                      ? 'Waiting to install'
-                                      : 'Installation in progress'
+                                      'pending'
+                                        ? 'Waiting to install'
+                                        : 'Installation in progress'
                             }}
                         </p>
 
