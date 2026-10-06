@@ -361,7 +361,7 @@ const adminNav = computed<SidebarNavEntry[]>(() => [
         icon: Settings,
     },
     {
-        title: page.props.hivePanelUpdate?.available ? `Updates · v${page.props.hivePanelUpdate.version}` : 'Updates',
+        title: 'Updates',
         href: '/admin/updates',
         icon: RefreshCw,
     },
@@ -394,7 +394,6 @@ const adminNav = computed<SidebarNavEntry[]>(() => [
                 href: '/admin/migrations',
                 icon: Rocket,
             },
-            
         ],
     },
 ])
