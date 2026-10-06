@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminNodeDatabaseHostController;
 use App\Http\Controllers\Admin\AdminNodeController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminUpdateController;
 use App\Http\Controllers\Cells\CellActivityController;
 use App\Http\Controllers\Cells\CellBackupController;
 use App\Http\Controllers\Cells\CellBackupMountController;
@@ -112,6 +113,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{comb}', [AdminCombController::class, 'destroy'])->name('destroy');
             Route::get('/{comb}/edit', [AdminCombController::class, 'edit'])->name('edit');
             Route::put('/{comb}', [AdminCombController::class, 'update'])->name('update');
+        });
+
+        // Updates
+        Route::prefix('updates')->name('updates.')->group(function () {
+            Route::get('/', [AdminUpdateController::class, 'index'])->name('index');
+            Route::get('/status', [AdminUpdateController::class, 'status'])->name('status');
+            Route::post('/install', [AdminUpdateController::class, 'install'])->name('install');
         });
 
         // Settings

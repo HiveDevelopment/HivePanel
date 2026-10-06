@@ -10,6 +10,7 @@ const form = useForm({
     name: props.user.name ?? '',
     email: props.user.email ?? '',
     is_admin: props.user.is_admin ?? false,
+    can_update_panel: props.user.can_update_panel ?? false,
 })
 
 function submit() {
@@ -60,6 +61,14 @@ function submit() {
                                 <span class="inline-flex items-center gap-2 text-sm font-bold text-zinc-300">
                                     <Shield class="size-4 text-hive" />
                                     Administrator access
+                                </span>
+                            </label>
+
+                            <label class="flex cursor-pointer items-center gap-3 rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                <input v-model="form.can_update_panel" type="checkbox" class="size-4 rounded border-zinc-700 bg-[#0d0f11] text-hive focus:ring-hive" />
+                                <span class="inline-flex items-center gap-2 text-sm font-bold text-zinc-300">
+                                    <Shield class="size-4 text-hive" />
+                                    Can install HivePanel updates
                                 </span>
                             </label>
 

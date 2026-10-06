@@ -12,7 +12,7 @@ WORKDIR /build
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 COPY . .
-RUN composer dump-autoload --no-dev --optimize --classmap-authoritative --no-interaction
+RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
 FROM php:8.4-fpm-bookworm AS app
 RUN apt-get update && apt-get install -y --no-install-recommends \

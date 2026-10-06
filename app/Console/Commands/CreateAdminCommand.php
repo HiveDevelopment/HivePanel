@@ -43,6 +43,7 @@ class CreateAdminCommand extends Command
             $user->forceFill([
                 'name' => $name,
                 'is_admin' => true,
+                'can_update_panel' => true,
                 'email_verified_at' => $user->email_verified_at ?: now(),
             ])->save();
 
@@ -59,6 +60,7 @@ class CreateAdminCommand extends Command
         $user->forceFill([
             'email_verified_at' => now(),
             'is_admin' => true,
+            'can_update_panel' => true,
         ])->save();
 
         $this->info("Created administrator {$email}.");

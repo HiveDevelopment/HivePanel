@@ -12,7 +12,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { type NavItem } from '@/types'
-import { Link } from '@inertiajs/vue3'
+import { Link, usePage } from '@inertiajs/vue3'
 import {
     Archive,
     BookOpen,
@@ -33,6 +33,7 @@ import {
     SlidersHorizontal,
     Terminal,
     Users,
+    RefreshCw,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import AppLogo from './AppLogo.vue'
@@ -61,6 +62,8 @@ type NavGroup = {
 }
 
 type SidebarNavEntry = NavSingle | NavGroup
+
+const page = usePage<any>()
 
 const props = defineProps<{
     context?: 'dashboard' | 'server' | 'admin'
@@ -341,7 +344,7 @@ const serverNav = (
     return items
 }
 
-const adminNav: SidebarNavEntry[] = [
+const adminNav = computed<SidebarNavEntry[]>(() => [
     {
         title: 'Overview',
         href: '/admin',
@@ -356,6 +359,11 @@ const adminNav: SidebarNavEntry[] = [
         title: 'Settings',
         href: '/admin/settings',
         icon: Settings,
+    },
+    {
+        title: page.props.hivePanelUpdate?.available ? `Updates · v${page.props.hivePanelUpdate.version}` : 'Updates',
+        href: '/admin/updates',
+        icon: RefreshCw,
     },
     {
         type: 'group',
@@ -389,7 +397,7 @@ const adminNav: SidebarNavEntry[] = [
             
         ],
     },
-]
+])
 
 const mainNavItems = computed<
     SidebarNavEntry[]
@@ -401,7 +409,7 @@ const mainNavItems = computed<
                 : dashboardNav
 
         case 'admin':
-            return adminNav
+            return adminNav.value
 
         default:
             return dashboardNav

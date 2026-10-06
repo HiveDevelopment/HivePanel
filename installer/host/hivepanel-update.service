@@ -1,0 +1,9 @@
+[Unit]
+Description=HivePanel Update Runner
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hivepanel-update
+Environment=HIVEPANEL_INSTALL_DIR=/opt/hivepanel

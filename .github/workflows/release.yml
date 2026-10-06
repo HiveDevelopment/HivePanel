@@ -1,4 +1,3 @@
-
 name: Release
 
 on:
@@ -8,6 +7,12 @@ on:
 
 permissions:
   contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  APP_IMAGE: ${{ github.repository_owner }}/hivepanel
+  NGINX_IMAGE: ${{ github.repository_owner }}/hivepanel-nginx
 
 jobs:
   release:
@@ -16,6 +21,7 @@ jobs:
 
     permissions:
       contents: write
+      packages: write
 
     steps:
       - name: Check out tagged version
@@ -26,8 +32,8 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: mbstring, xml, curl, zip, bcmath, pdo_mysql, gd
+          php-version: '8.4'
+          extensions: mbstring, xml, curl, zip, bcmath, pdo_mysql, gd, intl
           tools: composer:v2
           coverage: none
 
@@ -38,14 +44,7 @@ jobs:
           cache: npm
 
       - name: Install production PHP dependencies
-        run: |
-          composer install \
-            --no-dev \
-            --prefer-dist \
-            --no-interaction \
-            --no-progress \
-            --optimize-autoloader \
-            --no-scripts
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 
       - name: Install frontend dependencies
         run: npm ci
@@ -58,40 +57,77 @@ jobs:
           VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-
           mkdir -p release/hivepanel
-
-          # Start with tracked files from the tagged commit.
           git archive HEAD | tar -x -C release/hivepanel
-
-          # Include compiled assets and production PHP dependencies.
           mkdir -p release/hivepanel/public
+          rm -rf release/hivepanel/public/build release/hivepanel/vendor
           cp -a public/build release/hivepanel/public/build
           cp -a vendor release/hivepanel/vendor
-
-          # Exclude development files and local configuration.
-          rm -rf \
-            release/hivepanel/.git \
-            release/hivepanel/.github \
-            release/hivepanel/.env \
-            release/hivepanel/node_modules \
-            release/hivepanel/tests \
-            release/hivepanel/.phpunit.cache \
-            release/hivepanel/phpunit.xml \
-            release/hivepanel/coverage
-
-          # Validate essential installation files.
+          rm -rf release/hivepanel/.git release/hivepanel/.github release/hivepanel/.env release/hivepanel/node_modules release/hivepanel/tests release/hivepanel/.phpunit.cache release/hivepanel/phpunit.xml release/hivepanel/coverage
           test -f release/hivepanel/.env.example
           test -f release/hivepanel/vendor/autoload.php
           test -f release/hivepanel/public/build/manifest.json
+          tar -czf "hivepanel-${VERSION}.tar.gz" -C release/hivepanel .
+          sha256sum "hivepanel-${VERSION}.tar.gz" > "hivepanel-${VERSION}.tar.gz.sha256"
 
-          # Create versioned release archive.
-          tar -czf "hivepanel-${VERSION}.tar.gz" \
-            -C release/hivepanel .
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-          # Generate checksum.
-          sha256sum "hivepanel-${VERSION}.tar.gz" \
-            > "hivepanel-${VERSION}.tar.gz.sha256"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract application image metadata
+        id: app-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.APP_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-rc') }}
+
+      - name: Extract Nginx image metadata
+        id: nginx-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NGINX_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-rc') }}
+
+      - name: Build and publish application image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: app
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.app-meta.outputs.tags }}
+          labels: ${{ steps.app-meta.outputs.labels }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - name: Build and publish Nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: nginx
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.nginx-meta.outputs.tags }}
+          labels: ${{ steps.nginx-meta.outputs.labels }}
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,mode=max,scope=nginx
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2

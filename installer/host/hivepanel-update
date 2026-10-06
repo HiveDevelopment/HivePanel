@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+INSTALL_DIR="${HIVEPANEL_INSTALL_DIR:-/opt/hivepanel}"
+REQUEST_FILE="${INSTALL_DIR}/runtime/update-request.json"
+STATUS_FILE="${INSTALL_DIR}/runtime/update-status.json"
+LOCK_FILE="${INSTALL_DIR}/runtime/update.lock"
+
+cd "$INSTALL_DIR"
+mkdir -p runtime backups
+
+exec 9>"$LOCK_FILE"
+flock -n 9 || exit 0
+
+[[ -f "$REQUEST_FILE" ]] || exit 0
+
+VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$REQUEST_FILE" | head -n1)"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)(\.[0-9]+)?)?$ ]] || { rm -f "$REQUEST_FILE"; exit 1; }
+
+status() {
+    local state="$1"
+    local message="$2"
+    local backup="${3:-}"
+    local tmp="${STATUS_FILE}.tmp"
+    printf '{"state":"%s","version":"%s","message":"%s","backup":"%s","updated_at":"%s"}\n' \
+        "$state" "$VERSION" "${message//\"/\\\"}" "${backup//\"/\\\"}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$tmp"
+    mv "$tmp" "$STATUS_FILE"
+}
+
+fail() {
+    status failed "$1" "${BACKUP_FILE:-}"
+    exit 1
+}
+
+CURRENT_VERSION="$(sed -n 's/^HIVEPANEL_VERSION=//p' .env | head -n1)"
+DB_ROOT_PASSWORD="$(sed -n 's/^DB_ROOT_PASSWORD=//p' .env | head -n1)"
+TIMESTAMP="$(date -u +%Y%m%d-%H%M%S)"
+BACKUP_FILE="${INSTALL_DIR}/backups/hivepanel-${CURRENT_VERSION}-${TIMESTAMP}.sql.gz"
+
+status backing_up "Creating a database backup before updating."
+if ! docker compose exec -T mariadb mariadb-dump -uroot -p"${DB_ROOT_PASSWORD}" --single-transaction --quick --lock-tables=false hivepanel | gzip > "$BACKUP_FILE"; then
+    fail "Database backup failed. The update was not started."
+fi
+
+status pulling "Downloading HivePanel v${VERSION}." "$BACKUP_FILE"
+REPOSITORY="$(sed -n 's/^HIVEPANEL_REPOSITORY=//p' .env | head -n1)"
+REPOSITORY="${REPOSITORY:-HiveDevelopment/HivePanel}"
+cp compose.yaml "compose.yaml.${CURRENT_VERSION}.bak"
+if ! curl -fsSL --retry 3 "https://raw.githubusercontent.com/${REPOSITORY}/v${VERSION}/compose.yaml" -o compose.yaml.new; then
+    fail "The deployment definition for the new release could not be downloaded."
+fi
+mv compose.yaml.new compose.yaml
+if ! HIVEPANEL_VERSION="$VERSION" docker compose config >/dev/null; then
+    mv "compose.yaml.${CURRENT_VERSION}.bak" compose.yaml
+    fail "The new deployment definition is invalid."
+fi
+if ! HIVEPANEL_VERSION="$VERSION" docker compose pull panel queue scheduler nginx; then
+    fail "The new HivePanel containers could not be downloaded."
+fi
+
+docker compose exec -T panel php artisan down --retry=30 >/dev/null 2>&1 || true
+sed -i "s/^HIVEPANEL_VERSION=.*/HIVEPANEL_VERSION=${VERSION}/" .env
+
+status restarting "Starting the new HivePanel containers." "$BACKUP_FILE"
+if ! docker compose up -d --no-deps panel; then
+    sed -i "s/^HIVEPANEL_VERSION=.*/HIVEPANEL_VERSION=${CURRENT_VERSION}/" .env
+    docker compose up -d --no-deps panel >/dev/null 2>&1 || true
+    fail "HivePanel could not start the new application container."
+fi
+
+for attempt in $(seq 1 30); do
+    docker compose exec -T panel php artisan about >/dev/null 2>&1 && break
+    [[ "$attempt" -lt 30 ]] || fail "The new HivePanel application container did not become ready."
+    sleep 2
+done
+
+status migrating "Running database migrations and rebuilding application caches." "$BACKUP_FILE"
+if ! docker compose exec -T panel php artisan migrate --force; then
+    fail "A database migration failed. The pre-update database backup has been retained."
+fi
+
+docker compose exec -T panel php artisan optimize:clear || true
+docker compose exec -T panel php artisan optimize || true
+
+status restarting "Restarting HivePanel services." "$BACKUP_FILE"
+if ! docker compose up -d panel queue scheduler nginx; then
+    fail "One or more HivePanel services failed to restart."
+fi
+
+docker compose exec -T panel php artisan up >/dev/null 2>&1 || true
+rm -f "$REQUEST_FILE"
+status complete "HivePanel was updated successfully to v${VERSION}." "$BACKUP_FILE"

@@ -58,6 +58,8 @@ class AdminUserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'is_admin' => ['boolean'],
+            'can_update_panel' => ['boolean'],
         ]);
 
         $user->update($data);
@@ -78,6 +80,7 @@ class AdminUserController extends Controller
             'id' => $user->getRouteKey(),
             'database_id' => $user->id,
             'is_admin' => $user->is_admin,
+            'can_update_panel' => $user->can_update_panel,
             'name' => $user->name,
             'email' => $user->email,
             'cells_count' => $user->cells_count ?? null,
