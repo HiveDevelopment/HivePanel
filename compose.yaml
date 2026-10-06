@@ -14,6 +14,12 @@ services:
     volumes:
       - panel-storage:/var/www/html/storage
       - ./runtime:/var/lib/hivepanel-host
+    healthcheck:
+      test: ["CMD-SHELL", "php -r '$$s = @fsockopen(\"127.0.0.1\", 9000, $$errno, $$errstr, 2); if (!$$s) exit(1); fclose($$s);'"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
     networks:
       - hivepanel
 
@@ -53,7 +59,8 @@ services:
     image: ${HIVEPANEL_NGINX_IMAGE:-ghcr.io/hivedevelopment/hivepanel-nginx}:${HIVEPANEL_VERSION:-latest}
     restart: unless-stopped
     depends_on:
-      - panel
+      panel:
+        condition: service_healthy
     environment:
       HIVEPANEL_DOMAIN: ${PANEL_DOMAIN}
     ports:

@@ -29,6 +29,11 @@ server {
     index index.php;
     client_max_body_size 128m;
 
+    # Docker's embedded DNS. Using a variable for fastcgi_pass makes Nginx
+    # re-resolve the panel service instead of keeping a stale container IP.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $hivepanel_fastcgi "panel:9000";
+
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -45,7 +50,7 @@ server {
         fastcgi_param HTTP_PROXY "";
         fastcgi_param HTTPS on;
         fastcgi_param X-Forwarded-Proto https;
-        fastcgi_pass panel:9000;
+        fastcgi_pass $hivepanel_fastcgi;
         fastcgi_read_timeout 120s;
     }
 
