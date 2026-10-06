@@ -20,7 +20,7 @@ class HandleInertiaRequests extends Middleware
     {
         $update = null;
 
-        if ($request->user()?->is_admin) {
+        if ($request->user()?->hasAdminPermission(\App\Support\AdminPermissions::UPDATES_VIEW)) {
             try {
                 $release = app(HivePanelUpdateService::class)->latestRelease();
                 $update = $release ? [
@@ -45,6 +45,8 @@ class HandleInertiaRequests extends Middleware
 
             'auth' => [
                 'user' => $request->user(),
+                'adminAccess' => $request->user()?->hasAdminAccess() ?? false,
+                'adminPermissions' => $request->user()?->adminPermissions() ?? [],
             ],
 
             'hivePanelUpdate' => $update,

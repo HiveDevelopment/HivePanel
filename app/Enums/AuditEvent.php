@@ -53,6 +53,11 @@ enum AuditEvent: string
     case SUBUSER_DELETED = 'subuser.deleted';
     case SUBUSER_PERMISSIONS_UPDATED = 'subuser.permissions.updated';
 
+    case USER_UPDATED = 'user.updated';
+    case ROLE_CREATED = 'role.created';
+    case ROLE_UPDATED = 'role.updated';
+    case ROLE_DELETED = 'role.deleted';
+
     case NODE_CREATED = 'node.created';
     case NODE_UPDATED = 'node.updated';
     case NODE_DELETED = 'node.deleted';

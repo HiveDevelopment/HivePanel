@@ -34,6 +34,7 @@ import {
     Terminal,
     Users,
     RefreshCw,
+    ShieldCheck,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import AppLogo from './AppLogo.vue'
@@ -344,6 +345,10 @@ const serverNav = (
     return items
 }
 
+const adminPermissions = computed<string[]>(() => page.props.auth?.adminPermissions ?? [])
+const isSuperAdmin = computed(() => Boolean(page.props.auth?.user?.is_admin))
+const canAdmin = (permission: string) => isSuperAdmin.value || adminPermissions.value.includes(permission)
+
 const adminNav = computed<SidebarNavEntry[]>(() => [
     {
         title: 'Overview',
@@ -354,6 +359,11 @@ const adminNav = computed<SidebarNavEntry[]>(() => [
         title: 'Users',
         href: '/admin/users',
         icon: Users,
+    },
+    {
+        title: 'Roles',
+        href: '/admin/roles',
+        icon: ShieldCheck,
     },
     {
         title: 'Settings',
@@ -396,7 +406,31 @@ const adminNav = computed<SidebarNavEntry[]>(() => [
             },
         ],
     },
-])
+]).filter((entry: SidebarNavEntry) => {
+    if (entry.type === 'group') {
+        entry.items = entry.items.filter(item => {
+            const permissions: Record<string, string> = {
+                '/admin/nodes': 'admin.nodes.view',
+                '/admin/database-hosts': 'admin.database-hosts.view',
+                '/admin/cells': 'admin.cells.view',
+                '/admin/combs': 'admin.combs.view',
+                '/admin/migrations': 'admin.migrations.view',
+            }
+            return !permissions[item.href] || canAdmin(permissions[item.href])
+        })
+        return entry.items.length > 0
+    }
+
+    const permissions: Record<string, string> = {
+        '/admin': 'admin.dashboard.view',
+        '/admin/users': 'admin.users.view',
+        '/admin/roles': 'admin.roles.view',
+        '/admin/settings': 'admin.settings.view',
+        '/admin/updates': 'admin.updates.view',
+    }
+
+    return !permissions[entry.href] || canAdmin(permissions[entry.href])
+})
 
 const mainNavItems = computed<
     SidebarNavEntry[]

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminNodeController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminUpdateController;
+use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Cells\CellActivityController;
 use App\Http\Controllers\Cells\CellBackupController;
 use App\Http\Controllers\Cells\CellBackupMountController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Cells\CellSubUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Install\WorkerInstallScriptController;
 use App\Support\CellPermissions;
+use App\Support\AdminPermissions;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/schedule-actions', [CellScheduleController::class, 'actionDefinitions'])->name('schedule-actions');
@@ -117,9 +119,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Updates
         Route::prefix('updates')->name('updates.')->group(function () {
-            Route::get('/', [AdminUpdateController::class, 'index'])->name('index');
-            Route::get('/status', [AdminUpdateController::class, 'status'])->name('status');
-            Route::post('/install', [AdminUpdateController::class, 'install'])->name('install');
+            Route::get('/', [AdminUpdateController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
+            Route::get('/status', [AdminUpdateController::class, 'status'])->name('status')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
+            Route::post('/install', [AdminUpdateController::class, 'install'])->name('install')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
         });
 
         // Settings
@@ -172,12 +174,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{migration}', [AdminMigrationController::class, 'destroy'])->name('destroy');
         });
 
+        // Roles
+        Route::prefix('roles')->name('roles.')->group(function () {
+            Route::get('/', [AdminRoleController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::ROLES_VIEW);
+            Route::get('/create', [AdminRoleController::class, 'create'])->name('create')->middleware('admin.permission:' . AdminPermissions::ROLES_CREATE);
+            Route::post('/', [AdminRoleController::class, 'store'])->name('store')->middleware('admin.permission:' . AdminPermissions::ROLES_CREATE);
+            Route::get('/{role}/edit', [AdminRoleController::class, 'edit'])->name('edit')->middleware('admin.permission:' . AdminPermissions::ROLES_UPDATE);
+            Route::patch('/{role}', [AdminRoleController::class, 'update'])->name('update')->middleware('admin.permission:' . AdminPermissions::ROLES_UPDATE);
+            Route::delete('/{role}', [AdminRoleController::class, 'destroy'])->name('destroy')->middleware('admin.permission:' . AdminPermissions::ROLES_DELETE);
+        });
+
         // Users
         Route::prefix('users')->name('users.')->group(function () {
-            Route::get('/', [AdminUserController::class, 'index'])->name('index');
-            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show');
-            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit');
-            Route::patch('/{user}', [AdminUserController::class, 'update'])->name('update');
+            Route::get('/', [AdminUserController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
+            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
+            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);
+            Route::patch('/{user}', [AdminUserController::class, 'update'])->name('update')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);
         });
     });
 

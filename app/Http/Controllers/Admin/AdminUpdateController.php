@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\HivePanelUpdateService;
+use App\Support\AdminPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class AdminUpdateController extends Controller
             'currentVersion' => $updates->currentVersion(),
             'latestRelease' => $latest,
             'updateStatus' => $updates->status(),
-            'canInstallUpdates' => (bool) $request->user()?->can_update_panel,
+            'canInstallUpdates' => $request->user()?->hasAdminPermission(AdminPermissions::UPDATES_INSTALL) ?? false,
             'checkError' => $error,
         ]);
     }
@@ -40,8 +41,6 @@ class AdminUpdateController extends Controller
 
     public function install(Request $request, HivePanelUpdateService $updates): RedirectResponse
     {
-        abort_unless($request->user()?->can_update_panel, 403);
-
         $data = $request->validate([
             'version' => ['required', 'string', 'max:64'],
         ]);

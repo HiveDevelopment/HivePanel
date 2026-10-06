@@ -7,7 +7,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Console\Scheduling\Schedule;
-use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\EnsureAdminAccess;
+use App\Http\Middleware\EnsureAdminPermission;
 use App\Http\Middleware\EnsureCellPermission;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -24,7 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'admin' => EnsureUserIsAdmin::class,
+            'admin' => EnsureAdminAccess::class,
+            'admin.permission' => EnsureAdminPermission::class,
             'cell.permission' => EnsureCellPermission::class,
             'worker.auth' => AuthenticateWorker::class,
         ]);
