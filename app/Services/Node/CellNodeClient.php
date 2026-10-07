@@ -85,6 +85,11 @@ class CellNodeClient
         return $this->nodeClient->client($cell->node)->post('/cells/' . rawurlencode($cell->daemon_id) . '/install')->throw()->json();
     }
 
+    public function installStatus(Cell $cell): array
+    {
+        return $this->nodeClient->client($cell->node)->get('/cells/' . rawurlencode($cell->daemon_id) . '/install/status')->throw()->json();
+    }
+
     public function startCellByDaemonId(Node $node, string $daemonId): array
     {
         return $this->nodeClient->client($node)->post('/cells/' . rawurlencode($daemonId) . '/start')->throw()->json();

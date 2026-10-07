@@ -17,7 +17,7 @@ class InstallCellJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 900;
+    public int $timeout = 3600;
 
     public function __construct(
         public int|string $cellId,
@@ -54,6 +54,39 @@ class InstallCellJob implements ShouldQueue
             ])->save();
 
             $cells->installCell($cell);
+
+            $deadline = now()->addMinutes(45);
+
+            while (true) {
+                if (now()->greaterThanOrEqualTo($deadline)) {
+                    throw new RuntimeException('The Worker installation did not complete within 45 minutes.');
+                }
+
+                sleep(2);
+
+                $workerInstall = $cells->installStatus($cell);
+                $workerStatus = strtolower(trim((string) ($workerInstall['status'] ?? '')));
+
+                if ($workerStatus === 'installed') {
+                    break;
+                }
+
+                if ($workerStatus === 'failed') {
+                    $workerError = trim((string) ($workerInstall['error'] ?? ''));
+
+                    throw new RuntimeException(
+                        $workerError !== ''
+                            ? $workerError
+                            : 'The Worker reported that the Cell installation failed.'
+                    );
+                }
+
+                if (! in_array($workerStatus, ['installing'], true)) {
+                    throw new RuntimeException(
+                        'The Worker returned an unexpected installation state: ' . ($workerStatus !== '' ? $workerStatus : 'unknown')
+                    );
+                }
+            }
 
             $cell->forceFill([
                 'install_status' => CellInstallStatus::INSTALLED,
