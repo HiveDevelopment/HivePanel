@@ -69,19 +69,32 @@ class CellConsoleController extends CellBaseController
         return response()->json($result);
     }
 
-    public function consoleSession(String $id, CellNodeClient $cells)
+    public function consoleSession(string $id, CellNodeClient $cells)
     {
         $cell = $this->panelCellOrFail($id);
+
         if ($response = $this->installationPageIfNeeded($cell)) {
             return $response;
         }
-        
+
         $session = $cells->createConsoleSession($cell);
 
+        $scheme = strtolower((string) $cell->node->scheme) === 'https'
+            ? 'wss'
+            : 'ws';
+
+        $host = $cell->node->public_fqdn ?: $cell->node->fqdn;
+        $port = $cell->node->port ?: $cell->node->daemon_port;
+
         return response()->json([
-            'ws_url' => str($cell->node->scheme)
-                ->replace('http', 'ws')
-                ."://{$cell->node->fqdn}:{$cell->node->port}/cells/{$cell->daemon_id}/ws?token={$session['token']}",
+            'ws_url' => sprintf(
+                '%s://%s:%d/cells/%s/ws?token=%s',
+                $scheme,
+                $host,
+                $port,
+                $cell->daemon_id,
+                rawurlencode($session['token']),
+            ),
             'expires_in' => $session['expires_in'] ?? 30,
         ]);
     }

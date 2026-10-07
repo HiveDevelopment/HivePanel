@@ -11,6 +11,7 @@ class WorkerInstallScriptController extends Controller
     {
         $script = <<<'BASH'
 #!/usr/bin/env bash
+
 set -euo pipefail
 
 PANEL_URL=""
@@ -33,16 +34,19 @@ while [[ $# -gt 0 ]]; do
             PANEL_URL="$2"
             shift 2
             ;;
+
         --token)
             [[ $# -ge 2 ]] || fail "Missing value for --token"
             REGISTRATION_TOKEN="$2"
             shift 2
             ;;
+
         --version)
             [[ $# -ge 2 ]] || fail "Missing value for --version"
             WORKER_VERSION="$2"
             shift 2
             ;;
+
         *)
             fail "Unknown argument: $1"
             ;;
@@ -73,9 +77,11 @@ case "$ARCH" in
     x86_64|amd64)
         WORKER_ARCH="amd64"
         ;;
+
     aarch64|arm64)
         WORKER_ARCH="arm64"
         ;;
+
     *)
         fail "Unsupported architecture: $ARCH"
         ;;
@@ -99,7 +105,9 @@ install_base_packages() {
 
     if command -v apt-get >/dev/null 2>&1; then
         log "Installing required packages..."
+
         export DEBIAN_FRONTEND=noninteractive
+
         apt-get update
         apt-get install -y curl ca-certificates
         return
@@ -158,15 +166,18 @@ install_docker_debian() {
         ubuntu)
             DOCKER_DISTRO="ubuntu"
             ;;
+
         debian)
             DOCKER_DISTRO="debian"
             ;;
+
         *)
             fail "Automatic Docker installation is not supported for this apt-based distribution."
             ;;
     esac
 
-    curl -fsSL "https://download.docker.com/linux/${DOCKER_DISTRO}/gpg" \
+    curl -fsSL \
+        "https://download.docker.com/linux/${DOCKER_DISTRO}/gpg" \
         -o /etc/apt/keyrings/docker.asc
 
     chmod a+r /etc/apt/keyrings/docker.asc
@@ -253,267 +264,130 @@ YAML
 chmod 0600 /etc/hivepanel/worker.yml
 
 if [[ "$WORKER_VERSION" == "latest" ]]; then
-    DOWNLOAD_URL="https://github.com/HiveDevelopment/hiveworker/releases/latest/download/hiveworker_linux_${WORKER_ARCH}"
+    RELEASE_BASE_URL="https://github.com/HiveDevelopment/hiveworker/releases/latest/download"
 else
-    DOWNLOAD_URL="https://github.com/HiveDevelopment/hiveworker/releases/download/${WORKER_VERSION}/hiveworker_linux_${WORKER_ARCH}"
+    RELEASE_BASE_URL="https://github.com/HiveDevelopment/hiveworker/releases/download/${WORKER_VERSION}"
 fi
 
-log "Downloading HivePanel Worker ${WORKER_VERSION}..."
+WORKER_ASSET="hiveworker_linux_${WORKER_ARCH}"
+UPDATER_ASSET="hiveworker-updater_linux_${WORKER_ARCH}"
 
-TEMP_BINARY="$(mktemp)"
+WORKER_DOWNLOAD_URL="${RELEASE_BASE_URL}/${WORKER_ASSET}"
+UPDATER_DOWNLOAD_URL="${RELEASE_BASE_URL}/${UPDATER_ASSET}"
+CHECKSUMS_DOWNLOAD_URL="${RELEASE_BASE_URL}/checksums.txt"
+
+TEMP_DIR="$(mktemp -d)"
 
 cleanup() {
-    rm -f "$TEMP_BINARY"
+    rm -rf "$TEMP_DIR"
 }
 
 trap cleanup EXIT
 
-if ! curl \
-    -fL \
-    --retry 3 \
-    --retry-delay 2 \
-    "$DOWNLOAD_URL" \
-    -o "$TEMP_BINARY"; then
+TEMP_WORKER="${TEMP_DIR}/${WORKER_ASSET}"
+TEMP_UPDATER="${TEMP_DIR}/${UPDATER_ASSET}"
+TEMP_CHECKSUMS="${TEMP_DIR}/checksums.txt"
 
-    fail "Failed to download HivePanel Worker from ${DOWNLOAD_URL}"
+download_file() {
+    local url="$1"
+    local destination="$2"
+    local description="$3"
+
+    log "Downloading ${description}..."
+
+    if ! curl \
+        -fL \
+        --retry 3 \
+        --retry-delay 2 \
+        --connect-timeout 15 \
+        "$url" \
+        -o "$destination"; then
+
+        fail "Failed to download ${description} from ${url}"
+    fi
+}
+
+download_file \
+    "$WORKER_DOWNLOAD_URL" \
+    "$TEMP_WORKER" \
+    "HivePanel Worker ${WORKER_VERSION}"
+
+download_file \
+    "$UPDATER_DOWNLOAD_URL" \
+    "$TEMP_UPDATER" \
+    "HivePanel Worker updater"
+
+download_file \
+    "$CHECKSUMS_DOWNLOAD_URL" \
+    "$TEMP_CHECKSUMS" \
+    "release checksums"
+
+command -v sha256sum >/dev/null 2>&1 \
+    || fail "sha256sum is required to verify HivePanel Worker downloads."
+
+verify_checksum() {
+    local asset="$1"
+    local file="$2"
+
+    local expected
+    local actual
+
+    expected="$(
+        awk -v asset="$asset" \
+            '$2 == asset || $2 == "*" asset { print $1; exit }' \
+            "$TEMP_CHECKSUMS"
+    )"
+
+    if [[ -z "$expected" ]]; then
+        fail "No SHA-256 checksum was published for ${asset}."
+    fi
+
+    actual="$(sha256sum "$file" | awk '{print $1}')"
+
+    if [[ "$actual" != "$expected" ]]; then
+        fail "SHA-256 verification failed for ${asset}."
+    fi
+
+    log "Verified ${asset}."
+}
+
+log "Verifying release files..."
+
+verify_checksum \
+    "$WORKER_ASSET" \
+    "$TEMP_WORKER"
+
+verify_checksum \
+    "$UPDATER_ASSET" \
+    "$TEMP_UPDATER"
+
+chmod 0755 "$TEMP_WORKER"
+chmod 0755 "$TEMP_UPDATER"
+
+#
+# Perform a basic sanity check on the downloaded Worker.
+#
+# HiveWorker does not currently expose a dedicated --version CLI
+# command, so --help is used only to ensure that the binary can
+# execute on this host.
+#
+if ! "$TEMP_WORKER" --help >/dev/null 2>&1; then
+    fail "Downloaded HivePanel Worker binary could not be executed."
 fi
 
-chmod +x "$TEMP_BINARY"
+log "Installing HivePanel Worker..."
 
-if ! "$TEMP_BINARY" --help >/dev/null 2>&1; then
-    log "Worker binary downloaded successfully."
-fi
-
-install -m 0755 "$TEMP_BINARY" /usr/local/bin/hiveworker
+install \
+    -m 0755 \
+    "$TEMP_WORKER" \
+    /usr/local/bin/hiveworker
 
 log "Installing Worker update helper..."
 
-cat > /usr/local/libexec/hiveworker-updater <<'UPDATER'
-#!/usr/bin/env bash
-set -u
-
-PID=""
-STAGED=""
-TARGET=""
-
-BINARY="/usr/local/bin/hiveworker"
-BACKUP="/usr/local/bin/hiveworker.rollback"
-SERVICE="hiveworker"
-LOG="/var/log/hiveworker-updater.log"
-
-log() {
-    echo "[$(date -Is)] $1"
-}
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --pid)
-            [[ $# -ge 2 ]] || exit 2
-            PID="$2"
-            shift 2
-            ;;
-        --staged)
-            [[ $# -ge 2 ]] || exit 2
-            STAGED="$2"
-            shift 2
-            ;;
-        --target)
-            [[ $# -ge 2 ]] || exit 2
-            TARGET="$2"
-            shift 2
-            ;;
-        *)
-            exit 2
-            ;;
-    esac
-done
-
-touch "$LOG"
-chmod 0600 "$LOG"
-
-exec >>"$LOG" 2>&1
-
-log "HiveWorker updater started."
-log "Target version: ${TARGET}"
-
-if [[ -z "$PID" || -z "$STAGED" || -z "$TARGET" ]]; then
-    log "Missing updater arguments."
-    exit 2
-fi
-
-if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
-    log "Invalid Worker PID."
-    exit 2
-fi
-
-case "$STAGED" in
-    /var/lib/hivepanel/updates/*)
-        ;;
-    *)
-        log "Refusing staged binary outside the HivePanel update directory."
-        exit 2
-        ;;
-esac
-
-if [[ ! -f "$STAGED" ]]; then
-    log "Staged Worker binary does not exist: ${STAGED}"
-    exit 3
-fi
-
-if [[ ! -x "$STAGED" ]]; then
-    log "Staged Worker binary is not executable."
-    exit 3
-fi
-
-log "Waiting for Worker process ${PID} to exit..."
-
-for _ in $(seq 1 30); do
-    if ! kill -0 "$PID" 2>/dev/null; then
-        break
-    fi
-
-    sleep 1
-done
-
-if kill -0 "$PID" 2>/dev/null; then
-    log "Worker did not exit within 30 seconds. Stopping service."
-
-    systemctl stop "$SERVICE" || true
-
-    for _ in $(seq 1 10); do
-        if ! kill -0 "$PID" 2>/dev/null; then
-            break
-        fi
-
-        sleep 1
-    done
-fi
-
-if kill -0 "$PID" 2>/dev/null; then
-    log "Worker process is still running. Aborting update."
-    exit 4
-fi
-
-log "Backing up current Worker binary..."
-
-rm -f "$BACKUP"
-
-if [[ -f "$BINARY" ]]; then
-    if ! cp -a "$BINARY" "$BACKUP"; then
-        log "Failed to back up current Worker binary."
-        exit 5
-    fi
-fi
-
-rollback() {
-    log "Rolling back Worker update..."
-
-    systemctl stop "$SERVICE" || true
-
-    if [[ ! -f "$BACKUP" ]]; then
-        log "Rollback binary is unavailable."
-        return 1
-    fi
-
-    if ! install -m 0755 "$BACKUP" "$BINARY"; then
-        log "Failed to restore previous Worker binary."
-        return 1
-    fi
-
-    if ! systemctl restart "$SERVICE"; then
-        log "Previous Worker binary was restored but the service failed to restart."
-        return 1
-    fi
-
-    for _ in $(seq 1 30); do
-        if systemctl is-active --quiet "$SERVICE"; then
-            log "Previous Worker restored successfully."
-            rm -f "$BACKUP"
-            rm -f "$STAGED"
-            return 0
-        fi
-
-        sleep 1
-    done
-
-    log "Previous Worker was restored but did not become active."
-    return 1
-}
-
-log "Installing Worker ${TARGET}..."
-
-if ! install -m 0755 "$STAGED" "$BINARY"; then
-    log "Failed to install new Worker binary."
-
-    rollback || true
-    exit 6
-fi
-
-log "Starting Worker ${TARGET}..."
-
-if ! systemctl restart "$SERVICE"; then
-    log "systemd failed to restart the new Worker."
-
-    rollback || true
-    exit 7
-fi
-
-log "Waiting for Worker service..."
-
-SERVICE_STARTED=0
-
-for _ in $(seq 1 30); do
-    if systemctl is-active --quiet "$SERVICE"; then
-        SERVICE_STARTED=1
-        break
-    fi
-
-    sleep 1
-done
-
-if [[ "$SERVICE_STARTED" -ne 1 ]]; then
-    log "New Worker did not become active."
-
-    journalctl \
-        -u "$SERVICE" \
-        -n 50 \
-        --no-pager \
-        || true
-
-    rollback || true
-    exit 8
-fi
-
-#
-# Give the daemon a little time after systemd reports it active.
-#
-# The Panel heartbeat will perform the authoritative confirmation
-# that the Worker returned with the requested version.
-#
-sleep 3
-
-if ! systemctl is-active --quiet "$SERVICE"; then
-    log "New Worker exited shortly after startup."
-
-    journalctl \
-        -u "$SERVICE" \
-        -n 50 \
-        --no-pager \
-        || true
-
-    rollback || true
-    exit 9
-fi
-
-log "Worker ${TARGET} installed successfully."
-
-rm -f "$BACKUP"
-rm -f "$STAGED"
-
-exit 0
-UPDATER
-
-chmod 0755 /usr/local/libexec/hiveworker-updater
+install \
+    -m 0755 \
+    "$TEMP_UPDATER" \
+    /usr/local/libexec/hiveworker-updater
 
 log "Installing systemd service..."
 
@@ -571,8 +445,8 @@ echo
 echo "Useful commands:"
 echo "  systemctl status hiveworker"
 echo "  journalctl -u hiveworker -f"
-echo "  tail -f /var/log/hiveworker-updater.log"
 echo "  docker ps"
+
 BASH;
 
         return response($script, 200, [

@@ -74,16 +74,27 @@ class Node extends Model
 
     public function baseUrl(): string
     {
-        $host = $this->internal_fqdn ?: $this->public_fqdn ?: $this->fqdn;
-        $port = $this->daemon_port ?: $this->port;
+        /*
+        * When an internal address is configured for a proxied node,
+        * HivePanel talks directly to HiveWorker over its plain HTTP
+        * listener and bypasses the public TLS proxy.
+        */
+        if ($this->behind_proxy && filled($this->internal_fqdn)) {
+            return "http://{$this->internal_fqdn}:{$this->daemon_port}";
+        }
 
-        return "{$this->scheme}://{$host}:{$port}";
+        return $this->publicUrl();
     }
 
     public function publicUrl(): string
     {
         $host = $this->public_fqdn ?: $this->fqdn;
-        $port = $this->daemon_port ?: $this->port;
+
+        /*
+        * `port` represents the externally reachable Worker port.
+        * `daemon_port` is the port HiveWorker itself listens on.
+        */
+        $port = $this->port ?: $this->daemon_port;
 
         return "{$this->scheme}://{$host}:{$port}";
     }

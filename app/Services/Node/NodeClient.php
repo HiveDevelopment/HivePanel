@@ -24,4 +24,24 @@ class NodeClient
             ->throw()
             ->json();
     }
+
+    public function requestWorkerUpdate(Node $node, string $version): array 
+    {
+        return $this->client($node)
+            ->timeout(30)
+            ->post('/update', [
+                'version' => $version,
+            ])
+            ->throw()
+            ->json();
+    }
+
+    public function workerUpdateStatus(Node $node): array
+    {
+        return $this->client($node)
+            ->timeout(10)
+            ->get('/update/status')
+            ->throw()
+            ->json();
+    }
 }

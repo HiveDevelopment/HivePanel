@@ -3,6 +3,7 @@ import InputError from '@/components/InputError.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import { ArrowLeft, Save, Server } from 'lucide-vue-next'
+import { computed, watch } from 'vue'
 
 const form = useForm({
     name: '',
@@ -13,6 +14,7 @@ const form = useForm({
     internal_fqdn: '',
 
     scheme: 'http',
+    port: 8080,
     daemon_port: 8080,
     sftp_port: 2022,
 
@@ -27,6 +29,42 @@ const form = useForm({
     disk_overallocate: 0,
     max_upload_mib: 100,
 })
+
+const connectionMode = computed({
+    get: () => {
+        if (form.scheme === 'https' && form.behind_proxy) return 'proxy'
+        if (form.scheme === 'https') return 'native'
+        return 'none'
+    },
+    set: (mode: string) => {
+        if (mode === 'proxy') {
+            form.scheme = 'https'
+            form.behind_proxy = true
+            if (Number(form.port) === Number(form.daemon_port)) form.port = 443
+            return
+        }
+
+        if (mode === 'native') {
+            form.scheme = 'https'
+            form.behind_proxy = false
+            if (Number(form.port) === 443) form.port = Number(form.daemon_port)
+            return
+        }
+
+        form.scheme = 'http'
+        form.behind_proxy = false
+        if (Number(form.port) === 443) form.port = Number(form.daemon_port)
+    },
+})
+
+watch(
+    () => form.daemon_port,
+    (value, previous) => {
+        if (connectionMode.value !== 'proxy' && Number(form.port) === Number(previous)) {
+            form.port = Number(value)
+        }
+    },
+)
 
 function submit() {
     form.post('/admin/nodes')
@@ -156,34 +194,69 @@ function submit() {
                                     <InputError class="mt-2" :message="form.errors.internal_fqdn" />
                                 </div>
 
-                                <div>
+                                <div class="md:col-span-2">
                                     <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Scheme
+                                        Connection / SSL Mode
                                     </label>
 
                                     <select
-                                        v-model="form.scheme"
+                                        v-model="connectionMode"
                                         class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
                                     >
-                                        <option value="http">HTTP</option>
-                                        <option value="https">HTTPS</option>
+                                        <option value="none">No SSL — HTTP / WS</option>
+                                        <option value="native">Native SSL — HiveWorker HTTPS / WSS</option>
+                                        <option value="proxy">Proxy SSL — reverse proxy HTTPS / WSS</option>
                                     </select>
 
-                                    <InputError class="mt-2" :message="form.errors.scheme" />
+                                    <p class="mt-2 text-xs text-zinc-500">
+                                        <template v-if="connectionMode === 'native'">
+                                            HiveWorker terminates TLS directly using /etc/hivepanel/ssl/fullchain.pem and /etc/hivepanel/ssl/privkey.pem.
+                                        </template>
+                                        <template v-else-if="connectionMode === 'proxy'">
+                                            Your reverse proxy terminates TLS. HiveWorker itself remains HTTP on the Worker port.
+                                        </template>
+                                        <template v-else>
+                                            HiveWorker uses plain HTTP/WS. Browsers cannot use this mode for console WebSockets when HivePanel itself is HTTPS.
+                                        </template>
+                                    </p>
                                 </div>
 
                                 <div>
                                     <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Daemon Port
+                                        Public Port
                                     </label>
 
                                     <input
-                                        v-model="form.daemon_port"
+                                        v-model.number="form.port"
                                         type="number"
                                         min="1"
                                         max="65535"
                                         class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
                                     />
+
+                                    <p class="mt-2 text-xs text-zinc-600">
+                                        Externally reachable port used by HivePanel and browser WebSockets.
+                                    </p>
+
+                                    <InputError class="mt-2" :message="form.errors.port" />
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
+                                        Worker Port
+                                    </label>
+
+                                    <input
+                                        v-model.number="form.daemon_port"
+                                        type="number"
+                                        min="1"
+                                        max="65535"
+                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                    />
+
+                                    <p class="mt-2 text-xs text-zinc-600">
+                                        Port HiveWorker listens on locally.
+                                    </p>
 
                                     <InputError class="mt-2" :message="form.errors.daemon_port" />
                                 </div>

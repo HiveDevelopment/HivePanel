@@ -58,6 +58,20 @@ class WorkerRegistrationController extends Controller
             ->values()
             ->all();
 
+        /*
+         * Connection modes:
+         *
+         * http  + !proxy = plain HTTP/WS
+         * https + !proxy = native HTTPS/WSS with Worker-managed ACME
+         * https + proxy  = proxy terminates HTTPS/WSS
+         */
+        $nativeTls = strtolower((string) $node->scheme) === 'https'
+            && ! (bool) $node->behind_proxy;
+
+        $publicHostname = trim(
+            (string) ($node->public_fqdn ?: $node->fqdn)
+        );
+
         return response()->json([
             'node_id' => $node->id,
             'token' => $workerToken,
@@ -69,6 +83,29 @@ class WorkerRegistrationController extends Controller
 
                 'worker' => [
                     'listen' => "0.0.0.0:{$node->daemon_port}",
+
+                    'ssl' => [
+                        'enabled' => $nativeTls,
+
+                        /*
+                         * Native SSL is managed directly by HiveWorker.
+                         * The Worker obtains and renews its own ACME
+                         * certificate for the public node hostname.
+                         */
+                        'auto' => $nativeTls,
+                        'hostname' => $nativeTls
+                            ? $publicHostname
+                            : '',
+                        'email' => '',
+
+                        /*
+                         * These remain available for manually managed
+                         * certificates in future, but automatic TLS does
+                         * not require them.
+                         */
+                        'cert' => '',
+                        'key' => '',
+                    ],
                 ],
 
                 'sftp' => [

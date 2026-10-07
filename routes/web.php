@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminNodeController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminUpdateController;
+use App\Http\Controllers\Admin\AdminWorkerUpdateController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Cells\CellActivityController;
 use App\Http\Controllers\Cells\CellBackupController;
@@ -122,6 +123,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [AdminUpdateController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
             Route::get('/status', [AdminUpdateController::class, 'status'])->name('status')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
             Route::post('/install', [AdminUpdateController::class, 'install'])->name('install')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
+            Route::get('/workers/status', [AdminWorkerUpdateController::class, 'status'])->name('workers.status')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
+            Route::post('/workers-selected', [AdminWorkerUpdateController::class, 'updateSelected'])->name('workers.selected')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
+            Route::post('/workers-outdated', [AdminWorkerUpdateController::class, 'updateOutdated'])->name('workers.outdated')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
+            Route::post('/workers/{node}', [AdminWorkerUpdateController::class, 'update'])->name('workers.update')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
         });
 
         // Settings

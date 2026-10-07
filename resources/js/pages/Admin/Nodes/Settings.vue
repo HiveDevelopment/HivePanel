@@ -13,7 +13,7 @@ import {
     Shield,
     SlidersHorizontal,
 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
     node: any
@@ -30,6 +30,7 @@ const form = ref({
     internal_fqdn: props.node.internal_fqdn ?? '',
 
     scheme: props.node.scheme ?? 'http',
+    port: props.node.port ?? props.node.daemon_port ?? 8080,
     daemon_port: props.node.daemon_port ?? props.node.port ?? 8080,
     sftp_port: props.node.sftp_port ?? 2022,
     sftp_enabled: props.node.sftp_enabled ?? true,
@@ -46,6 +47,42 @@ const form = ref({
     disk_overallocate: props.node.disk_overallocate ?? 0,
     max_upload_mib: props.node.max_upload_mib ?? 100,
 })
+
+const connectionMode = computed({
+    get: () => {
+        if (form.value.scheme === 'https' && form.value.behind_proxy) return 'proxy'
+        if (form.value.scheme === 'https') return 'native'
+        return 'none'
+    },
+    set: (mode: string) => {
+        if (mode === 'proxy') {
+            form.value.scheme = 'https'
+            form.value.behind_proxy = true
+            if (Number(form.value.port) === Number(form.value.daemon_port)) form.value.port = 443
+            return
+        }
+
+        if (mode === 'native') {
+            form.value.scheme = 'https'
+            form.value.behind_proxy = false
+            if (Number(form.value.port) === 443) form.value.port = Number(form.value.daemon_port)
+            return
+        }
+
+        form.value.scheme = 'http'
+        form.value.behind_proxy = false
+        if (Number(form.value.port) === 443) form.value.port = Number(form.value.daemon_port)
+    },
+})
+
+watch(
+    () => form.value.daemon_port,
+    (value, previous) => {
+        if (connectionMode.value !== 'proxy' && Number(form.value.port) === Number(previous)) {
+            form.value.port = Number(value)
+        }
+    },
+)
 
 function save() {
     saving.value = true
@@ -137,17 +174,36 @@ function save() {
                                         <input v-model="form.internal_fqdn" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive" placeholder="Leave blank to use public FQDN" />
                                     </label>
 
-                                    <label class="space-y-2">
-                                        <span class="text-xs font-black uppercase tracking-wide text-zinc-400">Scheme</span>
-                                        <select v-model="form.scheme" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive">
-                                            <option value="http">HTTP</option>
-                                            <option value="https">HTTPS</option>
+                                    <label class="space-y-2 md:col-span-2">
+                                        <span class="text-xs font-black uppercase tracking-wide text-zinc-400">Connection / SSL Mode</span>
+                                        <select v-model="connectionMode" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive">
+                                            <option value="none">No SSL — HTTP / WS</option>
+                                            <option value="native">Native SSL — HiveWorker HTTPS / WSS</option>
+                                            <option value="proxy">Proxy SSL — reverse proxy HTTPS / WSS</option>
                                         </select>
+                                        <span class="block text-xs text-zinc-500">
+                                            <template v-if="connectionMode === 'native'">
+                                                HiveWorker terminates TLS using /etc/hivepanel/ssl/fullchain.pem and /etc/hivepanel/ssl/privkey.pem.
+                                            </template>
+                                            <template v-else-if="connectionMode === 'proxy'">
+                                                The reverse proxy terminates TLS while HiveWorker remains HTTP internally.
+                                            </template>
+                                            <template v-else>
+                                                Plain HTTP/WS. This cannot provide browser console WebSockets from an HTTPS HivePanel.
+                                            </template>
+                                        </span>
                                     </label>
 
                                     <label class="space-y-2">
-                                        <span class="text-xs font-black uppercase tracking-wide text-zinc-400">Daemon Port</span>
-                                        <input v-model="form.daemon_port" type="number" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive" />
+                                        <span class="text-xs font-black uppercase tracking-wide text-zinc-400">Public Port</span>
+                                        <input v-model.number="form.port" type="number" min="1" max="65535" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive" />
+                                        <span class="block text-xs text-zinc-500">Externally reachable Worker/WebSocket port.</span>
+                                    </label>
+
+                                    <label class="space-y-2">
+                                        <span class="text-xs font-black uppercase tracking-wide text-zinc-400">Worker Port</span>
+                                        <input v-model.number="form.daemon_port" type="number" min="1" max="65535" class="w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive" />
+                                        <span class="block text-xs text-zinc-500">Port HiveWorker listens on locally.</span>
                                     </label>
 
                                     <label class="space-y-2">

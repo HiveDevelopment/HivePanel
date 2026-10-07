@@ -156,6 +156,16 @@ class AdminNodeController extends Controller
             ? "curl -fsSL {$installScriptUrl} | sudo bash -s -- --panel-url {$panelUrl} --token {$registrationToken}"
             : "Generate a registration token first.";
 
+        $nativeTls = strtolower((string) $node->scheme) === 'https'
+            && ! (bool) $node->behind_proxy;
+
+        $workerSslEnabled = $this->bool($nativeTls);
+        $workerSslAuto = $this->bool($nativeTls);
+
+        $workerSslHostname = $nativeTls
+            ? ($node->public_fqdn ?: $node->fqdn)
+            : '';
+
         $workerYaml = <<<YAML
 panel:
   url: "{$panelUrl}"
@@ -164,6 +174,13 @@ worker:
   registration_token: "{$registrationToken}"
   token: ""
   listen: "0.0.0.0:{$node->daemon_port}"
+  ssl:
+    enabled: {$workerSslEnabled}
+    auto: {$workerSslAuto}
+    hostname: "{$workerSslHostname}"
+    email: ""
+    cert: ""
+    key: ""
 
 sftp:
   enabled: {$this->bool($node->sftp_enabled)}
@@ -299,7 +316,6 @@ SERVICE;
             ...$data,
             'api_token' => null,
             'fqdn' => $data['public_fqdn'],
-            'port' => $data['daemon_port'],
             'is_active' => $data['is_active'] ?? true,
         ]);
 
@@ -326,7 +342,6 @@ SERVICE;
         $node->update([
             ...$data,
             'fqdn' => $data['public_fqdn'],
-            'port' => $data['daemon_port'],
             'is_active' => $data['is_active'] ?? false,
         ]);
 
@@ -427,6 +442,7 @@ SERVICE;
 
             'scheme' => ['required', 'string', 'in:http,https'],
             'daemon_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'port' => ['required', 'integer', 'min:1', 'max:65535'],
             'sftp_port' => ['required', 'integer', 'min:1', 'max:65535'],
             'sftp_enabled' => ['boolean'],
             'sftp_fqdn' => ['nullable', 'string', 'max:255'],
@@ -465,7 +481,7 @@ SERVICE;
             'sftp_fqdn' => $node->sftp_fqdn,
             'sftp_host' => $node->sftpHost(),
             'sftp_address' => $node->sftpAddress(),
-            'port' => $node->daemon_port,
+            'port' => $node->port,
 
             'behind_proxy' => $node->behind_proxy,
             'maintenance_mode' => $node->maintenance_mode,

@@ -31,9 +31,11 @@ class CellController extends CellBaseController
     public function show(string $id, CellNodeClient $cells)
     {
         $cell = $this->panelCellOrFail($id);
+
         if ($response = $this->installationPageIfNeeded($cell)) {
             return $response;
         }
+
         $workerCell = $this->getCellOrFail($cell, $cells);
 
         return Inertia::render('Cells/Show', [
@@ -46,9 +48,6 @@ class CellController extends CellBaseController
                 'network_rx_bytes' => 0,
                 'network_tx_bytes' => 0,
             ],
-            'console_ws_url' => $cell->node
-                ? "{$cell->node->scheme}://{$cell->node->fqdn}:{$cell->node->port}/cells/{$cell->daemon_id}/ws?token={$cell->node->api_token}"
-                : null,
         ]);
     }
 }
