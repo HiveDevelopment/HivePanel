@@ -13,6 +13,7 @@ class Comb extends Model
         'external_id',
         'name',
         'game',
+        'source',
         'data',
     ];
 
@@ -21,7 +22,7 @@ class Comb extends Model
     ];
 
     /**
-     * Get a value from the stored comb definition.
+     * Get a value from the stored Comb manifest.
      */
     public function get(string $key, mixed $default = null): mixed
     {
@@ -29,7 +30,46 @@ class Comb extends Model
     }
 
     /**
-     * Determine if this comb has an install section.
+     * Comb category.
+     */
+    public function category(): string
+    {
+        return (string) $this->get('category', 'application');
+    }
+
+    /**
+     * Comb group.
+     */
+    public function group(): string
+    {
+        return (string) $this->get(
+            'group',
+            $this->game ?: 'other'
+        );
+    }
+
+    /**
+     * Comb tags.
+     */
+    public function tags(): array
+    {
+        $tags = $this->get('tags', []);
+
+        return is_array($tags) ? $tags : [];
+    }
+
+    /**
+     * Comb capabilities.
+     */
+    public function capabilities(): array
+    {
+        $capabilities = $this->get('capabilities', []);
+
+        return is_array($capabilities) ? $capabilities : [];
+    }
+
+    /**
+     * Determine if this Comb has an install section.
      */
     public function hasInstaller(): bool
     {
@@ -37,15 +77,20 @@ class Comb extends Model
     }
 
     /**
-     * Determine if this comb defines variables.
+     * Determine if this Comb defines variables.
      */
     public function hasVariables(): bool
     {
-        return ! empty($this->get('variables'));
+        return ! empty(
+            $this->get(
+                'variables_schema',
+                $this->get('variables', [])
+            )
+        );
     }
 
     /**
-     * Startup command from the comb definition.
+     * Startup command from the Comb definition.
      */
     public function startup(): ?string
     {
@@ -53,7 +98,7 @@ class Comb extends Model
     }
 
     /**
-     * Docker image from the comb definition.
+     * Docker image from the Comb definition.
      */
     public function image(): ?string
     {
