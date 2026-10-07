@@ -21,7 +21,12 @@ const props = defineProps<{
 }>()
 
 const liveStats = ref({ ...props.stats })
-const consoleLines = ref<string[]>([])
+type ConsoleEntry = {
+    timestamp: string | null
+    message: string
+}
+
+const consoleLines = ref<ConsoleEntry[]>([])
 const command = ref('')
 const consoleEl = ref<HTMLElement | null>(null)
 const popoutConsoleEl = ref<HTMLElement | null>(null)
@@ -37,8 +42,6 @@ const cpuHistory = ref<ChartPoint[]>([])
 const memoryHistory = ref<ChartPoint[]>([])
 const networkRxHistory = ref<ChartPoint[]>([])
 const networkTxHistory = ref<ChartPoint[]>([])
-
-const socket = ref<WebSocket | null>(null)
 
 const socketStatus = ref<
     'connecting' |
@@ -140,7 +143,9 @@ const filteredCommandSuggestions = computed(() => {
 })
 
 let pollTimer: number | undefined
+let consolePollTimer: number | undefined
 let statsLoading = false
+let consoleLoading = false
 
 async function refreshStats() {
     if (
@@ -198,66 +203,85 @@ async function refreshStats() {
     }
 }
 
+function localConsoleEntry(message: string): ConsoleEntry {
+    return {
+        timestamp: new Date().toISOString(),
+        message,
+    }
+}
+
+function normaliseConsoleEntry(line: unknown): ConsoleEntry {
+    if (typeof line === 'string') {
+        return {
+            timestamp: null,
+            message: line,
+        }
+    }
+
+    if (line && typeof line === 'object') {
+        const value = line as Record<string, unknown>
+
+        return {
+            timestamp:
+                typeof value.timestamp === 'string'
+                    ? value.timestamp
+                    : null,
+            message:
+                typeof value.message === 'string'
+                    ? value.message
+                    : String(value.line ?? ''),
+        }
+    }
+
+    return {
+        timestamp: null,
+        message: String(line ?? ''),
+    }
+}
+
+function formatConsoleTime(timestamp: string | null) {
+    if (!timestamp) {
+        return '--:--:--'
+    }
+
+    const date = new Date(timestamp)
+
+    if (Number.isNaN(date.getTime())) {
+        return '--:--:--'
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).format(date)
+}
+
+function consoleIsNearBottom(element: HTMLElement | null) {
+    if (!element) {
+        return true
+    }
+
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 80
+}
+
 async function scrollConsoleToBottom() {
     await nextTick()
 
     if (consoleEl.value) {
-        consoleEl.value.scrollTop =
-            consoleEl.value.scrollHeight
+        consoleEl.value.scrollTop = consoleEl.value.scrollHeight
     }
 
     if (popoutConsoleEl.value) {
-        popoutConsoleEl.value.scrollTop =
-            popoutConsoleEl.value.scrollHeight
+        popoutConsoleEl.value.scrollTop = popoutConsoleEl.value.scrollHeight
     }
-}
-
-async function getConsoleWsUrl() {
-    if (
-        !cellId.value ||
-        !canUseRuntime.value
-    ) {
-        return null
-    }
-
-    const response = await fetch(
-        route(
-            'cells.console-session',
-            cellId.value,
-        ),
-        {
-            method: 'POST',
-
-            headers: {
-                Accept: 'application/json',
-
-                'X-CSRF-TOKEN':
-                    document
-                        .querySelector(
-                            'meta[name="csrf-token"]',
-                        )
-                        ?.getAttribute('content') ??
-                    '',
-            },
-        },
-    )
-
-    if (!response.ok) {
-        return null
-    }
-
-    const data = await response.json()
-
-    return data.ws_url
 }
 
 function setOfflineConsoleMessage() {
     if (!canUseRuntime.value) {
         if (installStatus.value === 'failed') {
-            consoleLines.value = [
-                'container@hivepanel~ Installation failed. Runtime unavailable.',
-            ]
-
+            consoleLines.value = [localConsoleEntry('container@hivepanel~ Installation failed. Runtime unavailable.')]
             return
         }
 
@@ -265,128 +289,140 @@ function setOfflineConsoleMessage() {
             installStatus.value === 'pending' ||
             installStatus.value === 'installing'
         ) {
-            consoleLines.value = [
-                'container@hivepanel~ Installation in progress...',
-            ]
-
+            consoleLines.value = [localConsoleEntry('container@hivepanel~ Installation in progress...')]
             return
         }
     }
 
-    consoleLines.value = [
-        'container@hivepanel~ Server marked as offline...',
-    ]
+    if (consoleLines.value.length === 0) {
+        consoleLines.value = [localConsoleEntry('container@hivepanel~ Server marked as offline...')]
+    }
 }
 
-async function connectConsoleSocket() {
+async function refreshConsole() {
     if (
-        !cellDaemonId.value ||
-        !canUseRuntime.value
+        !cellId.value ||
+        !canUseRuntime.value ||
+        consoleLoading
     ) {
         return
     }
 
-    const url = await getConsoleWsUrl()
+    consoleLoading = true
 
-    if (!url) {
-        consoleLines.value.push(
-            '[error] Console WebSocket URL is missing.',
-        )
+    const mainWasNearBottom = consoleIsNearBottom(consoleEl.value)
+    const popoutWasNearBottom = consoleIsNearBottom(popoutConsoleEl.value)
 
-        return
-    }
-
-    if (
-        socket.value &&
-        socket.value.readyState === WebSocket.OPEN
-    ) {
-        return
-    }
-
-    if (socket.value) {
-        socket.value.close()
-        socket.value = null
-    }
-
-    socketStatus.value = 'connecting'
-
-    const ws = new WebSocket(url)
-
-    socket.value = ws
-
-    ws.onopen = () => {
-        socketStatus.value = 'connected'
-    }
-
-    ws.onmessage = async (event) => {
-        const payload = JSON.parse(
-            event.data,
-        )
-
-        if (payload.type === 'console') {
-            if (
-                !liveStats.value?.running &&
-                currentStatus.value === 'offline'
-            ) {
-                return
-            }
-
-            consoleLines.value.push(
-                payload.line,
-            )
-
-            if (
-                consoleLines.value.length > 500
-            ) {
-                consoleLines.value.shift()
-            }
-
-            await scrollConsoleToBottom()
-        }
-
-        if (payload.type === 'error') {
-            consoleLines.value.push(
-                `[error] ${payload.message}`,
-            )
-
-            await scrollConsoleToBottom()
-        }
-    }
-
-    ws.onclose = (event) => {
-        console.warn(
-            '[console ws] closed',
+    try {
+        const response = await fetch(
+            route('cells.console-json', cellId.value),
             {
-                code: event.code,
-                reason: event.reason,
-                wasClean: event.wasClean,
+                headers: {
+                    Accept: 'application/json',
+                },
             },
         )
 
-        socketStatus.value =
-            'disconnected'
-
-        if (!liveStats.value?.running) {
-            setOfflineConsoleMessage()
-        } else {
-            consoleLines.value.push(
-                `[error] Console socket closed (${event.code}).`,
-            )
+        if (!response.ok) {
+            socketStatus.value = 'disconnected'
+            return
         }
+
+        const data = await response.json()
+        const nextLines = Array.isArray(data?.lines)
+            ? data.lines.map(normaliseConsoleEntry).slice(-500)
+            : []
+
+        socketStatus.value = 'connected'
+
+        const currentSignature = JSON.stringify(consoleLines.value)
+        const nextSignature = JSON.stringify(nextLines)
+
+        if (currentSignature === nextSignature) {
+            return
+        }
+
+        consoleLines.value = nextLines
+        await nextTick()
+
+        if (mainWasNearBottom && consoleEl.value) {
+            consoleEl.value.scrollTop = consoleEl.value.scrollHeight
+        }
+
+        if (popoutWasNearBottom && popoutConsoleEl.value) {
+            popoutConsoleEl.value.scrollTop = popoutConsoleEl.value.scrollHeight
+        }
+    } catch {
+        socketStatus.value = 'disconnected'
+    } finally {
+        consoleLoading = false
+    }
+}
+
+function startConsolePolling() {
+    if (consolePollTimer !== undefined) {
+        return
     }
 
-    ws.onerror = (event) => {
-        console.error(
-            '[console ws] error',
-            event,
+    socketStatus.value = 'connecting'
+    void refreshConsole()
+
+    consolePollTimer = window.setInterval(() => {
+        void refreshConsole()
+    }, 1000)
+}
+
+function stopConsolePolling() {
+    if (consolePollTimer !== undefined) {
+        window.clearInterval(consolePollTimer)
+        consolePollTimer = undefined
+    }
+
+    socketStatus.value = 'disconnected'
+}
+
+async function sendCommand() {
+    if (!canUseRuntime.value) {
+        consoleLines.value.push(localConsoleEntry('[error] Runtime unavailable while installation is incomplete.'))
+        return
+    }
+
+    if (isLocked.value) {
+        consoleLines.value.push(localConsoleEntry('[error] Server is locked. Commands are disabled.'))
+        return
+    }
+
+    const value = command.value.trim()
+    if (!value || !cellId.value) {
+        return
+    }
+
+    try {
+        const response = await fetch(
+            route('cells.command', cellId.value),
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({ command: value }),
+            },
         )
 
-        socketStatus.value =
-            'disconnected'
+        if (!response.ok) {
+            consoleLines.value.push(localConsoleEntry(`[error] Command failed (${response.status}).`))
+            return
+        }
 
-        consoleLines.value.push(
-            '[error] Console WebSocket failed. Check worker logs.',
-        )
+        command.value = ''
+        window.setTimeout(() => void refreshConsole(), 100)
+    } catch {
+        consoleLines.value.push(localConsoleEntry('[error] Failed to send command through HivePanel.'))
     }
 }
 
@@ -402,48 +438,6 @@ function pushHistory(
     if (history.length > 60) {
         history.shift()
     }
-}
-
-function sendCommand() {
-    if (!canUseRuntime.value) {
-        consoleLines.value.push(
-            '[error] Runtime unavailable while installation is incomplete.',
-        )
-
-        return
-    }
-
-    if (isLocked.value) {
-        consoleLines.value.push(
-            '[error] Server is locked. Commands are disabled.',
-        )
-
-        return
-    }
-
-    if (!command.value.trim()) {
-        return
-    }
-
-    if (
-        socket.value &&
-        socket.value.readyState === WebSocket.OPEN
-    ) {
-        socket.value.send(
-            JSON.stringify({
-                type: 'command',
-                command: command.value,
-            }),
-        )
-
-        command.value = ''
-
-        return
-    }
-
-    consoleLines.value.push(
-        '[error] Console socket is not connected.',
-    )
 }
 
 function applyCommandSuggestion(
@@ -523,21 +517,15 @@ onMounted(async () => {
         return
     }
 
-    if (liveStats.value?.running) {
-        consoleLines.value = [
-            'container@hivepanel~ Console attached. Waiting for new output...',
-        ]
+    consoleLines.value = [localConsoleEntry('container@hivepanel~ Console attached. Waiting for output...')]
 
-        await connectConsoleSocket()
-    } else {
-        setOfflineConsoleMessage()
-    }
+    startConsolePolling()
 
     /*
      * Five seconds is sufficient for runtime stats.
      *
-     * Console output itself remains real-time through
-     * the WebSocket connection.
+     * Console output is relayed through HivePanel once per second,
+     * so Workers do not need a browser-accessible WebSocket endpoint.
      */
     pollTimer = window.setInterval(
         async () => {
@@ -553,28 +541,8 @@ onMounted(async () => {
             const isRunning =
                 liveStats.value?.running === true
 
-            if (
-                !wasRunning &&
-                isRunning
-            ) {
-                consoleLines.value = [
-                    'container@hivepanel~ Server marked as starting...',
-                    'container@hivepanel~ Console attached. Waiting for new output...',
-                ]
-
-                await connectConsoleSocket()
-            }
-
-            if (
-                wasRunning &&
-                !isRunning
-            ) {
-                setOfflineConsoleMessage()
-
-                if (socket.value) {
-                    socket.value.close()
-                    socket.value = null
-                }
+            if (!wasRunning && isRunning) {
+                startConsolePolling()
             }
         },
         5000,
@@ -590,13 +558,7 @@ onUnmounted(() => {
         pollTimer = undefined
     }
 
-    if (socket.value) {
-        socket.value.close()
-        socket.value = null
-    }
-
-    socketStatus.value =
-        'disconnected'
+    stopConsolePolling()
 })
 
 function normaliseStatus(
@@ -750,13 +712,11 @@ async function startCell() {
         return
     }
 
-    consoleLines.value = [
-        'container@hivepanel~ Server marked as starting...',
-        'container@hivepanel~ Console attached. Waiting for new output...',
-    ]
+    consoleLines.value.push(
+        localConsoleEntry('container@hivepanel~ Server marked as starting...'),
+    )
 
-    socket.value?.close()
-    socket.value = null
+    startConsolePolling()
 
     await fetch(
         route(
@@ -783,7 +743,7 @@ async function startCell() {
     await refreshStats()
 
     window.setTimeout(() => {
-        void connectConsoleSocket()
+        startConsolePolling()
     }, 1000)
 }
 
@@ -795,9 +755,7 @@ async function stopCell() {
         return
     }
 
-    consoleLines.value = [
-        'container@hivepanel~ Stopping server...',
-    ]
+    consoleLines.value.push(localConsoleEntry('container@hivepanel~ Stopping server...'))
 
     await fetch(
         route(
@@ -821,8 +779,7 @@ async function stopCell() {
         },
     )
 
-    socket.value?.close()
-    socket.value = null
+    stopConsolePolling()
 
     window.setTimeout(
         async () => {
@@ -906,9 +863,9 @@ function restartCell() {
                                         <div
                                             v-for="(line, index) in consoleLines"
                                             :key="index"
-                                            :class="consoleLineClass(line)"
+                                            :class="consoleLineClass(line.message)"
                                         >
-                                            {{ line }}
+                                            <span class="mr-3 select-none text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
                                         </div>
                                     </div>
 
@@ -1189,9 +1146,9 @@ function restartCell() {
                     <div
                         v-for="(line, index) in consoleLines"
                         :key="index"
-                        :class="consoleLineClass(line)"
+                        :class="consoleLineClass(line.message)"
                     >
-                        {{ line }}
+                        <span class="mr-3 select-none text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
                     </div>
                 </div>
 
