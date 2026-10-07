@@ -26,7 +26,7 @@ services:
   queue:
     image: ${HIVEPANEL_IMAGE:-ghcr.io/hivedevelopment/hivepanel}:${HIVEPANEL_VERSION:-latest}
     restart: unless-stopped
-    command: php artisan queue:work --sleep=3 --tries=3 --timeout=90
+    command: php artisan queue:work --queue=default,worker-updates --sleep=3 --tries=3 --timeout=90
     env_file:
       - .env
     depends_on:

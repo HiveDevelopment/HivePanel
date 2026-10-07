@@ -29,33 +29,19 @@ class UpdateWorker implements ShouldQueue
             ->with('node')
             ->find($this->workerUpdateId);
 
-        if (! $update) {
-            return;
-        }
-
-        if (! $update->isPending()) {
+        if (! $update || ! $update->isPending()) {
             return;
         }
 
         $node = $update->node;
 
         if (! $node) {
-            $this->markFailed(
-                $update,
-                'The Worker node no longer exists.'
-            );
+            $this->markFailed($update, 'The Worker node no longer exists.');
 
             return;
         }
 
-        /*
-         * If a retry runs after the Worker has already completed the
-         * update, don't send another update request.
-         */
-        if (
-            $this->normaliseVersion($node->worker_version)
-            === $this->normaliseVersion($update->target_version)
-        ) {
+        if ($this->versionsMatch($node->worker_version, $update->target_version)) {
             $this->markComplete($update);
 
             return;
@@ -64,52 +50,50 @@ class UpdateWorker implements ShouldQueue
         $update->forceFill([
             'status' => WorkerUpdate::STATUS_DISPATCHING,
             'started_at' => $update->started_at ?? now(),
+            'dispatched_at' => null,
             'error' => null,
             'failed_at' => null,
         ])->save();
 
-        /*
-         * Record the dispatch time before making the HTTP request.
-         *
-         * The Worker may accept the request and restart before the
-         * HTTP response reaches HivePanel. In that case cURL can report
-         * an empty reply even though the update is actually underway.
-         */
-        $update->forceFill([
-            'dispatched_at' => now(),
-        ])->save();
-
         try {
-            $nodes->requestWorkerUpdate(
+            $status = $nodes->requestWorkerUpdate(
                 $node,
-                'v'.$this->normaliseVersion(
-                    $update->target_version
-                ),
+                'v'.$this->normaliseVersion($update->target_version),
             );
-
-            $update->forceFill([
-                'status' => WorkerUpdate::STATUS_RESTARTING,
-                'error' => null,
-                'failed_at' => null,
-            ])->save();
         } catch (Throwable $exception) {
             /*
-             * Once the request has reached the dispatch stage, a
-             * transport error is ambiguous.
-             *
-             * The Worker may have accepted the update and restarted
-             * before it could finish the HTTP response. Leave the
-             * update in RESTARTING and let the heartbeat reconcile the
-             * actual result.
+             * An empty/reset response can happen after the Worker accepted
+             * the request and began shutting down. Keep only those narrowly
+             * defined transport failures ambiguous. DNS failures, refused
+             * connections, timeouts and HTTP errors are real dispatch
+             * failures and must be shown to the administrator.
              */
-            $update->forceFill([
-                'status' => WorkerUpdate::STATUS_RESTARTING,
-                'error' => null,
-                'failed_at' => null,
-            ])->save();
+            if ($this->isAmbiguousTransportFailure($exception)) {
+                $update->forceFill([
+                    'status' => WorkerUpdate::STATUS_RESTARTING,
+                    'dispatched_at' => now(),
+                    'error' => null,
+                    'failed_at' => null,
+                ])->save();
+
+                return;
+            }
+
+            $this->markFailed($update, $exception->getMessage());
 
             return;
         }
+
+        $update->forceFill([
+            'status' => $this->panelStatusForWorkerState($status['state'] ?? null),
+            'dispatched_at' => now(),
+            'error' => null,
+            'failed_at' => null,
+        ])->save();
+
+        MonitorWorkerUpdate::dispatch($update->id)
+            ->delay(now()->addSeconds(5))
+            ->onQueue('worker-updates');
     }
 
     public function failed(?Throwable $exception): void
@@ -122,16 +106,11 @@ class UpdateWorker implements ShouldQueue
             return;
         }
 
-        /*
-         * A heartbeat may already have confirmed the target version
-         * by the time Laravel calls failed().
-         */
         if (
             $update->node
-            && $this->normaliseVersion(
-                $update->node->worker_version
-            ) === $this->normaliseVersion(
-                $update->target_version
+            && $this->versionsMatch(
+                $update->node->worker_version,
+                $update->target_version,
             )
         ) {
             $this->markComplete($update);
@@ -139,28 +118,44 @@ class UpdateWorker implements ShouldQueue
             return;
         }
 
-        /*
-         * If the update reached the Worker, don't overwrite
-         * RESTARTING with FAILED just because the HTTP connection
-         * disappeared. Heartbeat reconciliation owns the final result.
-         */
-        if (
-            $update->status
-            === WorkerUpdate::STATUS_RESTARTING
-        ) {
+        if ($update->status === WorkerUpdate::STATUS_RESTARTING) {
             return;
         }
 
         $this->markFailed(
             $update,
-            $exception?->getMessage()
-                ?? 'The Worker update request failed.'
+            $exception?->getMessage() ?? 'The Worker update request failed.',
         );
     }
 
-    private function markComplete(
-        WorkerUpdate $update,
-    ): void {
+    private function panelStatusForWorkerState(mixed $state): string
+    {
+        return strtolower(trim((string) $state)) === 'restarting'
+            ? WorkerUpdate::STATUS_RESTARTING
+            : WorkerUpdate::STATUS_DISPATCHING;
+    }
+
+    private function isAmbiguousTransportFailure(Throwable $exception): bool
+    {
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'curl error 52')
+            || str_contains($message, 'empty reply from server')
+            || str_contains($message, 'curl error 56')
+            || str_contains($message, 'recv failure')
+            || str_contains($message, 'connection reset by peer');
+    }
+
+    private function versionsMatch(?string $current, ?string $target): bool
+    {
+        $current = $this->normaliseVersion($current);
+        $target = $this->normaliseVersion($target);
+
+        return $current !== null && $target !== null && $current === $target;
+    }
+
+    private function markComplete(WorkerUpdate $update): void
+    {
         $update->forceFill([
             'status' => WorkerUpdate::STATUS_COMPLETE,
             'error' => null,
@@ -169,24 +164,17 @@ class UpdateWorker implements ShouldQueue
         ])->save();
     }
 
-    private function markFailed(
-        WorkerUpdate $update,
-        string $message,
-    ): void {
+    private function markFailed(WorkerUpdate $update, string $message): void
+    {
         $update->forceFill([
             'status' => WorkerUpdate::STATUS_FAILED,
-            'error' => mb_substr(
-                $message,
-                0,
-                10000
-            ),
+            'error' => mb_substr($message, 0, 10000),
             'failed_at' => now(),
         ])->save();
     }
 
-    private function normaliseVersion(
-        ?string $version,
-    ): ?string {
+    private function normaliseVersion(?string $version): ?string
+    {
         if (! is_string($version)) {
             return null;
         }
