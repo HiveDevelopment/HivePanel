@@ -25,20 +25,27 @@ defineProps<{
         users: number
         audit_logs: number
     }
+
     recentLogs: any[]
+
     versionStatus: {
         current: string
         latest?: string | null
         is_outdated: boolean
         checked: boolean
     }
+
     workerVersions: {
         id: string
         name: string
         version?: string | null
+        latest_version?: string | null
         reachable: boolean
         version_available: boolean
+        latest_version_available: boolean
+        is_outdated: boolean
     }[]
+
     quickLinks: {
         label: string
         description: string
@@ -56,14 +63,22 @@ function formatDate(value?: string) {
 function eventLabel(event: string) {
     return event
         .split('.')
-        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .map(
+            part =>
+                part.charAt(0).toUpperCase() +
+                part.slice(1),
+        )
         .join(' ')
 }
 
-function versionLabel(version?: string | null) {
+function versionLabel(
+    version?: string | null,
+) {
     if (!version) return 'Unknown'
 
-    return version.startsWith('v') ? version : `v${version}`
+    return version.startsWith('v')
+        ? version
+        : `v${version}`
 }
 </script>
 
@@ -74,7 +89,10 @@ function versionLabel(version?: string | null) {
         <div class="min-h-screen bg-surface-dark text-white">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-5">
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                    <!-- Header -->
+                    <section
+                        class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6"
+                    >
                         <div class="flex items-center gap-3">
                             <Shield class="size-6 text-hive" />
 
@@ -90,33 +108,60 @@ function versionLabel(version?: string | null) {
                         </div>
                     </section>
 
+                    <!-- Panel update warning -->
                     <section
-                        v-if="versionStatus.checked && versionStatus.is_outdated"
+                        v-if="
+                            versionStatus.checked &&
+                            versionStatus.is_outdated
+                        "
                         class="rounded-panel border border-status-warning/30 bg-status-warning/10 p-5 sm:p-6"
                     >
                         <div class="flex items-start gap-3">
-                            <TriangleAlert class="mt-0.5 size-6 text-status-warning" />
+                            <TriangleAlert
+                                class="mt-0.5 size-6 text-status-warning"
+                            />
 
                             <div>
-                                <h2 class="text-lg font-black text-status-warning">
+                                <h2
+                                    class="text-lg font-black text-status-warning"
+                                >
                                     Your panel is not up-to-date!
                                 </h2>
 
-                                <p class="mt-2 text-sm font-bold text-zinc-300">
+                                <p
+                                    class="mt-2 text-sm font-bold text-zinc-300"
+                                >
                                     The latest version is
-                                    <span class="text-white">{{ versionLabel(versionStatus.latest) }}</span>
+                                    <span class="text-white">
+                                        {{
+                                            versionLabel(
+                                                versionStatus.latest,
+                                            )
+                                        }}
+                                    </span>
                                     and you are currently running
-                                    <span class="text-white">{{ versionLabel(versionStatus.current) }}</span>.
+                                    <span class="text-white">
+                                        {{
+                                            versionLabel(
+                                                versionStatus.current,
+                                            )
+                                        }}
+                                    </span>.
                                 </p>
                             </div>
                         </div>
                     </section>
 
+                    <!-- Stats -->
                     <section class="grid gap-3 md:grid-cols-5">
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
+                        <div
+                            class="rounded-panel border border-zinc-800 bg-surface p-5"
+                        >
                             <Server class="size-5 text-hive" />
 
-                            <div class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <div
+                                class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500"
+                            >
                                 Nodes
                             </div>
 
@@ -129,10 +174,16 @@ function versionLabel(version?: string | null) {
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <Database class="size-5 text-status-success" />
+                        <div
+                            class="rounded-panel border border-zinc-800 bg-surface p-5"
+                        >
+                            <Database
+                                class="size-5 text-status-success"
+                            />
 
-                            <div class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <div
+                                class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500"
+                            >
                                 Cells
                             </div>
 
@@ -141,10 +192,16 @@ function versionLabel(version?: string | null) {
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <Users class="size-5 text-status-warning" />
+                        <div
+                            class="rounded-panel border border-zinc-800 bg-surface p-5"
+                        >
+                            <Users
+                                class="size-5 text-status-warning"
+                            />
 
-                            <div class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <div
+                                class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500"
+                            >
                                 Users
                             </div>
 
@@ -153,10 +210,16 @@ function versionLabel(version?: string | null) {
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5 md:col-span-2">
-                            <Activity class="size-5 text-purple-300" />
+                        <div
+                            class="rounded-panel border border-zinc-800 bg-surface p-5 md:col-span-2"
+                        >
+                            <Activity
+                                class="size-5 text-purple-300"
+                            />
 
-                            <div class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <div
+                                class="mt-3 text-xs font-black uppercase tracking-wide text-zinc-500"
+                            >
                                 Audit Logs
                             </div>
 
@@ -166,14 +229,21 @@ function versionLabel(version?: string | null) {
                         </div>
                     </section>
 
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                        <div class="flex items-center justify-between gap-4">
+                    <!-- System versions -->
+                    <section
+                        class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6"
+                    >
+                        <div
+                            class="flex items-center justify-between gap-4"
+                        >
                             <div>
                                 <h2 class="text-lg font-black">
                                     System Versions
                                 </h2>
 
-                                <p class="mt-1 text-sm text-zinc-500">
+                                <p
+                                    class="mt-1 text-sm text-zinc-500"
+                                >
                                     Installed HivePanel and Worker versions.
                                 </p>
                             </div>
@@ -181,40 +251,72 @@ function versionLabel(version?: string | null) {
                             <Server class="size-5 text-hive" />
                         </div>
 
-                        <div class="mt-5 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
-                            <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                <div class="flex items-start justify-between gap-3">
+                        <div
+                            class="mt-5 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]"
+                        >
+                            <!-- HivePanel -->
+                            <div
+                                class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4"
+                            >
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
                                     <div>
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
+                                        <div
+                                            class="text-xs font-black uppercase tracking-wide text-zinc-500"
+                                        >
                                             HivePanel
                                         </div>
 
-                                        <div class="mt-2 text-xl font-black text-white">
-                                            {{ versionLabel(versionStatus.current) }}
+                                        <div
+                                            class="mt-2 text-xl font-black text-white"
+                                        >
+                                            {{
+                                                versionLabel(
+                                                    versionStatus.current,
+                                                )
+                                            }}
                                         </div>
                                     </div>
 
                                     <div
-                                        v-if="versionStatus.checked && !versionStatus.is_outdated"
+                                        v-if="
+                                            versionStatus.checked &&
+                                            !versionStatus.is_outdated
+                                        "
                                         class="flex size-9 items-center justify-center rounded-full border border-status-success/30 bg-status-success/10 text-status-success"
                                     >
-                                        <CheckCircle2 class="size-4" />
+                                        <CheckCircle2
+                                            class="size-4"
+                                        />
                                     </div>
 
                                     <div
-                                        v-else-if="versionStatus.is_outdated"
+                                        v-else-if="
+                                            versionStatus.is_outdated
+                                        "
                                         class="flex size-9 items-center justify-center rounded-full border border-status-warning/30 bg-status-warning/10 text-status-warning"
                                     >
-                                        <TriangleAlert class="size-4" />
+                                        <TriangleAlert
+                                            class="size-4"
+                                        />
                                     </div>
                                 </div>
 
                                 <div
                                     v-if="versionStatus.checked"
                                     class="mt-3 text-xs font-bold"
-                                    :class="versionStatus.is_outdated ? 'text-status-warning' : 'text-status-success'"
+                                    :class="
+                                        versionStatus.is_outdated
+                                            ? 'text-status-warning'
+                                            : 'text-status-success'
+                                    "
                                 >
-                                    {{ versionStatus.is_outdated ? `Latest ${versionLabel(versionStatus.latest)}` : 'Up to date' }}
+                                    {{
+                                        versionStatus.is_outdated
+                                            ? `Latest ${versionLabel(versionStatus.latest)}`
+                                            : 'Up to date'
+                                    }}
                                 </div>
 
                                 <div
@@ -225,15 +327,25 @@ function versionLabel(version?: string | null) {
                                 </div>
                             </div>
 
-                            <div class="overflow-hidden rounded-button border border-zinc-800 bg-[#0d0f11]">
-                                <div class="border-b border-zinc-800 px-4 py-3">
-                                    <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <!-- Workers -->
+                            <div
+                                class="overflow-hidden rounded-button border border-zinc-800 bg-[#0d0f11]"
+                            >
+                                <div
+                                    class="border-b border-zinc-800 px-4 py-3"
+                                >
+                                    <div
+                                        class="text-xs font-black uppercase tracking-wide text-zinc-500"
+                                    >
                                         Workers
                                     </div>
                                 </div>
 
                                 <div
-                                    v-if="workerVersions.length > 0"
+                                    v-if="
+                                        workerVersions.length >
+                                        0
+                                    "
                                     class="divide-y divide-zinc-800"
                                 >
                                     <div
@@ -242,61 +354,172 @@ function versionLabel(version?: string | null) {
                                         class="flex items-center justify-between gap-4 px-4 py-3"
                                     >
                                         <div class="min-w-0">
-                                            <div class="truncate text-sm font-black text-white">
+                                            <div
+                                                class="truncate text-sm font-black text-white"
+                                            >
                                                 {{ worker.name }}
                                             </div>
 
-                                            <div class="mt-1 text-xs text-zinc-500">
+                                            <div
+                                                class="mt-1 text-xs text-zinc-500"
+                                            >
                                                 Worker
                                             </div>
                                         </div>
 
-                                        <div class="flex shrink-0 items-center gap-3">
-                                            <template v-if="!worker.reachable">
-                                                <div class="text-right">
-                                                    <div class="text-xs font-black text-status-danger">
+                                        <div
+                                            class="flex shrink-0 items-center gap-3"
+                                        >
+                                            <!-- Worker unreachable -->
+                                            <template
+                                                v-if="
+                                                    !worker.reachable
+                                                "
+                                            >
+                                                <div
+                                                    class="text-right"
+                                                >
+                                                    <div
+                                                        class="text-xs font-black text-status-danger"
+                                                    >
                                                         Unreachable
                                                     </div>
 
-                                                    <div class="mt-0.5 text-[11px] text-zinc-600">
+                                                    <div
+                                                        class="mt-0.5 text-[11px] text-zinc-600"
+                                                    >
                                                         Worker offline
                                                     </div>
                                                 </div>
 
-                                                <div class="flex size-8 items-center justify-center rounded-full border border-status-danger/30 bg-status-danger/10">
-                                                    <WifiOff class="size-4 text-status-danger" />
+                                                <div
+                                                    class="flex size-8 items-center justify-center rounded-full border border-status-danger/30 bg-status-danger/10"
+                                                >
+                                                    <WifiOff
+                                                        class="size-4 text-status-danger"
+                                                    />
                                                 </div>
                                             </template>
 
-                                            <template v-else-if="!worker.version_available">
-                                                <div class="text-right">
-                                                    <div class="text-xs font-black text-status-warning">
+                                            <!-- Worker reachable but version unavailable -->
+                                            <template
+                                                v-else-if="
+                                                    !worker.version_available
+                                                "
+                                            >
+                                                <div
+                                                    class="text-right"
+                                                >
+                                                    <div
+                                                        class="text-xs font-black text-status-warning"
+                                                    >
                                                         Version unavailable
                                                     </div>
 
-                                                    <div class="mt-0.5 text-[11px] text-zinc-600">
+                                                    <div
+                                                        class="mt-0.5 text-[11px] text-zinc-600"
+                                                    >
                                                         Worker is reachable
                                                     </div>
                                                 </div>
 
-                                                <div class="flex size-8 items-center justify-center rounded-full border border-status-warning/30 bg-status-warning/10">
-                                                    <TriangleAlert class="size-4 text-status-warning" />
+                                                <div
+                                                    class="flex size-8 items-center justify-center rounded-full border border-status-warning/30 bg-status-warning/10"
+                                                >
+                                                    <TriangleAlert
+                                                        class="size-4 text-status-warning"
+                                                    />
                                                 </div>
                                             </template>
 
-                                            <template v-else>
-                                                <div class="text-right">
-                                                    <div class="font-mono text-sm font-black text-zinc-300">
-                                                        {{ versionLabel(worker.version) }}
+                                            <!-- Worker update available -->
+                                            <template
+                                                v-else-if="
+                                                    worker.is_outdated
+                                                "
+                                            >
+                                                <div
+                                                    class="text-right"
+                                                >
+                                                    <div
+                                                        class="font-mono text-sm font-black text-zinc-300"
+                                                    >
+                                                        {{
+                                                            versionLabel(
+                                                                worker.version,
+                                                            )
+                                                        }}
                                                     </div>
 
-                                                    <div class="mt-0.5 text-[11px] font-bold text-status-success">
-                                                        Online
+                                                    <div
+                                                        class="mt-0.5 text-[11px] font-bold text-status-warning"
+                                                    >
+                                                        Latest
+                                                        {{
+                                                            versionLabel(
+                                                                worker.latest_version,
+                                                            )
+                                                        }}
                                                     </div>
                                                 </div>
 
-                                                <div class="flex size-8 items-center justify-center rounded-full border border-status-success/30 bg-status-success/10">
-                                                    <CheckCircle2 class="size-4 text-status-success" />
+                                                <div
+                                                    class="flex size-8 items-center justify-center rounded-full border border-status-warning/30 bg-status-warning/10"
+                                                    title="Worker update available"
+                                                >
+                                                    <TriangleAlert
+                                                        class="size-4 text-status-warning"
+                                                    />
+                                                </div>
+                                            </template>
+
+                                            <!-- Worker current -->
+                                            <template v-else>
+                                                <div
+                                                    class="text-right"
+                                                >
+                                                    <div
+                                                        class="font-mono text-sm font-black text-zinc-300"
+                                                    >
+                                                        {{
+                                                            versionLabel(
+                                                                worker.version,
+                                                            )
+                                                        }}
+                                                    </div>
+
+                                                    <div
+                                                        class="mt-0.5 text-[11px] font-bold"
+                                                        :class="
+                                                            worker.latest_version_available
+                                                                ? 'text-status-success'
+                                                                : 'text-zinc-500'
+                                                        "
+                                                    >
+                                                        {{
+                                                            worker.latest_version_available
+                                                                ? 'Up to date'
+                                                                : 'Online'
+                                                        }}
+                                                    </div>
+                                                </div>
+
+                                                <div
+                                                    class="flex size-8 items-center justify-center rounded-full border"
+                                                    :class="
+                                                        worker.latest_version_available
+                                                            ? 'border-status-success/30 bg-status-success/10'
+                                                            : 'border-zinc-700 bg-zinc-800/50'
+                                                    "
+                                                >
+                                                    <CheckCircle2
+                                                        class="size-4"
+                                                        :class="
+                                                            worker.latest_version_available
+                                                                ? 'text-status-success'
+                                                                : 'text-zinc-500'
+                                                        "
+                                                    />
                                                 </div>
                                             </template>
                                         </div>
@@ -313,24 +536,60 @@ function versionLabel(version?: string | null) {
                         </div>
                     </section>
 
-                    <section class="grid items-start gap-3 md:grid-cols-2">
-                        <section class="grid content-start items-start gap-3 md:grid-cols-2">
+                    <!-- Quick links / Recent activity -->
+                    <section
+                        class="grid items-start gap-3 md:grid-cols-2"
+                    >
+                        <section
+                            class="grid content-start items-start gap-3 md:grid-cols-2"
+                        >
                             <a
                                 v-for="(link, index) in quickLinks"
                                 :key="link.label"
                                 :href="link.url"
-                                :target="link.external ? '_blank' : undefined"
-                                :rel="link.external ? 'noopener noreferrer' : undefined"
+                                :target="
+                                    link.external
+                                        ? '_blank'
+                                        : undefined
+                                "
+                                :rel="
+                                    link.external
+                                        ? 'noopener noreferrer'
+                                        : undefined
+                                "
                                 class="group self-start rounded-panel border border-zinc-800 bg-surface p-5 transition hover:-translate-y-0.5 hover:border-hive/50 hover:bg-surface-light"
                             >
-                                <div class="flex items-center justify-between gap-3">
+                                <div
+                                    class="flex items-center justify-between gap-3"
+                                >
                                     <div
                                         class="flex size-11 items-center justify-center rounded-button border border-zinc-800 bg-[#0d0f11] text-hive transition group-hover:border-hive/50 group-hover:bg-hive group-hover:text-black"
                                     >
-                                        <MessageCircle v-if="index === 0" class="size-5" />
-                                        <BookOpen v-else-if="index === 1" class="size-5" />
-                                        <Github v-else-if="index === 2" class="size-5" />
-                                        <HeartHandshake v-else class="size-5" />
+                                        <MessageCircle
+                                            v-if="
+                                                index === 0
+                                            "
+                                            class="size-5"
+                                        />
+
+                                        <BookOpen
+                                            v-else-if="
+                                                index === 1
+                                            "
+                                            class="size-5"
+                                        />
+
+                                        <Github
+                                            v-else-if="
+                                                index === 2
+                                            "
+                                            class="size-5"
+                                        />
+
+                                        <HeartHandshake
+                                            v-else
+                                            class="size-5"
+                                        />
                                     </div>
 
                                     <ExternalLink
@@ -339,48 +598,107 @@ function versionLabel(version?: string | null) {
                                     />
                                 </div>
 
-                                <div class="mt-4 text-sm font-black text-white">
+                                <div
+                                    class="mt-4 text-sm font-black text-white"
+                                >
                                     {{ link.label }}
                                 </div>
 
-                                <p class="mt-1 text-xs font-bold text-zinc-500">
+                                <p
+                                    class="mt-1 text-xs font-bold text-zinc-500"
+                                >
                                     {{ link.description }}
                                 </p>
                             </a>
                         </section>
 
                         <section class="self-start">
-                            <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                                <div class="flex items-center justify-between gap-3">
-                                    <h2 class="text-lg font-black">
+                            <div
+                                class="rounded-panel border border-zinc-800 bg-surface p-5"
+                            >
+                                <div
+                                    class="flex items-center justify-between gap-3"
+                                >
+                                    <h2
+                                        class="text-lg font-black"
+                                    >
                                         Recent Activity
                                     </h2>
 
-                                    <div class="text-xs font-bold text-zinc-500">
-                                        {{ recentLogs.length }} recent
+                                    <div
+                                        class="text-xs font-bold text-zinc-500"
+                                    >
+                                        {{
+                                            recentLogs.length
+                                        }}
+                                        recent
                                     </div>
                                 </div>
 
-                                <div class="mt-4 space-y-3">
+                                <div
+                                    class="mt-4 space-y-3"
+                                >
                                     <div
                                         v-for="log in recentLogs"
                                         :key="log.id"
                                         class="rounded-button border border-zinc-900 bg-[#0d0f11] p-4"
                                     >
-                                        <div class="text-sm font-bold text-zinc-300">
-                                            {{ log.description || eventLabel(log.event) }}
+                                        <div
+                                            class="text-sm font-bold text-zinc-300"
+                                        >
+                                            {{
+                                                log.description ||
+                                                eventLabel(
+                                                    log.event,
+                                                )
+                                            }}
                                         </div>
 
-                                        <div class="mt-2 flex flex-wrap gap-3 text-xs text-zinc-500">
-                                            <span>{{ eventLabel(log.event) }}</span>
-                                            <span>{{ log.user?.name || log.user?.email || 'System' }}</span>
-                                            <span v-if="log.cell">{{ log.cell.name }}</span>
-                                            <span>{{ formatDate(log.created_at) }}</span>
+                                        <div
+                                            class="mt-2 flex flex-wrap gap-3 text-xs text-zinc-500"
+                                        >
+                                            <span>
+                                                {{
+                                                    eventLabel(
+                                                        log.event,
+                                                    )
+                                                }}
+                                            </span>
+
+                                            <span>
+                                                {{
+                                                    log.user?.name ||
+                                                    log.user?.email ||
+                                                    'System'
+                                                }}
+                                            </span>
+
+                                            <span
+                                                v-if="
+                                                    log.cell
+                                                "
+                                            >
+                                                {{
+                                                    log.cell
+                                                        .name
+                                                }}
+                                            </span>
+
+                                            <span>
+                                                {{
+                                                    formatDate(
+                                                        log.created_at,
+                                                    )
+                                                }}
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div
-                                        v-if="recentLogs.length === 0"
+                                        v-if="
+                                            recentLogs.length ===
+                                            0
+                                        "
                                         class="rounded-button border border-zinc-900 bg-[#0d0f11] p-4 text-sm font-bold text-zinc-500"
                                     >
                                         No activity yet.

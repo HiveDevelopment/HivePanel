@@ -223,11 +223,15 @@ log "Preparing HivePanel directories..."
 
 install -d -m 0755 /etc/hivepanel
 install -d -m 0700 /etc/hivepanel/keys
+
 install -d -m 0755 /var/lib/hivepanel
 install -d -m 0755 /var/lib/hivepanel/data
 install -d -m 0755 /var/lib/hivepanel/cells
 install -d -m 0755 /var/lib/hivepanel/backups
 install -d -m 0755 /var/lib/hivepanel/backup_mounts
+install -d -m 0755 /var/lib/hivepanel/updates
+
+install -d -m 0755 /usr/local/libexec
 
 if docker network inspect hivepanel >/dev/null 2>&1; then
     log "Docker network 'hivepanel' already exists."
@@ -264,7 +268,13 @@ cleanup() {
 
 trap cleanup EXIT
 
-if ! curl -fL --retry 3 --retry-delay 2 "$DOWNLOAD_URL" -o "$TEMP_BINARY"; then
+if ! curl \
+    -fL \
+    --retry 3 \
+    --retry-delay 2 \
+    "$DOWNLOAD_URL" \
+    -o "$TEMP_BINARY"; then
+
     fail "Failed to download HivePanel Worker from ${DOWNLOAD_URL}"
 fi
 
@@ -275,6 +285,235 @@ if ! "$TEMP_BINARY" --help >/dev/null 2>&1; then
 fi
 
 install -m 0755 "$TEMP_BINARY" /usr/local/bin/hiveworker
+
+log "Installing Worker update helper..."
+
+cat > /usr/local/libexec/hiveworker-updater <<'UPDATER'
+#!/usr/bin/env bash
+set -u
+
+PID=""
+STAGED=""
+TARGET=""
+
+BINARY="/usr/local/bin/hiveworker"
+BACKUP="/usr/local/bin/hiveworker.rollback"
+SERVICE="hiveworker"
+LOG="/var/log/hiveworker-updater.log"
+
+log() {
+    echo "[$(date -Is)] $1"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --pid)
+            [[ $# -ge 2 ]] || exit 2
+            PID="$2"
+            shift 2
+            ;;
+        --staged)
+            [[ $# -ge 2 ]] || exit 2
+            STAGED="$2"
+            shift 2
+            ;;
+        --target)
+            [[ $# -ge 2 ]] || exit 2
+            TARGET="$2"
+            shift 2
+            ;;
+        *)
+            exit 2
+            ;;
+    esac
+done
+
+touch "$LOG"
+chmod 0600 "$LOG"
+
+exec >>"$LOG" 2>&1
+
+log "HiveWorker updater started."
+log "Target version: ${TARGET}"
+
+if [[ -z "$PID" || -z "$STAGED" || -z "$TARGET" ]]; then
+    log "Missing updater arguments."
+    exit 2
+fi
+
+if [[ ! "$PID" =~ ^[0-9]+$ ]]; then
+    log "Invalid Worker PID."
+    exit 2
+fi
+
+case "$STAGED" in
+    /var/lib/hivepanel/updates/*)
+        ;;
+    *)
+        log "Refusing staged binary outside the HivePanel update directory."
+        exit 2
+        ;;
+esac
+
+if [[ ! -f "$STAGED" ]]; then
+    log "Staged Worker binary does not exist: ${STAGED}"
+    exit 3
+fi
+
+if [[ ! -x "$STAGED" ]]; then
+    log "Staged Worker binary is not executable."
+    exit 3
+fi
+
+log "Waiting for Worker process ${PID} to exit..."
+
+for _ in $(seq 1 30); do
+    if ! kill -0 "$PID" 2>/dev/null; then
+        break
+    fi
+
+    sleep 1
+done
+
+if kill -0 "$PID" 2>/dev/null; then
+    log "Worker did not exit within 30 seconds. Stopping service."
+
+    systemctl stop "$SERVICE" || true
+
+    for _ in $(seq 1 10); do
+        if ! kill -0 "$PID" 2>/dev/null; then
+            break
+        fi
+
+        sleep 1
+    done
+fi
+
+if kill -0 "$PID" 2>/dev/null; then
+    log "Worker process is still running. Aborting update."
+    exit 4
+fi
+
+log "Backing up current Worker binary..."
+
+rm -f "$BACKUP"
+
+if [[ -f "$BINARY" ]]; then
+    if ! cp -a "$BINARY" "$BACKUP"; then
+        log "Failed to back up current Worker binary."
+        exit 5
+    fi
+fi
+
+rollback() {
+    log "Rolling back Worker update..."
+
+    systemctl stop "$SERVICE" || true
+
+    if [[ ! -f "$BACKUP" ]]; then
+        log "Rollback binary is unavailable."
+        return 1
+    fi
+
+    if ! install -m 0755 "$BACKUP" "$BINARY"; then
+        log "Failed to restore previous Worker binary."
+        return 1
+    fi
+
+    if ! systemctl restart "$SERVICE"; then
+        log "Previous Worker binary was restored but the service failed to restart."
+        return 1
+    fi
+
+    for _ in $(seq 1 30); do
+        if systemctl is-active --quiet "$SERVICE"; then
+            log "Previous Worker restored successfully."
+            rm -f "$BACKUP"
+            rm -f "$STAGED"
+            return 0
+        fi
+
+        sleep 1
+    done
+
+    log "Previous Worker was restored but did not become active."
+    return 1
+}
+
+log "Installing Worker ${TARGET}..."
+
+if ! install -m 0755 "$STAGED" "$BINARY"; then
+    log "Failed to install new Worker binary."
+
+    rollback || true
+    exit 6
+fi
+
+log "Starting Worker ${TARGET}..."
+
+if ! systemctl restart "$SERVICE"; then
+    log "systemd failed to restart the new Worker."
+
+    rollback || true
+    exit 7
+fi
+
+log "Waiting for Worker service..."
+
+SERVICE_STARTED=0
+
+for _ in $(seq 1 30); do
+    if systemctl is-active --quiet "$SERVICE"; then
+        SERVICE_STARTED=1
+        break
+    fi
+
+    sleep 1
+done
+
+if [[ "$SERVICE_STARTED" -ne 1 ]]; then
+    log "New Worker did not become active."
+
+    journalctl \
+        -u "$SERVICE" \
+        -n 50 \
+        --no-pager \
+        || true
+
+    rollback || true
+    exit 8
+fi
+
+#
+# Give the daemon a little time after systemd reports it active.
+#
+# The Panel heartbeat will perform the authoritative confirmation
+# that the Worker returned with the requested version.
+#
+sleep 3
+
+if ! systemctl is-active --quiet "$SERVICE"; then
+    log "New Worker exited shortly after startup."
+
+    journalctl \
+        -u "$SERVICE" \
+        -n 50 \
+        --no-pager \
+        || true
+
+    rollback || true
+    exit 9
+fi
+
+log "Worker ${TARGET} installed successfully."
+
+rm -f "$BACKUP"
+rm -f "$STAGED"
+
+exit 0
+UPDATER
+
+chmod 0755 /usr/local/libexec/hiveworker-updater
 
 log "Installing systemd service..."
 
@@ -319,17 +558,20 @@ if ! systemctl is-active --quiet hiveworker; then
 fi
 
 log "HivePanel Worker installed successfully."
+
 echo
 echo "Panel:        ${PANEL_URL}"
 echo "Architecture: ${WORKER_ARCH}"
 echo "Config:       /etc/hivepanel/worker.yml"
 echo "Binary:       /usr/local/bin/hiveworker"
+echo "Updater:      /usr/local/libexec/hiveworker-updater"
 echo
 echo "The worker has started and will register itself with HivePanel."
 echo
 echo "Useful commands:"
 echo "  systemctl status hiveworker"
 echo "  journalctl -u hiveworker -f"
+echo "  tail -f /var/log/hiveworker-updater.log"
 echo "  docker ps"
 BASH;
 
