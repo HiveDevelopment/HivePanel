@@ -2,10 +2,17 @@
 import AppLayout from '@/layouts/AppLayout.vue'
 import CellHeader from '@/components/cells/CellHeader.vue'
 import StatChartCard from '@/components/cells/StatChartCard.vue'
-import { Head, Link, router } from '@inertiajs/vue3'
+import { Head } from '@inertiajs/vue3'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 type CellStatus = 'offline' | 'starting' | 'running' | 'stopping'
+
+type CellInstallStatus =
+    | 'pending'
+    | 'installing'
+    | 'installed'
+    | 'failed'
+    | null
 
 const props = defineProps<{
     cell: any
@@ -32,15 +39,63 @@ const networkRxHistory = ref<ChartPoint[]>([])
 const networkTxHistory = ref<ChartPoint[]>([])
 
 const socket = ref<WebSocket | null>(null)
-const socketStatus = ref<'connecting' | 'connected' | 'disconnected'>('disconnected')
+
+const socketStatus = ref<
+    'connecting' |
+    'connected' |
+    'disconnected'
+>('disconnected')
 
 const cellId = computed(() => props.cell?.id ?? null)
 const cellDaemonId = computed(() => props.cell?.daemon_id ?? null)
 const isLocked = computed(() => props.cell?.lock?.locked === true)
 
+const installStatus = computed<CellInstallStatus>(() => {
+    const status =
+        props.cell?.install_status ??
+        props.cell?.installation_status ??
+        null
+
+    if (
+        status === 'pending' ||
+        status === 'installing' ||
+        status === 'installed' ||
+        status === 'failed'
+    ) {
+        return status
+    }
+
+    return null
+})
+
+/**
+ * Runtime functionality should not be contacted until
+ * installation has completed.
+ *
+ * null is allowed for backwards compatibility with older
+ * Cell payloads that do not expose install_status.
+ */
+const canUseRuntime = computed(() => {
+    return (
+        installStatus.value !== 'pending' &&
+        installStatus.value !== 'installing' &&
+        installStatus.value !== 'failed'
+    )
+})
+
 const currentStatus = computed<CellStatus>(() => {
-    if (liveStats.value?.running === true) return 'running'
-    if (props.cell?.status) return normaliseStatus(props.cell.status)
+    if (!canUseRuntime.value) {
+        return 'offline'
+    }
+
+    if (liveStats.value?.running === true) {
+        return 'running'
+    }
+
+    if (props.cell?.status) {
+        return normaliseStatus(props.cell.status)
+    }
+
     return 'offline'
 })
 
@@ -67,12 +122,20 @@ const commandSuggestions = [
 ]
 
 const filteredCommandSuggestions = computed(() => {
-    const value = command.value.trim().toLowerCase()
+    const value = command.value
+        .trim()
+        .toLowerCase()
 
-    if (!value) return []
+    if (!value) {
+        return []
+    }
 
     return commandSuggestions
-        .filter((suggestion) => suggestion.toLowerCase().startsWith(value))
+        .filter((suggestion) =>
+            suggestion
+                .toLowerCase()
+                .startsWith(value),
+        )
         .slice(0, 6)
 })
 
@@ -80,24 +143,56 @@ let pollTimer: number | undefined
 let statsLoading = false
 
 async function refreshStats() {
-    if (!cellId.value || statsLoading) return
+    if (
+        !cellId.value ||
+        !canUseRuntime.value ||
+        statsLoading
+    ) {
+        return
+    }
 
     statsLoading = true
 
     try {
-        const response = await fetch(`/cells/${cellId.value}/stats-json`, {
-            headers: { Accept: 'application/json' },
-        })
+        const response = await fetch(
+            `/cells/${cellId.value}/stats-json`,
+            {
+                headers: {
+                    Accept: 'application/json',
+                },
+            },
+        )
 
-        if (!response.ok) return
+        if (!response.ok) {
+            return
+        }
 
         const data = await response.json()
+
         liveStats.value = data
 
-        pushHistory(cpuHistory.value, data.cpu ?? 0)
-        pushHistory(memoryHistory.value, data.memory_mb ?? 0)
-        pushHistory(networkRxHistory.value, data.network_rx_bytes ?? 0)
-        pushHistory(networkTxHistory.value, data.network_tx_bytes ?? 0)
+        pushHistory(
+            cpuHistory.value,
+            data.cpu ?? 0,
+        )
+
+        pushHistory(
+            memoryHistory.value,
+            data.memory_mb ?? 0,
+        )
+
+        pushHistory(
+            networkRxHistory.value,
+            data.network_rx_bytes ?? 0,
+        )
+
+        pushHistory(
+            networkTxHistory.value,
+            data.network_tx_bytes ?? 0,
+        )
+    } catch {
+        // A temporary Worker/network failure should not
+        // break the Cell page.
     } finally {
         statsLoading = false
     }
@@ -107,24 +202,49 @@ async function scrollConsoleToBottom() {
     await nextTick()
 
     if (consoleEl.value) {
-        consoleEl.value.scrollTop = consoleEl.value.scrollHeight
+        consoleEl.value.scrollTop =
+            consoleEl.value.scrollHeight
     }
 
     if (popoutConsoleEl.value) {
-        popoutConsoleEl.value.scrollTop = popoutConsoleEl.value.scrollHeight
+        popoutConsoleEl.value.scrollTop =
+            popoutConsoleEl.value.scrollHeight
     }
 }
 
 async function getConsoleWsUrl() {
-    const response = await fetch(route('cells.console-session', cellId.value), {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
-        },
-    })
+    if (
+        !cellId.value ||
+        !canUseRuntime.value
+    ) {
+        return null
+    }
 
-    if (!response.ok) return null
+    const response = await fetch(
+        route(
+            'cells.console-session',
+            cellId.value,
+        ),
+        {
+            method: 'POST',
+
+            headers: {
+                Accept: 'application/json',
+
+                'X-CSRF-TOKEN':
+                    document
+                        .querySelector(
+                            'meta[name="csrf-token"]',
+                        )
+                        ?.getAttribute('content') ??
+                    '',
+            },
+        },
+    )
+
+    if (!response.ok) {
+        return null
+    }
 
     const data = await response.json()
 
@@ -132,22 +252,56 @@ async function getConsoleWsUrl() {
 }
 
 function setOfflineConsoleMessage() {
+    if (!canUseRuntime.value) {
+        if (installStatus.value === 'failed') {
+            consoleLines.value = [
+                'container@hivepanel~ Installation failed. Runtime unavailable.',
+            ]
+
+            return
+        }
+
+        if (
+            installStatus.value === 'pending' ||
+            installStatus.value === 'installing'
+        ) {
+            consoleLines.value = [
+                'container@hivepanel~ Installation in progress...',
+            ]
+
+            return
+        }
+    }
+
     consoleLines.value = [
         'container@hivepanel~ Server marked as offline...',
     ]
 }
 
 async function connectConsoleSocket() {
-    if (!cellDaemonId.value) return
+    if (
+        !cellDaemonId.value ||
+        !canUseRuntime.value
+    ) {
+        return
+    }
 
     const url = await getConsoleWsUrl()
 
     if (!url) {
-        consoleLines.value.push('[error] Console WebSocket URL is missing.')
+        consoleLines.value.push(
+            '[error] Console WebSocket URL is missing.',
+        )
+
         return
     }
 
-    if (socket.value && socket.value.readyState === WebSocket.OPEN) return
+    if (
+        socket.value &&
+        socket.value.readyState === WebSocket.OPEN
+    ) {
+        return
+    }
 
     if (socket.value) {
         socket.value.close()
@@ -157,6 +311,7 @@ async function connectConsoleSocket() {
     socketStatus.value = 'connecting'
 
     const ws = new WebSocket(url)
+
     socket.value = ws
 
     ws.onopen = () => {
@@ -164,16 +319,25 @@ async function connectConsoleSocket() {
     }
 
     ws.onmessage = async (event) => {
-        const payload = JSON.parse(event.data)
+        const payload = JSON.parse(
+            event.data,
+        )
 
         if (payload.type === 'console') {
-            if (!liveStats.value?.running && currentStatus.value === 'offline') {
+            if (
+                !liveStats.value?.running &&
+                currentStatus.value === 'offline'
+            ) {
                 return
             }
 
-            consoleLines.value.push(payload.line)
+            consoleLines.value.push(
+                payload.line,
+            )
 
-            if (consoleLines.value.length > 500) {
+            if (
+                consoleLines.value.length > 500
+            ) {
                 consoleLines.value.shift()
             }
 
@@ -181,35 +345,55 @@ async function connectConsoleSocket() {
         }
 
         if (payload.type === 'error') {
-            consoleLines.value.push(`[error] ${payload.message}`)
+            consoleLines.value.push(
+                `[error] ${payload.message}`,
+            )
+
             await scrollConsoleToBottom()
         }
     }
 
     ws.onclose = (event) => {
-        console.warn('[console ws] closed', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean,
-        })
+        console.warn(
+            '[console ws] closed',
+            {
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean,
+            },
+        )
 
-        socketStatus.value = 'disconnected'
+        socketStatus.value =
+            'disconnected'
 
         if (!liveStats.value?.running) {
             setOfflineConsoleMessage()
         } else {
-            consoleLines.value.push(`[error] Console socket closed (${event.code}).`)
+            consoleLines.value.push(
+                `[error] Console socket closed (${event.code}).`,
+            )
         }
     }
 
     ws.onerror = (event) => {
-        console.error('[console ws] error', event)
-        socketStatus.value = 'disconnected'
-        consoleLines.value.push('[error] Console WebSocket failed. Check worker logs.')
+        console.error(
+            '[console ws] error',
+            event,
+        )
+
+        socketStatus.value =
+            'disconnected'
+
+        consoleLines.value.push(
+            '[error] Console WebSocket failed. Check worker logs.',
+        )
     }
 }
 
-function pushHistory(history: ChartPoint[], value: number) {
+function pushHistory(
+    history: ChartPoint[],
+    value: number,
+) {
     history.push({
         x: Date.now(),
         y: Number(value || 0),
@@ -221,31 +405,59 @@ function pushHistory(history: ChartPoint[], value: number) {
 }
 
 function sendCommand() {
-    if (isLocked.value) {
-        consoleLines.value.push('[error] Server is locked. Commands are disabled.')
+    if (!canUseRuntime.value) {
+        consoleLines.value.push(
+            '[error] Runtime unavailable while installation is incomplete.',
+        )
+
         return
     }
 
-    if (!command.value.trim()) return
+    if (isLocked.value) {
+        consoleLines.value.push(
+            '[error] Server is locked. Commands are disabled.',
+        )
 
-    if (socket.value && socket.value.readyState === WebSocket.OPEN) {
-        socket.value.send(JSON.stringify({
-            type: 'command',
-            command: command.value,
-        }))
+        return
+    }
+
+    if (!command.value.trim()) {
+        return
+    }
+
+    if (
+        socket.value &&
+        socket.value.readyState === WebSocket.OPEN
+    ) {
+        socket.value.send(
+            JSON.stringify({
+                type: 'command',
+                command: command.value,
+            }),
+        )
 
         command.value = ''
+
         return
     }
 
-    consoleLines.value.push('[error] Console socket is not connected.')
+    consoleLines.value.push(
+        '[error] Console socket is not connected.',
+    )
 }
 
-function applyCommandSuggestion(suggestion: string) {
+function applyCommandSuggestion(
+    suggestion: string,
+) {
     command.value = suggestion
 }
 
 function clearConsole() {
+    if (!canUseRuntime.value) {
+        setOfflineConsoleMessage()
+        return
+    }
+
     if (!liveStats.value?.running) {
         setOfflineConsoleMessage()
         return
@@ -254,7 +466,9 @@ function clearConsole() {
     consoleLines.value = []
 }
 
-function consoleLineClass(line: string) {
+function consoleLineClass(
+    line: string,
+) {
     const value = line.toLowerCase()
 
     if (
@@ -299,107 +513,242 @@ function consoleLineClass(line: string) {
 }
 
 onMounted(async () => {
-    // await refreshStats()
+    /*
+     * Pending/installing/failed Cells have no usable
+     * runtime. Do not start stats polling or connect
+     * to their console.
+     */
+    if (!canUseRuntime.value) {
+        setOfflineConsoleMessage()
+        return
+    }
 
     if (liveStats.value?.running) {
         consoleLines.value = [
             'container@hivepanel~ Console attached. Waiting for new output...',
         ]
 
-        connectConsoleSocket()
+        await connectConsoleSocket()
     } else {
         setOfflineConsoleMessage()
     }
 
-    pollTimer = window.setInterval(async () => {
-        const wasRunning = liveStats.value?.running === true
+    /*
+     * Five seconds is sufficient for runtime stats.
+     *
+     * Console output itself remains real-time through
+     * the WebSocket connection.
+     */
+    pollTimer = window.setInterval(
+        async () => {
+            if (!canUseRuntime.value) {
+                return
+            }
 
-        await refreshStats()
+            const wasRunning =
+                liveStats.value?.running === true
 
-        const isRunning = liveStats.value?.running === true
+            await refreshStats()
 
-        if (!wasRunning && isRunning) {
-            consoleLines.value = [
-                'container@hivepanel~ Server marked as starting...',
-                'container@hivepanel~ Console attached. Waiting for new output...',
-            ]
+            const isRunning =
+                liveStats.value?.running === true
 
-            connectConsoleSocket()
-        }
+            if (
+                !wasRunning &&
+                isRunning
+            ) {
+                consoleLines.value = [
+                    'container@hivepanel~ Server marked as starting...',
+                    'container@hivepanel~ Console attached. Waiting for new output...',
+                ]
 
-        if (wasRunning && !isRunning) {
-            setOfflineConsoleMessage()
-        }
-    }, 1000)
+                await connectConsoleSocket()
+            }
+
+            if (
+                wasRunning &&
+                !isRunning
+            ) {
+                setOfflineConsoleMessage()
+
+                if (socket.value) {
+                    socket.value.close()
+                    socket.value = null
+                }
+            }
+        },
+        5000,
+    )
 })
 
 onUnmounted(() => {
-    if (pollTimer) clearInterval(pollTimer)
-    if (socket.value) socket.value.close()
+    if (pollTimer !== undefined) {
+        window.clearInterval(
+            pollTimer,
+        )
+
+        pollTimer = undefined
+    }
+
+    if (socket.value) {
+        socket.value.close()
+        socket.value = null
+    }
+
+    socketStatus.value =
+        'disconnected'
 })
 
-function normaliseStatus(status?: string): CellStatus {
-    if (status === 'running' || status === 'starting' || status === 'stopping') return status
+function normaliseStatus(
+    status?: string,
+): CellStatus {
+    if (
+        status === 'running' ||
+        status === 'starting' ||
+        status === 'stopping'
+    ) {
+        return status
+    }
+
     return 'offline'
 }
 
-function formatBytes(bytes?: number) {
+function formatBytes(
+    bytes?: number,
+) {
     const value = bytes ?? 0
 
-    if (value >= 1024 * 1024 * 1024) return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`
-    if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(2)} MB`
-    if (value >= 1024) return `${(value / 1024).toFixed(2)} KB`
+    if (
+        value >=
+        1024 * 1024 * 1024
+    ) {
+        return `${(
+            value /
+            1024 /
+            1024 /
+            1024
+        ).toFixed(2)} GB`
+    }
+
+    if (
+        value >=
+        1024 * 1024
+    ) {
+        return `${(
+            value /
+            1024 /
+            1024
+        ).toFixed(2)} MB`
+    }
+
+    if (value >= 1024) {
+        return `${(
+            value / 1024
+        ).toFixed(2)} KB`
+    }
 
     return `${value} B`
 }
 
 function formatMemoryUsed() {
-    const used = liveStats.value?.memory_mb ?? 0
+    const used =
+        liveStats.value?.memory_mb ?? 0
 
-    if (used >= 1024) return `${(used / 1024).toFixed(2)} GB`
+    if (used >= 1024) {
+        return `${(
+            used / 1024
+        ).toFixed(2)} GB`
+    }
+
     return `${used.toFixed(2)} MB`
 }
 
 function formatMemoryLimit() {
-    const limit = props.cell?.limits?.memory_mb ?? 0
+    const limit =
+        props.cell?.limits?.memory_mb ?? 0
 
-    if (limit <= 0) return 'Unlimited'
-    if (limit >= 1024) return `${(limit / 1024).toFixed(0)} GB`
+    if (limit <= 0) {
+        return 'Unlimited'
+    }
+
+    if (limit >= 1024) {
+        return `${(
+            limit / 1024
+        ).toFixed(0)} GB`
+    }
 
     return `${limit} MB`
 }
 
 function formatDiskUsed() {
-    const usedMb = liveStats.value?.disk_mb ?? liveStats.value?.disk_usage_mb ?? 0
+    const usedMb =
+        liveStats.value?.disk_mb ??
+        liveStats.value?.disk_usage_mb ??
+        0
 
-    if (usedMb >= 1024) return `${(usedMb / 1024).toFixed(2)} GB`
-    return `${Number(usedMb).toFixed(2)} MB`
+    if (usedMb >= 1024) {
+        return `${(
+            usedMb / 1024
+        ).toFixed(2)} GB`
+    }
+
+    return `${Number(
+        usedMb,
+    ).toFixed(2)} MB`
 }
 
-function formatUptime(seconds?: number) {
-    const total = seconds ?? liveStats.value?.uptime_sec ?? 0
-    const days = Math.floor(total / 86400)
-    const hours = Math.floor((total % 86400) / 3600)
-    const minutes = Math.floor((total % 3600) / 60)
+function formatUptime(
+    seconds?: number,
+) {
+    const total =
+        seconds ??
+        liveStats.value?.uptime_sec ??
+        0
 
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`
-    if (hours > 0) return `${hours}h ${minutes}m`
+    const days =
+        Math.floor(total / 86400)
+
+    const hours =
+        Math.floor(
+            (total % 86400) / 3600,
+        )
+
+    const minutes =
+        Math.floor(
+            (total % 3600) / 60,
+        )
+
+    if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m`
+    }
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`
+    }
 
     return `${minutes}m`
 }
 
 function formatUtcTime() {
-    return new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'UTC',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    }).format(new Date())
+    return new Intl.DateTimeFormat(
+        'en-GB',
+        {
+            timeZone: 'UTC',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        },
+    ).format(new Date())
 }
 
 async function startCell() {
-    if (!cellId.value) return
+    if (
+        !cellId.value ||
+        !canUseRuntime.value
+    ) {
+        return
+    }
 
     consoleLines.value = [
         'container@hivepanel~ Server marked as starting...',
@@ -409,50 +758,93 @@ async function startCell() {
     socket.value?.close()
     socket.value = null
 
-    await fetch(route('cells.start', cellId.value), {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+    await fetch(
+        route(
+            'cells.start',
+            cellId.value,
+        ),
+        {
+            method: 'POST',
+
+            headers: {
+                Accept: 'application/json',
+
+                'X-CSRF-TOKEN':
+                    document
+                        .querySelector(
+                            'meta[name="csrf-token"]',
+                        )
+                        ?.getAttribute('content') ??
+                    '',
+            },
         },
-    })
+    )
 
     await refreshStats()
 
-    setTimeout(() => {
-        connectConsoleSocket()
+    window.setTimeout(() => {
+        void connectConsoleSocket()
     }, 1000)
 }
 
 async function stopCell() {
-    if (!cellId.value) return
+    if (
+        !cellId.value ||
+        !canUseRuntime.value
+    ) {
+        return
+    }
 
-    consoleLines.value = ['container@hivepanel~ Stopping server...']
+    consoleLines.value = [
+        'container@hivepanel~ Stopping server...',
+    ]
 
-    await fetch(route('cells.stop', cellId.value), {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+    await fetch(
+        route(
+            'cells.stop',
+            cellId.value,
+        ),
+        {
+            method: 'POST',
+
+            headers: {
+                Accept: 'application/json',
+
+                'X-CSRF-TOKEN':
+                    document
+                        .querySelector(
+                            'meta[name="csrf-token"]',
+                        )
+                        ?.getAttribute('content') ??
+                    '',
+            },
         },
-    })
+    )
 
     socket.value?.close()
     socket.value = null
 
-    setTimeout(async () => {
-        await refreshStats()
-        setOfflineConsoleMessage()
-    }, 1000)
+    window.setTimeout(
+        async () => {
+            await refreshStats()
+            setOfflineConsoleMessage()
+        },
+        1000,
+    )
 }
 
 function restartCell() {
-    if (!cellId.value) return
+    if (
+        !cellId.value ||
+        !canUseRuntime.value
+    ) {
+        return
+    }
 
-    stopCell()
+    void stopCell()
 
-    setTimeout(() => {
-        startCell()
+    window.setTimeout(() => {
+        void startCell()
     }, 1500)
 }
 </script>
@@ -478,13 +870,17 @@ function restartCell() {
 
                     <div class="grid gap-4 xl:grid-cols-[1fr_355px]">
                         <div class="space-y-4">
-                            <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]">
+                            <section
+                                class="overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]"
+                            >
                                 <div class="p-3">
                                     <div
                                         ref="consoleEl"
                                         class="relative h-[320px] overflow-y-auto rounded-button border border-zinc-800 bg-black p-4 text-[12px] leading-6 text-zinc-300 sm:h-[385px] sm:p-6 sm:text-[13px] font-mono"
                                     >
-                                        <div class="absolute right-3 top-3 z-10 flex gap-2 sm:right-4 sm:top-4">
+                                        <div
+                                            class="absolute right-3 top-3 z-10 flex gap-2 sm:right-4 sm:top-4"
+                                        >
                                             <button
                                                 class="rounded-button border border-zinc-800 bg-surface-light px-3 py-2 font-sans text-xs font-bold text-zinc-200 transition hover:border-hive hover:text-hive"
                                                 @click="consolePoppedOut = true"
@@ -500,7 +896,10 @@ function restartCell() {
                                             </button>
                                         </div>
 
-                                        <div v-if="consoleLines.length === 0" class="text-zinc-600">
+                                        <div
+                                            v-if="consoleLines.length === 0"
+                                            class="text-zinc-600"
+                                        >
                                             No console output yet.
                                         </div>
 
@@ -513,21 +912,33 @@ function restartCell() {
                                         </div>
                                     </div>
 
-                                    <div class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive">
-                                        <div class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
-                                            <span class="text-xl text-hive">⌬</span>
+                                    <div
+                                        class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive"
+                                    >
+                                        <div
+                                            class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4"
+                                        >
+                                            <span class="text-xl text-hive">
+                                                ⌬
+                                            </span>
 
                                             <input
                                                 v-model="command"
-                                                :disabled="isLocked"
+                                                :disabled="isLocked || !canUseRuntime"
                                                 class="w-full bg-transparent font-mono text-sm text-zinc-300 outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:text-zinc-600"
-                                                :placeholder="isLocked ? 'Server locked - commands disabled' : 'Enter a command...'"
+                                                :placeholder="
+                                                    !canUseRuntime
+                                                        ? 'Runtime unavailable until installation completes'
+                                                        : isLocked
+                                                            ? 'Server locked - commands disabled'
+                                                            : 'Enter a command...'
+                                                "
                                                 @keydown.enter.prevent="sendCommand"
                                             />
 
                                             <button
                                                 class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:translate-x-0"
-                                                :disabled="isLocked"
+                                                :disabled="isLocked || !canUseRuntime"
                                                 @click="sendCommand"
                                             >
                                                 ➤
@@ -535,7 +946,7 @@ function restartCell() {
                                         </div>
 
                                         <div
-                                            v-if="filteredCommandSuggestions.length"
+                                            v-if="filteredCommandSuggestions.length && canUseRuntime"
                                             class="border-t border-zinc-800"
                                         >
                                             <button
@@ -578,24 +989,46 @@ function restartCell() {
                         </div>
 
                         <aside class="space-y-4">
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                                <h2 class="text-sm font-black uppercase tracking-wide text-zinc-400">
+                            <section
+                                class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6"
+                            >
+                                <h2
+                                    class="text-sm font-black uppercase tracking-wide text-zinc-400"
+                                >
                                     Server Information
                                 </h2>
 
                                 <div class="mt-6 space-y-5">
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive shadow-hive-soft">◷</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive shadow-hive-soft"
+                                        >
+                                            ◷
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Uptime</div>
-                                            <div class="text-lg font-black">{{ formatUptime(liveStats.uptime_sec) }}</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Uptime
+                                            </div>
+
+                                            <div class="text-lg font-black">
+                                                {{ formatUptime(liveStats.uptime_sec) }}
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200">⌁</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
+                                        >
+                                            ⌁
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Address</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Address
+                                            </div>
+
                                             <div class="break-all text-lg font-black">
                                                 {{ cell.allocation?.ip ?? '127.0.0.1' }}:{{ cell.allocation?.port ?? '25565' }}
                                             </div>
@@ -603,9 +1036,17 @@ function restartCell() {
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive">▥</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
+                                        >
+                                            ▥
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">CPU Load</div>
+                                            <div class="text-sm text-zinc-500">
+                                                CPU Load
+                                            </div>
+
                                             <div class="text-lg font-black">
                                                 {{ (liveStats.cpu ?? 0).toFixed(2) }}%
                                             </div>
@@ -613,9 +1054,17 @@ function restartCell() {
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive">▣</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
+                                        >
+                                            ▣
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Memory</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Memory
+                                            </div>
+
                                             <div class="text-lg font-black">
                                                 {{ formatMemoryUsed() }} / {{ formatMemoryLimit() }}
                                             </div>
@@ -623,9 +1072,17 @@ function restartCell() {
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive">▰</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
+                                        >
+                                            ▰
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Disk</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Disk
+                                            </div>
+
                                             <div class="text-lg font-black">
                                                 {{ formatDiskUsed() }}
                                             </div>
@@ -633,25 +1090,47 @@ function restartCell() {
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200">⇅</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
+                                        >
+                                            ⇅
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Network</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Network
+                                            </div>
+
                                             <div class="text-sm font-black">
-                                                ↓ {{ formatBytes(liveStats.network_rx_bytes) }} / ↑ {{ formatBytes(liveStats.network_tx_bytes) }}
+                                                ↓ {{ formatBytes(liveStats.network_rx_bytes) }}
+                                                /
+                                                ↑ {{ formatBytes(liveStats.network_tx_bytes) }}
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200">▤</div>
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
+                                        >
+                                            ▤
+                                        </div>
+
                                         <div>
-                                            <div class="text-sm text-zinc-500">Node</div>
-                                            <div class="text-lg font-black">{{ cell.node?.name ?? 'worker-01' }}</div>
+                                            <div class="text-sm text-zinc-500">
+                                                Node
+                                            </div>
+
+                                            <div class="text-lg font-black">
+                                                {{ cell.node?.name ?? 'worker-01' }}
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200">
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
+                                        >
                                             🕒
                                         </div>
 
@@ -677,8 +1156,12 @@ function restartCell() {
             v-if="consolePoppedOut"
             class="fixed inset-0 z-50 bg-black/80 p-4 backdrop-blur-sm"
         >
-            <div class="flex h-full flex-col rounded-panel border border-zinc-800 bg-surface p-4">
-                <div class="mb-3 flex items-center justify-between gap-4">
+            <div
+                class="flex h-full flex-col rounded-panel border border-zinc-800 bg-surface p-4"
+            >
+                <div
+                    class="mb-3 flex items-center justify-between gap-4"
+                >
                     <div>
                         <h2 class="text-lg font-black text-white">
                             {{ cell.name }} Console
@@ -712,19 +1195,31 @@ function restartCell() {
                     </div>
                 </div>
 
-                <div class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive">
+                <div
+                    class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive"
+                >
                     <div class="flex items-center gap-3 px-4 py-3">
-                        <span class="text-xl text-hive">⌬</span>
+                        <span class="text-xl text-hive">
+                            ⌬
+                        </span>
 
                         <input
                             v-model="command"
-                            class="w-full bg-transparent font-mono text-sm text-zinc-300 outline-none placeholder:text-zinc-600"
-                            placeholder="Enter a command..."
+                            :disabled="!canUseRuntime || isLocked"
+                            class="w-full bg-transparent font-mono text-sm text-zinc-300 outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:text-zinc-600"
+                            :placeholder="
+                                !canUseRuntime
+                                    ? 'Runtime unavailable until installation completes'
+                                    : isLocked
+                                        ? 'Server locked - commands disabled'
+                                        : 'Enter a command...'
+                            "
                             @keydown.enter.prevent="sendCommand"
                         />
 
                         <button
-                            class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive"
+                            class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-zinc-700"
+                            :disabled="!canUseRuntime || isLocked"
                             @click="sendCommand"
                         >
                             ➤
@@ -732,7 +1227,7 @@ function restartCell() {
                     </div>
 
                     <div
-                        v-if="filteredCommandSuggestions.length"
+                        v-if="filteredCommandSuggestions.length && canUseRuntime"
                         class="border-t border-zinc-800"
                     >
                         <button

@@ -249,7 +249,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}/reinstall', [CellReinstallController::class, 'show'])->name('reinstall.show')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
         Route::post('/{id}/reinstall', [CellReinstallController::class, 'store'])->name('reinstall.store')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
         Route::post('/{id}/installation/retry', [CellReinstallController::class, 'retry'])->name('installation.retry')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::get('/{id}/installation-status', [CellController::class, 'installationStatus'])->name('installation-status')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
+        Route::get('/{id}/installation-status', [CellReinstallController::class, 'installationStatus'])->name('installation-status')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
 
         Route::get('/{id}/config', [CellConfigController::class, 'index'])->name('config.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
         Route::get('/{id}/config-json', [CellConfigController::class, 'json'])->name('config.json')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);

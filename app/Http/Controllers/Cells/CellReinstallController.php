@@ -6,7 +6,7 @@ use App\Enums\CellInstallStatus;
 use App\Models\Comb;
 use App\Services\Cells\CellReinstallService;
 use App\Services\Node\CellNodeClient;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -50,22 +50,22 @@ class CellReinstallController extends CellBaseController
         string $id,
         CellNodeClient $cells,
         CellReinstallService $reinstall,
-    ): JsonResponse {
+    ): RedirectResponse {
         $cell = $this->panelCellOrFail($id);
 
         $workerCell = $cells->cell($cell);
 
         if (($workerCell['error'] ?? false) === true) {
-            throw new RuntimeException(
-                $workerCell['message']
+            return back()->withErrors([
+                'reinstall' => $workerCell['message']
                     ?? 'The node could not be contacted.',
-            );
+            ]);
         }
 
         if ($this->workerCellIsRunning($workerCell)) {
-            return response()->json([
-                'message' => 'Stop the cell before reinstalling.',
-            ], 409);
+            return back()->withErrors([
+                'reinstall' => 'Stop the cell before reinstalling.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -98,15 +98,12 @@ class CellReinstallController extends CellBaseController
             trim($validated['confirmation'])
             !== $cell->name
         ) {
-            return response()->json([
-                'message' =>
-                    'Enter the cell name exactly to confirm the reinstall.',
-                'errors' => [
-                    'confirmation' => [
+            return back()
+                ->withErrors([
+                    'confirmation' =>
                         'The confirmation does not match the cell name.',
-                    ],
-                ],
-            ], 422);
+                ])
+                ->withInput();
         }
 
         $comb = Comb::query()
@@ -115,7 +112,7 @@ class CellReinstallController extends CellBaseController
             );
 
         try {
-            $updatedCell = $reinstall->reinstall(
+            $reinstall->reinstall(
                 cell: $cell,
                 comb: $comb,
                 variables: $validated['variables'] ?? [],
@@ -127,24 +124,18 @@ class CellReinstallController extends CellBaseController
         } catch (Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'message' => $exception->getMessage()
-                    ?: 'The cell could not be reinstalled.',
-            ], 500);
+            return back()
+                ->withErrors([
+                    'reinstall' => $exception->getMessage()
+                        ?: 'The cell could not be reinstalled.',
+                ])
+                ->withInput();
         }
 
-        return response()->json([
-            'success' => true,
-
-            'message' =>
-                'The cell reinstall has been queued.',
-
-            'cell' => [
-                'id' => $updatedCell->id,
-                'install_status' =>
-                    $updatedCell->install_status->value,
-            ],
-        ]);
+        return back()->with(
+            'success',
+            'The cell reinstall has been queued.',
+        );
     }
 
     public function retry(
@@ -152,32 +143,33 @@ class CellReinstallController extends CellBaseController
         string $id,
         CellNodeClient $cells,
         CellReinstallService $reinstall,
-    ): JsonResponse {
+    ): RedirectResponse {
         $cell = $this->panelCellOrFail($id);
 
         if (
             $cell->install_status
             !== CellInstallStatus::FAILED
         ) {
-            return response()->json([
-                'message' =>
+            return back()->withErrors([
+                'retry' =>
                     'Only failed installations can be retried.',
-            ], 409);
+            ]);
         }
 
         $workerCell = $cells->cell($cell);
 
         if (($workerCell['error'] ?? false) === true) {
-            return response()->json([
-                'message' => $workerCell['message']
+            return back()->withErrors([
+                'retry' => $workerCell['message']
                     ?? 'The node could not be contacted.',
-            ], 502);
+            ]);
         }
 
         if ($this->workerCellIsRunning($workerCell)) {
-            return response()->json([
-                'message' => 'Stop the cell before retrying installation.',
-            ], 409);
+            return back()->withErrors([
+                'retry' =>
+                    'Stop the cell before retrying installation.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -188,7 +180,7 @@ class CellReinstallController extends CellBaseController
         ]);
 
         try {
-            $updatedCell = $reinstall->retry(
+            $reinstall->retry(
                 cell: $cell,
                 startAfterInstall: (bool) (
                     $validated['start_on_completion']
@@ -198,22 +190,16 @@ class CellReinstallController extends CellBaseController
         } catch (Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'message' => $exception->getMessage()
+            return back()->withErrors([
+                'retry' => $exception->getMessage()
                     ?: 'The installation could not be retried.',
-            ], 500);
+            ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Installation has been queued again.',
-
-            'cell' => [
-                'id' => $updatedCell->id,
-                'install_status' =>
-                    $updatedCell->install_status->value,
-            ],
-        ]);
+        return back()->with(
+            'success',
+            'Installation has been queued again.',
+        );
     }
 
     public function installationStatus(string $id)
@@ -227,9 +213,11 @@ class CellReinstallController extends CellBaseController
             'install_status_label' => $cell->install_status?->label()
                 ?? ucfirst((string) $cell->install_status),
 
-            'install_failure_reason' => $cell->install_failure_reason,
+            'install_failure_reason' =>
+                $cell->install_failure_reason,
 
-            'installed_at' => $cell->installed_at?->toIso8601String(),
+            'installed_at' =>
+                $cell->installed_at?->toIso8601String(),
         ]);
     }
 
