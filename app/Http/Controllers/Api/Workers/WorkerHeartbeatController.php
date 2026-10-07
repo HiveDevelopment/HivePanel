@@ -86,9 +86,6 @@ class WorkerHeartbeatController extends Controller
          * If an update was dispatched more than three minutes ago and
          * the Worker is heartbeating again but is still reporting a
          * different version, the updater most likely rolled back.
-         *
-         * We deliberately only consider RESTARTING updates here.
-         * Queued/dispatching updates may not have reached the Worker yet.
          */
         WorkerUpdate::query()
             ->where('node_id', $node->id)
@@ -111,10 +108,6 @@ class WorkerHeartbeatController extends Controller
                         $workerUpdate->target_version
                     );
 
-                    /*
-                     * The completion block above normally catches this,
-                     * but don't mark it failed if the versions match.
-                     */
                     if (
                         $reportedVersion !== null
                         && $targetVersion === $reportedVersion
@@ -190,13 +183,13 @@ class WorkerHeartbeatController extends Controller
                 ),
                 'cells_memory_used_gb' => data_get(
                     $stats,
-                    'cells.memory_used_gb',
-                    0
+                    'cells.memory.used_gb',
+                    data_get($stats, 'cells.memory_used_gb', 0)
                 ),
                 'cells_disk_used_gb' => data_get(
                     $stats,
-                    'cells.disk_used_gb',
-                    0
+                    'cells.disk.used_gb',
+                    data_get($stats, 'cells.disk_used_gb', 0)
                 ),
 
                 'cells_total' => data_get(
@@ -214,10 +207,85 @@ class WorkerHeartbeatController extends Controller
             ]
         );
 
+        $allocations = $node->allocations()
+            ->orderBy('ip')
+            ->orderBy('port')
+            ->get(['ip', 'port'])
+            ->map(fn ($allocation) => [
+                'ip' => $allocation->ip,
+                'port' => (int) $allocation->port,
+            ])
+            ->values()
+            ->all();
+
+        $nativeTls = strtolower((string) $node->scheme) === 'https'
+            && ! (bool) $node->behind_proxy;
+
+        $publicHostname = trim(
+            (string) ($node->public_fqdn ?: $node->fqdn)
+        );
+
+        /*
+         * Heartbeats return the complete desired Worker configuration.
+         * HiveWorker compares this with its local configuration and only
+         * persists/restarts when something has actually changed.
+         *
+         * Worker credentials and node identity are intentionally omitted:
+         * they remain local to the registered Worker.
+         */
+        $configuration = [
+            'panel' => [
+                'url' => rtrim(config('app.url'), '/'),
+            ],
+
+            'worker' => [
+                'listen' => "0.0.0.0:{$node->daemon_port}",
+                'ssl' => [
+                    'enabled' => $nativeTls,
+                    'auto' => $nativeTls,
+                    'hostname' => $nativeTls
+                        ? $publicHostname
+                        : '',
+                    'email' => '',
+                    'cert' => '',
+                    'key' => '',
+                ],
+            ],
+
+            'sftp' => [
+                'enabled' => (bool) $node->sftp_enabled,
+                'listen' => "0.0.0.0:{$node->sftp_port}",
+                'public_fqdn' => $node->sftpHost(),
+                'public_port' => (int) $node->sftp_port,
+                'host_key_path' => '/etc/hivepanel/keys/sftp_host_ed25519',
+                'auth_timeout_seconds' => 10,
+            ],
+
+            'paths' => [
+                'data' => '/var/lib/hivepanel/data',
+                'instances' => '/var/lib/hivepanel/cells',
+                'backups' => '/var/lib/hivepanel/backups',
+                'backup_mounts' => '/var/lib/hivepanel/backup_mounts',
+            ],
+
+            'runtime' => [
+                'type' => 'docker',
+            ],
+
+            'docker' => [
+                'network' => 'hivepanel',
+            ],
+
+            'allocations' => [
+                'entries' => $allocations,
+            ],
+        ];
+
         return response()->json([
             'ok' => true,
             'node_id' => $node->id,
             'timestamp' => now()->toISOString(),
+            'configuration' => $configuration,
         ]);
     }
 
