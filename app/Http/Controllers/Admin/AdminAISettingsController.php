@@ -26,26 +26,99 @@ class AdminAISettingsController extends Controller
             'url' => ['nullable','string','max:255'],
         ]);
         $old = AppSettings::get('ai');
-        $providerChanged = ($old['provider'] ?? null) !== $data['provider'];
-        $encrypted = $providerChanged || ($data['clear_key'] ?? false) ? null : ($old['encrypted_key'] ?? null);
-        if (filled($data['api_key'] ?? null)) $encrypted = Crypt::encryptString(trim($data['api_key']));
-        if ($data['enabled'] && $data['provider'] !== 'ollama' && !$encrypted) {
+        $providers = $old['providers'] ?? [];
+        if (!empty($old['provider']) && !isset($providers[$old['provider']])) {
+            $providers[$old['provider']] = [
+                'encrypted_key' => $old['encrypted_key'] ?? null,
+                'model' => $old['model'] ?? '',
+                'url' => $old['url'] ?? null,
+            ];
+        }
+        $provider = $data['provider'];
+        $entry = $providers[$provider] ?? [];
+        $encrypted = ($data['clear_key'] ?? false) ? null : ($entry['encrypted_key'] ?? null);
+        if (filled($data['api_key'] ?? null)) {
+            $encrypted = Crypt::encryptString(trim($data['api_key']));
+        }
+        if ($data['enabled'] && $provider !== 'ollama' && !$encrypted) {
             throw ValidationException::withMessages(['api_key' => 'Enter an API key for this provider.']);
         }
         $url = $data['url'] ?: 'http://127.0.0.1:11434';
-        if ($data['provider'] === 'ollama') {
+        if ($provider === 'ollama') {
             $parts = parse_url($url);
             $host = strtolower($parts['host'] ?? '');
             if (!in_array($parts['scheme'] ?? '', ['http','https'], true) || !in_array($host, ['localhost','127.0.0.1','::1'], true) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
-                throw ValidationException::withMessages(['url' => 'For security, Ollama must use a local loopback address. Use a local reverse proxy or tunnel for remote inference.']);
+                throw ValidationException::withMessages(['url' => 'Only local loopback Ollama URLs are supported.']);
             }
         }
+        $providers[$provider] = ['encrypted_key' => $encrypted, 'model' => $data['model'], 'url' => $url];
         AppSetting::updateOrCreate(['key' => 'ai'], ['value' => [
-            'enabled' => $data['enabled'], 'provider' => $data['provider'],
+            'enabled' => $data['enabled'], 'provider' => $provider,
             'model' => $data['model'], 'url' => $url, 'encrypted_key' => $encrypted,
+            'providers' => $providers,
         ]]);
         AppSettings::clear('ai');
         return back()->with('success', 'Hive AI settings saved.');
+    }
+
+    public function models(Request $request)
+    {
+        $data = $request->validate([
+            'provider' => ['required', 'in:gemini,openai,openrouter,ollama'],
+            'api_key' => ['nullable', 'string', 'max:4096'],
+            'url' => ['nullable', 'string', 'max:255'],
+        ]);
+        $provider = $data['provider'];
+        $stored = AppSettings::get('ai');
+        $providers = $stored['providers'] ?? [];
+        $entry = $providers[$provider] ?? [];
+        if (($stored['provider'] ?? '') === $provider) {
+            $entry = array_merge(['encrypted_key' => $stored['encrypted_key'] ?? null, 'url' => $stored['url'] ?? null], $entry);
+        }
+        $key = trim($data['api_key'] ?? '');
+        if ($key === '' && !empty($entry['encrypted_key'])) {
+            $key = Crypt::decryptString($entry['encrypted_key']);
+        }
+        if ($provider !== 'ollama' && $key === '') {
+            return response()->json(['message' => 'Enter an API key or save one for this provider first.'], 422);
+        }
+        $url = $data['url'] ?? ($entry['url'] ?? 'http://127.0.0.1:11434');
+        if ($provider === 'ollama') {
+            $parts = parse_url($url);
+            if (!in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+                || !in_array(strtolower($parts['host'] ?? ''), ['127.0.0.1', 'localhost', '::1'], true)
+                || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+                return response()->json(['message' => 'Only loopback Ollama URLs are supported.'], 422);
+            }
+        }
+        $rateKey = 'ai-models:'.$request->user()->getAuthIdentifier();
+        if (RateLimiter::tooManyAttempts($rateKey, 12)) {
+            return response()->json(['message' => 'Too many model requests. Try again shortly.'], 429);
+        }
+        RateLimiter::hit($rateKey, 60);
+        try {
+            $http = \Illuminate\Support\Facades\Http::timeout(15)->acceptJson();
+            $response = match ($provider) {
+                'gemini' => $http->withHeaders(['x-goog-api-key' => $key])->get('https://generativelanguage.googleapis.com/v1beta/models', ['pageSize' => 1000]),
+                'openai' => $http->withToken($key)->get('https://api.openai.com/v1/models'),
+                'openrouter' => $http->withToken($key)->get('https://openrouter.ai/api/v1/models'),
+                'ollama' => $http->get(rtrim($url, '/').'/api/tags'),
+            };
+            if (!$response->successful()) {
+                $message = data_get($response->json(), 'error.message') ?: 'Provider returned HTTP '.$response->status();
+                return response()->json(['message' => mb_substr($message, 0, 300)], 422);
+            }
+            $items = match ($provider) {
+                'gemini' => collect($response->json('models') ?? [])->filter(fn ($m) => in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true))
+                    ->map(fn ($m) => ['id' => preg_replace('~^models/~', '', $m['name'] ?? ''), 'name' => $m['displayName'] ?? ($m['name'] ?? '')]),
+                'ollama' => collect($response->json('models') ?? [])->map(fn ($m) => ['id' => $m['name'] ?? '', 'name' => $m['name'] ?? '']),
+                default => collect($response->json('data') ?? [])->map(fn ($m) => ['id' => $m['id'] ?? '', 'name' => $m['name'] ?? ($m['id'] ?? '')]),
+            };
+            return response()->json(['models' => $items->filter(fn ($m) => $m['id'] !== '')->sortBy('id')->values()->all()]);
+        } catch (Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Could not retrieve models. Check provider connectivity and server logs.'], 422);
+        }
     }
 
     public function test(Request $request)

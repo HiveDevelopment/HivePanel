@@ -66,7 +66,7 @@ class AdminSettingsController extends Controller
     private function safeAISettings(): array
     {
         $settings = \App\AI\AISettings::current();
-        return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key'])];
+        return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key']), 'providers' => collect(\App\Support\AppSettings::get('ai')['providers'] ?? [])->map(fn ($v) => ['has_key' => !empty($v['encrypted_key']), 'model' => $v['model'] ?? ''])->all()];
     }
 
     public function updateGeneral(Request $request)

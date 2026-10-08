@@ -135,6 +135,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::patch('/ai', [\App\Http\Controllers\Admin\AdminAISettingsController::class, 'update'])->name('ai.update');
             Route::post('/ai/test', [\App\Http\Controllers\Admin\AdminAISettingsController::class, 'test'])->name('ai.test');
+            Route::post('/ai/models', [\App\Http\Controllers\Admin\AdminAISettingsController::class, 'models'])->name('ai.models');
             Route::patch('/general', [AdminSettingsController::class, 'updateGeneral'])->name('general.update');
             Route::patch('/security', [AdminSettingsController::class, 'updateSecurity'])->name('security.update');
             Route::patch('/mail', [AdminSettingsController::class, 'updateMail'])->name('mail.update');
