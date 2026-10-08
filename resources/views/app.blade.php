@@ -4,7 +4,7 @@
         @php
             $generalSettings = \App\Support\AppSettings::general();
             $appName = $generalSettings['company_name'] ?? config('app.name', 'HivePanel');
-            $appIcon = $generalSettings['company_favicon' ?? asset('favicon.ico')];
+            $appIcon = $generalSettings['company_favicon'] ?? asset('favicon.ico');
         @endphp
 
         <meta charset="utf-8">
