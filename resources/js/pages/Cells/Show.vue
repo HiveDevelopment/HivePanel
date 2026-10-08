@@ -32,6 +32,53 @@ const consoleEl = ref<HTMLElement | null>(null)
 const popoutConsoleEl = ref<HTMLElement | null>(null)
 
 const consolePoppedOut = ref(false)
+const aiDialog = ref(false)
+const aiBusy = ref(false)
+const aiAnswer = ref('')
+const aiQuestion = ref('')
+const consoleHiddenUntil = ref(0)
+const visibleConsoleLines = computed(() => consoleLines.value.slice(consoleHiddenUntil.value))
+
+function clearVisibleConsole() {
+    consoleHiddenUntil.value = consoleLines.value.length
+}
+
+async function askConsoleAI() {
+    if (!cellId.value || aiBusy.value) return
+    aiBusy.value = true
+    aiAnswer.value = ''
+    try {
+        const response = await fetch(route('cells.console-ai', cellId.value), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+            body: JSON.stringify({
+                lines: visibleConsoleLines.value.slice(-100).map(line => line.message.slice(0, 2000)),
+                question: aiQuestion.value,
+            }),
+        })
+        const result = await response.json()
+        aiAnswer.value = response.ok ? result.answer : (result.message ?? 'AI request failed.')
+    } catch {
+        aiAnswer.value = 'Could not contact HivePanel AI.'
+    } finally {
+        aiBusy.value = false
+    }
+}
+
+function exportConsole() {
+    const text = visibleConsoleLines.value.map(line => `[${formatConsoleTime(line.timestamp)}] ${line.message}`).join('\n')
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `hivepanel-console-${cellId.value}.log`
+    link.click()
+    URL.revokeObjectURL(url)
+}
+
 
 type ChartPoint = {
     x: number
@@ -835,37 +882,25 @@ function restartCell() {
                                         ref="consoleEl"
                                         class="relative h-[320px] overflow-y-auto rounded-button border border-zinc-800 bg-black p-4 text-[12px] leading-6 text-zinc-300 sm:h-[385px] sm:p-6 sm:text-[13px] font-mono"
                                     >
-                                        <div
-                                            class="absolute right-3 top-3 z-10 flex gap-2 sm:right-4 sm:top-4"
-                                        >
-                                            <button
-                                                class="rounded-button border border-zinc-800 bg-surface-light px-3 py-2 font-sans text-xs font-bold text-zinc-200 transition hover:border-hive hover:text-hive"
-                                                @click="consolePoppedOut = true"
-                                            >
-                                                ⛶
-                                            </button>
-
-                                            <button
-                                                class="rounded-button border border-zinc-800 bg-surface-light px-3 py-2 font-sans text-xs font-bold text-zinc-200 transition hover:border-hive hover:text-hive"
-                                                @click="clearConsole"
-                                            >
-                                                ♲
-                                            </button>
+                                        <div class="sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-end gap-2 bg-black/90 py-1 font-sans">
+                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="aiDialog = true">Ask AI</button>
+                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="exportConsole" title="Download console text until HivePaste API is configured">Export console</button>
+                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="clearVisibleConsole">Clear Console</button>
+                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="consolePoppedOut = true">Fullscreen</button>
                                         </div>
-
                                         <div
-                                            v-if="consoleLines.length === 0"
+                                            v-if="visibleConsoleLines.length === 0"
                                             class="text-zinc-600"
                                         >
                                             No console output yet.
                                         </div>
 
                                         <div
-                                            v-for="(line, index) in consoleLines"
+                                            v-for="(line, index) in visibleConsoleLines"
                                             :key="index"
                                             :class="consoleLineClass(line.message)"
                                         >
-                                            <span class="mr-3 select-none text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
+                                            <span class="mr-3 select-text text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
                                         </div>
                                     </div>
 
@@ -1109,6 +1144,15 @@ function restartCell() {
             </main>
         </div>
 
+        <div v-if="aiDialog" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+            <div class="w-full max-w-2xl rounded-panel border border-zinc-700 bg-surface p-5">
+                <div class="mb-4 flex justify-between"><h2 class="font-bold">Ask AI about console output</h2><button @click="aiDialog = false">Close</button></div>
+                <textarea v-model="aiQuestion" class="mb-3 w-full rounded bg-black p-3 text-sm" rows="2" placeholder="What is causing these errors?" />
+                <button :disabled="aiBusy || visibleConsoleLines.length === 0" class="rounded bg-hive px-4 py-2 font-semibold text-black disabled:opacity-50" @click="askConsoleAI">{{ aiBusy ? 'Analysing…' : 'Analyse last 100 lines' }}</button>
+                <pre class="mt-4 max-h-[55vh] overflow-auto whitespace-pre-wrap text-sm text-zinc-200">{{ aiAnswer }}</pre>
+            </div>
+        </div>
+
         <div
             v-if="consolePoppedOut"
             class="fixed inset-0 z-50 bg-black/80 p-4 backdrop-blur-sm"
@@ -1144,11 +1188,11 @@ function restartCell() {
                     class="flex-1 overflow-y-auto rounded-button border border-zinc-800 bg-black p-5 text-sm leading-6 font-mono"
                 >
                     <div
-                        v-for="(line, index) in consoleLines"
+                        v-for="(line, index) in visibleConsoleLines"
                         :key="index"
                         :class="consoleLineClass(line.message)"
                     >
-                        <span class="mr-3 select-none text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
+                        <span class="mr-3 select-text text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
                     </div>
                 </div>
 

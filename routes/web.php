@@ -215,6 +215,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{id}/console-json', [CellConsoleController::class, 'consoleJson'])->name('console-json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
         Route::post('/{id}/command', [CellConsoleController::class, 'command'])->name('command')->middleware('cell.permission:' . CellPermissions::CONSOLE_SEND);
         Route::post('/{id}/console-session', [CellConsoleController::class, 'consoleSession'])->name('console-session')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
+        Route::post('/{id}/console-ai', [CellConsoleController::class, 'explainConsole'])->name('console-ai')->middleware(['cell.permission:' . CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
 
         Route::get('/{id}/activity', [CellActivityController::class, 'index'])->name('activity')->middleware('cell.permission:' . CellPermissions::ACTIVITY_VIEW);
         Route::get('/{id}/activity-json', [CellActivityController::class, 'json'])->name('activity-json')->middleware('cell.permission:' . CellPermissions::ACTIVITY_VIEW);
