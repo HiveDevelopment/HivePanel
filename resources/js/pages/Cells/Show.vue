@@ -3,7 +3,8 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import CellHeader from '@/components/cells/CellHeader.vue'
 import StatChartCard from '@/components/cells/StatChartCard.vue'
 import { Head } from '@inertiajs/vue3'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { Clock3, Network, Cpu, MemoryStick, HardDrive, ArrowDownUp, Server, Globe2, Sparkles, X, Terminal, FileText, ArrowUp, ShieldCheck, Copy, Check, LoaderCircle } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 type CellStatus = 'offline' | 'starting' | 'running' | 'stopping'
 
@@ -36,8 +37,72 @@ const aiDialog = ref(false)
 const aiBusy = ref(false)
 const aiAnswer = ref('')
 const aiQuestion = ref('')
+const aiCopied = ref(false)
+const aiSuggestions = ['Explain these errors', 'Why did my server crash?', 'Suggest fixes']
+
+async function copyAiAnswer() {
+    if (!aiAnswer.value) return
+    try {
+        await navigator.clipboard.writeText(aiAnswer.value)
+        aiCopied.value = true
+        window.setTimeout(() => { aiCopied.value = false }, 1800)
+    } catch {
+        aiCopied.value = false
+    }
+}
 const consoleHiddenUntil = ref(0)
 const visibleConsoleLines = computed(() => consoleLines.value.slice(consoleHiddenUntil.value))
+
+let detachedConsole: Window | null = null
+
+function syncDetachedConsole() {
+    if (!detachedConsole || detachedConsole.closed) {
+        detachedConsole = null
+        return
+    }
+    const output = detachedConsole.document.getElementById('console-output')
+    if (!output) return
+    const atBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 80
+    output.textContent = visibleConsoleLines.value
+        .map(line => `${formatConsoleTime(line.timestamp)}  ${line.message}`)
+        .join('\n')
+    if (atBottom) output.scrollTop = output.scrollHeight
+}
+
+function popOutConsole() {
+    if (detachedConsole && !detachedConsole.closed) {
+        detachedConsole.focus()
+        return
+    }
+    const popup = window.open('', `hivepanel-console-${cellId.value}`, 'width=1100,height=720,resizable=yes,scrollbars=yes')
+    if (!popup) {
+        window.alert('Allow pop-ups for HivePanel to open the console in a separate window.')
+        return
+    }
+    detachedConsole = popup
+    // No server text is written as HTML; it is inserted using textContent.
+    popup.document.open()
+    popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>HivePanel Console</title><style>
+        *{box-sizing:border-box}body{margin:0;background:#101114;color:#e4e4e7;font:13px ui-monospace,SFMono-Regular,Consolas,monospace}
+        main{height:100vh;display:flex;flex-direction:column;padding:14px;gap:10px}
+        header{display:flex;justify-content:space-between;align-items:center;font:600 14px system-ui;color:#f4f4f5}
+        #console-output{flex:1;overflow:auto;background:#050505;border:1px solid #27272a;border-radius:8px;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;line-height:1.6}
+        form{display:flex;gap:10px}input{flex:1;min-width:0;background:#18181b;color:white;border:1px solid #3f3f46;border-radius:8px;padding:12px}button{border:1px solid #3f3f46;border-radius:8px;background:#27272a;color:white;padding:10px 15px;cursor:pointer}
+        </style></head><body><main><header><span>HivePanel · Console</span><span id="connection-state"></span></header><div id="console-output"></div><form id="command-form"><input id="command-input" placeholder="Enter a command..." autocomplete="off"><button type="submit">Send</button></form></main></body></html>`)
+    popup.document.close()
+    const form = popup.document.getElementById('command-form') as HTMLFormElement | null
+    form?.addEventListener('submit', (event) => {
+        event.preventDefault()
+        const input = popup.document.getElementById('command-input') as HTMLInputElement | null
+        if (!input || !input.value.trim() || !canUseRuntime.value || isLocked.value) return
+        command.value = input.value
+        input.value = ''
+        void sendCommand()
+    })
+    syncDetachedConsole()
+}
+
+watch(visibleConsoleLines, () => syncDetachedConsole(), { deep: true })
 
 function clearVisibleConsole() {
     consoleHiddenUntil.value = consoleLines.value.length
@@ -606,6 +671,7 @@ onUnmounted(() => {
     }
 
     stopConsolePolling()
+    if (detachedConsole && !detachedConsole.closed) detachedConsole.close()
 })
 
 function normaliseStatus(
@@ -861,9 +927,9 @@ function restartCell() {
     >
         <Head :title="cell.name" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
-            <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-                <div class="mx-auto space-y-5">
+        <div class="min-h-screen min-w-0 max-w-full bg-surface-dark text-white">
+            <main class="min-w-0 max-w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+                <div class="mx-auto w-full min-w-0 max-w-full space-y-5">
                     <CellHeader
                         :cell="cell"
                         :current-status="currentStatus"
@@ -872,22 +938,25 @@ function restartCell() {
                         @stop="stopCell"
                     />
 
-                    <div class="grid gap-4 xl:grid-cols-[1fr_355px]">
-                        <div class="space-y-4">
+                    <div class="grid min-w-0 max-w-full gap-4 xl:grid-cols-[minmax(0,1fr)_355px]">
+                        <div class="min-w-0 space-y-4">
                             <section
-                                class="overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]"
+                                class="min-w-0 max-w-full overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]"
                             >
-                                <div class="p-3">
-                                    <div
-                                        ref="consoleEl"
-                                        class="relative h-[320px] overflow-y-auto rounded-button border border-zinc-800 bg-black p-4 text-[12px] leading-6 text-zinc-300 sm:h-[385px] sm:p-6 sm:text-[13px] font-mono"
-                                    >
-                                        <div class="sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-end gap-2 bg-black/90 py-1 font-sans">
-                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="aiDialog = true">Ask AI</button>
-                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="exportConsole" title="Download console text until HivePaste API is configured">Export console</button>
-                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="clearVisibleConsole">Clear Console</button>
-                                            <button class="rounded border border-zinc-700 px-2 py-1 text-xs hover:text-hive" @click="consolePoppedOut = true">Fullscreen</button>
+                                <div class="min-w-0 p-3">
+                                    <div class="relative min-w-0 max-w-full">
+                                        <div class="absolute right-3 top-2 z-20 flex items-center gap-1 font-sans">
+                                            <button type="button" class="rounded p-1.5 text-zinc-500 transition hover:text-white focus-visible:outline focus-visible:outline-hive" title="Pop out console" aria-label="Pop out console" @click="popOutConsole">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/></svg>
+                                            </button>
+                                            <button type="button" class="rounded p-1.5 text-zinc-500 transition hover:text-white focus-visible:outline focus-visible:outline-hive" title="Fullscreen console" aria-label="Fullscreen console" @click="consolePoppedOut = true">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+                                            </button>
                                         </div>
+                                        <div
+                                            ref="consoleEl"
+                                            class="h-[320px] w-full min-w-0 max-w-full overflow-auto rounded-button border border-zinc-800 bg-black p-4 text-[12px] leading-6 text-zinc-300 sm:h-[385px] sm:p-6 sm:text-[13px] font-mono"
+                                        >
                                         <div
                                             v-if="visibleConsoleLines.length === 0"
                                             class="text-zinc-600"
@@ -902,6 +971,7 @@ function restartCell() {
                                         >
                                             <span class="mr-3 select-text text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span><span>{{ line.message }}</span>
                                         </div>
+                                        </div>
                                     </div>
 
                                     <div
@@ -910,10 +980,6 @@ function restartCell() {
                                         <div
                                             class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4"
                                         >
-                                            <span class="text-xl text-hive">
-                                                ⌬
-                                            </span>
-
                                             <input
                                                 v-model="command"
                                                 :disabled="isLocked || !canUseRuntime"
@@ -927,6 +993,14 @@ function restartCell() {
                                                 "
                                                 @keydown.enter.prevent="sendCommand"
                                             />
+
+                                            <div class="flex shrink-0 items-center gap-1.5 font-sans">
+                                                <button type="button" class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive" @click="aiDialog = true">Ask AI</button>
+                                                <button type="button" class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive" title="Download console log" @click="exportConsole">Export</button>
+                                                <button type="button" class="rounded p-1.5 text-zinc-500 transition hover:text-red-400" title="Clear console display" aria-label="Clear console display" @click="clearVisibleConsole">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>
+                                                </button>
+                                            </div>
 
                                             <button
                                                 class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:translate-x-0"
@@ -954,7 +1028,7 @@ function restartCell() {
                                 </div>
                             </section>
 
-                            <div class="grid gap-4 xl:grid-cols-3">
+                            <div class="grid min-w-0 max-w-full gap-4 md:grid-cols-3">
                                 <StatChartCard
                                     title="CPU Load"
                                     :value="`${(liveStats.cpu ?? 0).toFixed(2)}%`"
@@ -980,160 +1054,94 @@ function restartCell() {
                             </div>
                         </div>
 
-                        <aside class="space-y-4">
-                            <section
-                                class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6"
-                            >
-                                <h2
-                                    class="text-sm font-black uppercase tracking-wide text-zinc-400"
-                                >
+                        <aside class="min-w-0 space-y-4">
+                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                                     Server Information
                                 </h2>
 
-                                <div class="mt-6 space-y-5">
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive shadow-hive-soft"
-                                        >
-                                            ◷
+                                <div class="mt-5 space-y-4">
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <Clock3 :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Uptime
-                                            </div>
-
-                                            <div class="text-lg font-black">
-                                                {{ formatUptime(liveStats.uptime_sec) }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Uptime</div>
+                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ formatUptime(liveStats.uptime_sec) }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
-                                        >
-                                            ⌁
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <Network :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Address
-                                            </div>
-
-                                            <div class="break-all text-lg font-black">
-                                                {{ cell.allocation?.ip ?? '127.0.0.1' }}:{{ cell.allocation?.port ?? '25565' }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Address</div>
+                                            <div class="break-all text-sm font-semibold tabular-nums text-zinc-100">{{ cell.allocation?.ip ?? '—' }}:{{ cell.allocation?.port ?? '—' }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
-                                        >
-                                            ▥
+                                    <div class="border-t border-zinc-800/70" />
+
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <Cpu :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                CPU Load
-                                            </div>
-
-                                            <div class="text-lg font-black">
-                                                {{ (liveStats.cpu ?? 0).toFixed(2) }}%
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">CPU Load</div>
+                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ (liveStats.cpu ?? 0).toFixed(2) }}%</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
-                                        >
-                                            ▣
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <MemoryStick :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Memory
-                                            </div>
-
-                                            <div class="text-lg font-black">
-                                                {{ formatMemoryUsed() }} / {{ formatMemoryLimit() }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Memory</div>
+                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ formatMemoryUsed() }} / {{ formatMemoryLimit() }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-hive/10 text-xl text-hive"
-                                        >
-                                            ▰
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <HardDrive :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Disk
-                                            </div>
-
-                                            <div class="text-lg font-black">
-                                                {{ formatDiskUsed() }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Disk</div>
+                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ formatDiskUsed() }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
-                                        >
-                                            ⇅
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <ArrowDownUp :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Network
-                                            </div>
-
-                                            <div class="text-sm font-black">
-                                                ↓ {{ formatBytes(liveStats.network_rx_bytes) }}
-                                                /
-                                                ↑ {{ formatBytes(liveStats.network_tx_bytes) }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Network</div>
+                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">↓ {{ formatBytes(liveStats.network_rx_bytes) }} / ↑ {{ formatBytes(liveStats.network_tx_bytes) }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
-                                        >
-                                            ▤
+                                    <div class="border-t border-zinc-800/70" />
+
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <Server :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                Node
-                                            </div>
-
-                                            <div class="text-lg font-black">
-                                                {{ cell.node?.name ?? 'worker-01' }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">Node</div>
+                                            <div class="break-all text-sm font-semibold text-zinc-100">{{ cell.node?.name ?? '—' }}</div>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div
-                                            class="flex h-12 w-12 items-center justify-center rounded-button bg-surface-light text-xl text-zinc-200"
-                                        >
-                                            🕒
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400">
+                                            <Globe2 :size="17" :stroke-width="1.75" />
                                         </div>
-
-                                        <div>
-                                            <div class="text-sm text-zinc-500">
-                                                UTC Time
-                                            </div>
-
-                                            <div class="font-mono text-lg font-black">
-                                                {{ formatUtcTime() }}
-                                            </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs text-zinc-500">UTC Time</div>
+                                            <div class="font-mono text-sm font-semibold tabular-nums text-zinc-100">{{ formatUtcTime() }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1144,12 +1152,93 @@ function restartCell() {
             </main>
         </div>
 
-        <div v-if="aiDialog" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
-            <div class="w-full max-w-2xl rounded-panel border border-zinc-700 bg-surface p-5">
-                <div class="mb-4 flex justify-between"><h2 class="font-bold">Ask AI about console output</h2><button @click="aiDialog = false">Close</button></div>
-                <textarea v-model="aiQuestion" class="mb-3 w-full rounded bg-black p-3 text-sm" rows="2" placeholder="What is causing these errors?" />
-                <button :disabled="aiBusy || visibleConsoleLines.length === 0" class="rounded bg-hive px-4 py-2 font-semibold text-black disabled:opacity-50" @click="askConsoleAI">{{ aiBusy ? 'Analysing…' : 'Analyse last 100 lines' }}</button>
-                <pre class="mt-4 max-h-[55vh] overflow-auto whitespace-pre-wrap text-sm text-zinc-200">{{ aiAnswer }}</pre>
+        <div
+            v-if="aiDialog"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            @keydown.esc="aiDialog = false"
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="hive-ai-title"
+                class="flex max-h-[min(90vh,850px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#101216] shadow-2xl"
+            >
+                <div class="flex shrink-0 items-center gap-3 border-b border-zinc-800/80 px-5 py-4">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400">
+                        <Sparkles :size="20" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h2 id="hive-ai-title" class="text-base font-semibold text-zinc-100">Hive AI</h2>
+                        <p class="text-xs text-zinc-500">Console assistant</p>
+                    </div>
+                    <button type="button" aria-label="Close AI assistant" class="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white" @click="aiDialog = false">
+                        <X :size="18" />
+                    </button>
+                </div>
+
+                <div class="min-h-0 space-y-4 overflow-y-auto px-5 py-5">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300">
+                            <Terminal :size="13" class="shrink-0" /><span class="truncate">{{ cell.name }}</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400">
+                            <FileText :size="13" /> Last {{ Math.min(100, visibleConsoleLines.length) }} console lines
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl border border-zinc-800 bg-[#0b0d10] p-3 focus-within:border-orange-500/50">
+                        <label for="hive-ai-question" class="mb-2 block text-xs font-medium text-zinc-400">What would you like help with?</label>
+                        <textarea
+                            id="hive-ai-question"
+                            v-model="aiQuestion"
+                            rows="3"
+                            class="block w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0"
+                            placeholder="What caused my server to stop during startup?"
+                            @keydown.ctrl.enter.prevent="askConsoleAI"
+                            @keydown.meta.enter.prevent="askConsoleAI"
+                        />
+                        <div class="mt-3 flex justify-end">
+                            <button
+                                type="button"
+                                :disabled="aiBusy || visibleConsoleLines.length === 0 || !aiQuestion.trim()"
+                                class="inline-flex items-center gap-2 rounded-lg bg-hive px-3 py-2 text-xs font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                                @click="askConsoleAI"
+                            >
+                                <LoaderCircle v-if="aiBusy" :size="15" class="animate-spin" />
+                                <ArrowUp v-else :size="15" />
+                                {{ aiBusy ? 'Analysing…' : 'Ask Hive AI' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            v-for="suggestion in aiSuggestions"
+                            :key="suggestion"
+                            type="button"
+                            class="rounded-full border border-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-orange-500/40 hover:text-zinc-100"
+                            @click="aiQuestion = suggestion"
+                        >{{ suggestion }}</button>
+                    </div>
+
+                    <div v-if="aiBusy" role="status" class="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-400">
+                        <LoaderCircle :size="16" class="animate-spin text-orange-400" /> Analysing console output…
+                    </div>
+                    <section v-if="aiAnswer" class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+                        <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                            <span class="inline-flex items-center gap-2 text-sm font-semibold text-zinc-200"><Sparkles :size="15" class="text-orange-400" /> AI response</span>
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-white" @click="copyAiAnswer">
+                                <Check v-if="aiCopied" :size="14" /><Copy v-else :size="14" />{{ aiCopied ? 'Copied' : 'Copy' }}
+                            </button>
+                        </div>
+                        <div class="whitespace-pre-wrap break-words px-4 py-4 text-sm leading-7 text-zinc-300 select-text">{{ aiAnswer }}</div>
+                    </section>
+
+                    <div class="flex items-start gap-2 rounded-xl border border-zinc-800/70 bg-zinc-900/40 p-3">
+                        <ShieldCheck :size="16" class="mt-0.5 shrink-0 text-zinc-400" />
+                        <p class="text-xs leading-5 text-zinc-500">The latest console output is sent with your question to the configured AI provider. Check logs for secrets before submitting.</p>
+                    </div>
+                </div>
             </div>
         </div>
 
