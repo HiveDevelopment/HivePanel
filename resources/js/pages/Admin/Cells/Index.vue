@@ -259,9 +259,9 @@ function formatDate(value?: string) {
     <AppLayout :context="'admin'">
         <Head title="Cells" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
-            <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-                <div class="mx-auto space-y-5">
+        <div class="min-h-screen min-w-0 bg-surface-dark text-white">
+            <main class="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+                <div class="mx-auto min-w-0 max-w-full space-y-5">
                     <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div class="flex items-center gap-3">
@@ -357,7 +357,7 @@ function formatDate(value?: string) {
                         </div>
                     </section>
 
-                    <section class="rounded-panel border border-zinc-800 bg-surface">
+                    <section class="min-w-0 rounded-panel border border-zinc-800 bg-surface">
                         <div class="border-b border-zinc-800 p-5 sm:p-6">
                             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                                 <div>
@@ -378,7 +378,7 @@ function formatDate(value?: string) {
                                             v-model="search"
                                             type="search"
                                             placeholder="Search Cells..."
-                                            class="w-full min-w-[260px] rounded-button border border-zinc-800 bg-[#0d0f11] py-2.5 pl-10 pr-4 text-sm font-bold text-white outline-none transition placeholder:text-zinc-700 focus:border-hive sm:w-auto"
+                                            class="w-full min-w-0 rounded-button border border-zinc-800 bg-[#0d0f11] py-2.5 pl-10 pr-4 text-sm font-bold text-white outline-none transition placeholder:text-zinc-700 focus:border-hive sm:w-auto"
                                         />
                                     </div>
 
@@ -430,177 +430,82 @@ function formatDate(value?: string) {
                             </p>
                         </div>
 
-                        <div v-else class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-zinc-800">
+                        <div v-else class="min-w-0 w-full">
+                            <!-- Mobile and tablet: stacked cards avoid a seven-column table. -->
+                            <div class="grid gap-3 p-3 lg:hidden">
+                                <article v-for="cell in filteredCells" :key="cell.id" class="min-w-0 rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                    <div class="flex min-w-0 items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <Link :href="`/admin/cells/${cell.id}`" class="block truncate text-sm font-black text-white hover:text-hive">{{ cell.name }}</Link>
+                                            <div class="mt-1 truncate font-mono text-[11px] text-zinc-500">{{ cell.daemon_id ? cell.daemon_id.slice(0, 8) : 'No daemon ID' }}</div>
+                                        </div>
+                                        <span class="max-w-[55%] shrink-0 truncate rounded-full border px-2 py-1 text-[10px] font-bold" :class="installStatusClass(cell.install_status)" :title="cell.install_failure_reason || syncStatusDescription(cell)">{{ cell.install_status_label || cell.install_status || 'Unknown' }}</span>
+                                    </div>
+                                    <dl class="mt-4 grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 text-xs">
+                                        <div class="min-w-0"><dt class="text-zinc-500">Owner</dt><dd class="mt-1 truncate font-semibold text-zinc-200">{{ cell.owner?.name || 'Unknown' }}</dd></div>
+                                        <div class="min-w-0"><dt class="text-zinc-500">Node</dt><dd class="mt-1 truncate font-semibold text-zinc-200">{{ cell.node?.name || 'Unknown' }}</dd></div>
+                                        <div class="min-w-0"><dt class="text-zinc-500">Allocation</dt><dd class="mt-1 truncate font-mono text-zinc-200" :title="cell.allocation ? `${cell.allocation.ip}:${cell.allocation.port}` : ''">{{ cell.allocation ? `${cell.allocation.ip}:${cell.allocation.port}` : 'Unassigned' }}</dd></div>
+                                        <div class="min-w-0"><dt class="text-zinc-500">Comb</dt><dd class="mt-1 truncate font-semibold text-zinc-200">{{ cell.comb || 'None' }}</dd></div>
+                                    </dl>
+                                    <p v-if="['out_of_sync', 'missing', 'unreachable', 'error'].includes(cell.worker_sync?.status)" class="mt-3 truncate text-xs text-status-warning" :title="syncStatusDescription(cell)">Worker sync issue</p>
+                                    <div class="mt-4 flex items-center gap-2 border-t border-zinc-800 pt-3">
+                                        <Link :href="`/admin/cells/${cell.id}`" class="inline-flex flex-1 items-center justify-center gap-2 rounded-button border border-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200"><Eye class="size-4" /> View</Link>
+                                        <Link :href="`/admin/cells/${cell.id}/edit`" class="inline-flex flex-1 items-center justify-center gap-2 rounded-button border border-zinc-800 px-3 py-2 text-xs font-bold text-zinc-200"><Edit class="size-4" /> Edit</Link>
+                                        <button type="button" class="rounded-button border border-status-danger/40 p-2 text-status-danger" title="Delete Cell" aria-label="Delete Cell" @click="confirmDelete(cell)"><Trash2 class="size-4" /></button>
+                                    </div>
+                                </article>
+                            </div>
+                            <div class="hidden w-full min-w-0 overflow-x-auto lg:block">
+                            <table class="w-full table-fixed divide-y divide-zinc-800">
                                 <thead class="bg-[#0d0f11]">
                                     <tr>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Cell</th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Owner</th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Node</th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Allocation</th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Comb</th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Install Status
-                                        </th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Worker Sync
-                                        </th>
-                                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Created</th>
-                                        <th class="px-5 py-4 text-right text-xs font-black uppercase tracking-wide text-zinc-500">Actions</th>
+                                        <th class="w-[22%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Cell</th>
+                                        <th class="w-[16%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Owner</th>
+                                        <th class="w-[12%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Node</th>
+                                        <th class="w-[16%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Allocation</th>
+                                        <th class="w-[12%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Comb</th>
+                                        <th class="w-[12%] px-3 py-4 text-left text-xs font-black uppercase tracking-wide text-zinc-500">Status</th>
+                                        <th class="w-[10%] px-3 py-4 text-right text-xs font-black uppercase tracking-wide text-zinc-500">Actions</th>
                                     </tr>
                                 </thead>
-
                                 <tbody class="divide-y divide-zinc-800">
-                                    <tr
-                                        v-for="cell in filteredCells"
-                                        :key="cell.id"
-                                        class="transition hover:bg-surface-light/40"
-                                    >
-                                        <td class="px-5 py-4">
-                                            <Link
-                                                :href="`/admin/cells/${cell.id}`"
-                                                class="font-black text-white transition hover:text-hive"
-                                            >
+                                    <tr v-for="cell in filteredCells" :key="cell.id" class="transition hover:bg-surface-light/40">
+                                        <td class="min-w-0 px-3 py-4">
+                                            <Link :href="`/admin/cells/${cell.id}`" class="block truncate text-sm font-black text-white transition hover:text-hive" :title="cell.name">
                                                 {{ cell.name }}
                                             </Link>
-                                            <div class="mt-1 font-mono text-xs text-zinc-500">
-                                                {{ cell.daemon_id || 'No daemon ID' }}
-                                            </div>
+                                            <span class="mt-1 block truncate font-mono text-[11px] text-zinc-500" :title="cell.daemon_id || ''">{{ cell.daemon_id ? cell.daemon_id.slice(0, 8) : 'No daemon ID' }}</span>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <div class="flex items-center gap-2 text-sm font-bold text-zinc-300">
-                                                <User class="size-4 text-zinc-500" />
-                                                <span>{{ cell.owner?.name || 'Unknown' }}</span>
-                                            </div>
-                                            <div class="mt-1 text-xs text-zinc-500">
-                                                {{ cell.owner?.email || 'No email' }}
-                                            </div>
+                                        <td class="min-w-0 px-3 py-4">
+                                            <div class="truncate text-sm font-bold text-zinc-300" :title="cell.owner?.email || ''">{{ cell.owner?.name || 'Unknown' }}</div>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <div class="flex items-center gap-2 text-sm font-bold text-zinc-300">
-                                                <Server class="size-4 text-zinc-500" />
-                                                <span>{{ cell.node?.name || 'Unknown' }}</span>
-                                            </div>
-                                            <div class="mt-1 text-xs text-zinc-500">
-                                                {{ cell.node?.location || 'No location' }}
-                                            </div>
+                                        <td class="min-w-0 px-3 py-4">
+                                            <div class="truncate text-sm font-bold text-zinc-300">{{ cell.node?.name || 'Unknown' }}</div>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <div v-if="cell.allocation">
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <span class="font-mono text-sm font-black text-white">
-                                                        {{ cell.allocation.ip }}:{{ cell.allocation.port }}
-                                                    </span>
-
-                                                    <span class="inline-flex rounded-full border border-hive/30 bg-hive/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-hive">
-                                                        Primary
-                                                    </span>
-                                                </div>
-
-                                                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                                                    <span v-if="cell.allocation?.alias">
-                                                        {{ cell.allocation.alias }}
-                                                    </span>
-
-                                                    <span v-if="cell.additional_allocations?.length">
-                                                        +{{ cell.additional_allocations.length }} additional
-                                                    </span>
-
-                                                    <span v-else>
-                                                        No additional allocations
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div v-else class="text-sm font-bold text-status-warning">
-                                                No primary allocation
-                                            </div>
+                                        <td class="min-w-0 px-3 py-4">
+                                            <div v-if="cell.allocation" class="truncate font-mono text-xs font-bold text-white" :title="`${cell.allocation.ip}:${cell.allocation.port}`">{{ cell.allocation.ip }}:{{ cell.allocation.port }}</div>
+                                            <span v-else class="text-xs text-status-warning">Unassigned</span>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <div class="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-[#0d0f11] px-3 py-1 text-xs font-black text-zinc-300">
-                                                <HardDrive class="size-3" />
-                                                {{ cell.comb }}
-                                            </div>
+                                        <td class="min-w-0 px-3 py-4">
+                                            <div class="truncate text-xs font-bold text-zinc-300" :title="cell.comb">{{ cell.comb || 'None' }}</div>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <span
-                                                class="inline-flex rounded-full border px-3 py-1 text-xs font-black"
-                                                :class="installStatusClass(cell.install_status)"
-                                            >
+                                        <td class="min-w-0 px-3 py-4">
+                                            <span class="inline-block max-w-full truncate rounded-full border px-2 py-1 align-middle text-[11px] font-bold" :class="installStatusClass(cell.install_status)" :title="cell.install_failure_reason || syncStatusDescription(cell)">
                                                 {{ cell.install_status_label || cell.install_status || 'Unknown' }}
                                             </span>
-
-                                            <div
-                                                v-if="cell.install_status === 'failed' && cell.install_failure_reason"
-                                                class="mt-1 max-w-[260px] truncate text-xs text-status-danger"
-                                                :title="cell.install_failure_reason"
-                                            >
-                                                {{ cell.install_failure_reason }}
-                                            </div>
+                                            <div v-if="['out_of_sync', 'missing', 'unreachable', 'error'].includes(cell.worker_sync?.status)" class="mt-1 truncate text-[11px] text-status-warning" :title="syncStatusDescription(cell)">Sync issue</div>
                                         </td>
-
-                                        <td class="px-5 py-4">
-                                            <div>
-                                                <span
-                                                    class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black"
-                                                    :class="syncStatusClass(cell.worker_sync?.status)"
-                                                >
-                                                    <component
-                                                        :is="syncStatusIcon(cell.worker_sync?.status)"
-                                                        class="size-3.5"
-                                                    />
-                                                    {{ syncStatusLabel(cell.worker_sync?.status) }}
-                                                </span>
-
-                                                <div
-                                                    class="mt-1.5 max-w-[240px] truncate text-xs text-zinc-500"
-                                                    :title="cell.worker_sync?.message || syncStatusDescription(cell)"
-                                                >
-                                                    {{ syncStatusDescription(cell) }}
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        <td class="px-5 py-4 text-sm font-bold text-zinc-500">
-                                            {{ formatDate(cell.created_at) }}
-                                        </td>
-
-                                        <td class="px-5 py-4">
-                                            <div class="flex justify-end gap-2">
-                                                <Link
-                                                    :href="`/admin/cells/${cell.id}`"
-                                                    class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-hive hover:text-hive"
-                                                >
-                                                    <Eye class="size-4" />
-                                                    View
-                                                </Link>
-
-                                                <Link
-                                                    :href="`/admin/cells/${cell.id}/edit`"
-                                                    class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-2 text-xs font-black text-zinc-300 transition hover:border-hive hover:text-hive"
-                                                >
-                                                    <Edit class="size-4" />
-                                                    Edit
-                                                </Link>
-
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex items-center gap-2 rounded-button border border-status-danger/40 bg-status-danger/10 px-3 py-2 text-xs font-black text-status-danger transition hover:bg-status-danger/20"
-                                                    @click="confirmDelete(cell)"
-                                                >
-                                                    <Trash2 class="size-4" />
-                                                    Delete
-                                                </button>
+                                        <td class="px-3 py-4">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <Link :href="`/admin/cells/${cell.id}`" class="rounded-button border border-zinc-800 p-2 text-zinc-300 transition hover:border-hive hover:text-hive" title="View Cell" aria-label="View Cell"><Eye class="size-4" /></Link>
+                                                <Link :href="`/admin/cells/${cell.id}/edit`" class="rounded-button border border-zinc-800 p-2 text-zinc-300 transition hover:border-hive hover:text-hive" title="Edit Cell" aria-label="Edit Cell"><Edit class="size-4" /></Link>
+                                                <button type="button" class="rounded-button border border-status-danger/40 p-2 text-status-danger transition hover:bg-status-danger/10" title="Delete Cell" aria-label="Delete Cell" @click="confirmDelete(cell)"><Trash2 class="size-4" /></button>
                                             </div>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </section>
                 </div>
