@@ -38,6 +38,7 @@ class AdminSettingsController extends Controller
                 'mail' => $this->safeMailSettings(),
 
                 'captcha' => $this->safeCaptchaSettings(),
+                'ai' => $this->safeAISettings(),
             ],
 
             'oauthProviders' => $this->oauthProviders(),
@@ -60,6 +61,12 @@ class AdminSettingsController extends Controller
                 ])
                 ->values(),
         ]);
+    }
+
+    private function safeAISettings(): array
+    {
+        $settings = \App\AI\AISettings::current();
+        return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key'])];
     }
 
     public function updateGeneral(Request $request)

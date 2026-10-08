@@ -7,11 +7,13 @@ import {
     Lock,
     Mail,
     Settings,
+    Sparkles,
     ShieldCheck,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AuthenticationSettings from './Partials/AuthenticationSettings.vue'
 import GeneralSettings from './Partials/GeneralSettings.vue'
+import AISettings from './Partials/AISettings.vue'
 import SecuritySettings from './Partials/SecuritySettings.vue'
 import type { OAuthProvider, OidcProvider, SettingsPayload } from './types'
 
@@ -33,6 +35,12 @@ const tabs = [
         label: 'Security',
         description: 'Authentication policies',
         icon: Lock,
+    },
+    { 
+        key: 'ai', 
+        label: 'Hive AI', 
+        description: 'AI providers and models', 
+        icon: Sparkles 
     },
     {
         key: 'mail',
@@ -143,6 +151,8 @@ const activeTabDetails = computed(() => {
                                 :settings="settings.security"
                                 :require-two-factor="settings.general.require_2fa"
                             />
+
+                            <AISettings v-if="activeTab === 'ai'" :settings="settings.ai" />
 
                             <AuthenticationSettings
                                 v-if="activeTab === 'authentication'"

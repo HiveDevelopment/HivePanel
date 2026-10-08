@@ -133,6 +133,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [AdminSettingsController::class, 'index'])->name('index');
 
+            Route::patch('/ai', [\App\Http\Controllers\Admin\AdminAISettingsController::class, 'update'])->name('ai.update');
+            Route::post('/ai/test', [\App\Http\Controllers\Admin\AdminAISettingsController::class, 'test'])->name('ai.test');
             Route::patch('/general', [AdminSettingsController::class, 'updateGeneral'])->name('general.update');
             Route::patch('/security', [AdminSettingsController::class, 'updateSecurity'])->name('security.update');
             Route::patch('/mail', [AdminSettingsController::class, 'updateMail'])->name('mail.update');

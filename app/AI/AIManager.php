@@ -14,6 +14,7 @@ class AIManager
 {
     public function provider(): AIProvider
     {
+        AISettings::apply();
         return match (config('ai.provider')) {
             'openai' => app(OpenAIProvider::class),
             'openrouter' => app(OpenRouterProvider::class),

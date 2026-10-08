@@ -21,7 +21,15 @@ class OpenAIProvider implements AIProvider
             ]);
 
         if (! $response->successful()) {
-            throw new RuntimeException('OpenAI request failed.');
+            throw new RuntimeException(match (data_get($response->json(), 'error.code') ?: data_get($response->json(), 'error.status')) {
+                'insufficient_quota', 'credit_balance_exhausted', 'RESOURCE_EXHAUSTED' => 'OpenAI has no remaining quota or credits.',
+                default => match ($response->status()) {
+                    401, 403 => 'OpenAI rejected the API credentials or permissions.',
+                    429 => 'OpenAI rate limit or quota exceeded.',
+                    400, 404 => 'OpenAI rejected the model or request.',
+                    default => 'OpenAI provider unavailable (HTTP ' . $response->status() . ').',
+                },
+            });
         }
 
         return data_get($response->json(), 'output.0.content.0.text')
