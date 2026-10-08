@@ -15,6 +15,8 @@ import AuthenticationSettings from './Partials/AuthenticationSettings.vue'
 import GeneralSettings from './Partials/GeneralSettings.vue'
 import AISettings from './Partials/AISettings.vue'
 import InvitationSettings from './Partials/InvitationSettings.vue'
+import MailSettings from './Partials/MailSettings.vue'
+import CaptchaSettings from './Partials/CaptchaSettings.vue'
 import SecuritySettings from './Partials/SecuritySettings.vue'
 import type { OAuthProvider, OidcProvider, SettingsPayload } from './types'
 
@@ -37,18 +39,8 @@ const tabs = [
         description: 'Authentication policies',
         icon: Lock,
     },
-    { 
-        key: 'invitations', 
-        label: 'Invitations', 
-        description: 'New user email templates', 
-        icon: Mail 
-    },
-    { 
-        key: 'ai', 
-        label: 'Hive AI', 
-        description: 'AI providers and models', 
-        icon: Sparkles 
-    },
+    { key: 'invitations', label: 'Invitations', description: 'New user email templates', icon: Mail },
+    { key: 'ai', label: 'Hive AI', description: 'AI providers and models', icon: Sparkles },
     {
         key: 'mail',
         label: 'Mail',
@@ -169,23 +161,15 @@ const activeTabDetails = computed(() => {
                                 :oidc-providers="oidcProviders"
                             />
 
-                            <div
+                            <MailSettings
                                 v-if="activeTab === 'mail'"
-                                class="rounded-panel border border-white/[0.06] bg-surface p-6"
-                            >
-                                <p class="text-sm text-zinc-500">
-                                    Move the existing mail form into Partials/MailSettings.vue unchanged for now.
-                                </p>
-                            </div>
+                                :settings="settings.mail"
+                            />
 
-                            <div
+                            <CaptchaSettings
                                 v-if="activeTab === 'captcha'"
-                                class="rounded-panel border border-white/[0.06] bg-surface p-6"
-                            >
-                                <p class="text-sm text-zinc-500">
-                                    Move the existing captcha form into Partials/CaptchaSettings.vue unchanged for now.
-                                </p>
-                            </div>
+                                :settings="settings.captcha"
+                            />
                         </div>
                     </section>
                 </div>
