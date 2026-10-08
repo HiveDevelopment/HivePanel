@@ -139,6 +139,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::patch('/general', [AdminSettingsController::class, 'updateGeneral'])->name('general.update');
             Route::patch('/security', [AdminSettingsController::class, 'updateSecurity'])->name('security.update');
             Route::patch('/mail', [AdminSettingsController::class, 'updateMail'])->name('mail.update');
+            Route::patch('/invitations', [AdminSettingsController::class, 'updateInvitations'])->name('invitations.update');
             Route::post('/mail/test', [AdminSettingsController::class, 'testMail'])->name('mail.test');
             Route::patch('/captcha', [AdminSettingsController::class, 'updateCaptcha'])->name('captcha.update');
             Route::patch('/oauth', [AdminSettingsController::class, 'updateOAuth'])->name('oauth.update');
@@ -195,6 +196,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Users
         Route::prefix('users')->name('users.')->group(function () {
             Route::get('/', [AdminUserController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
+            Route::get('/create', [AdminUserController::class, 'create'])->name('create')->middleware('admin.permission:' . AdminPermissions::USERS_CREATE);
+            Route::post('/', [AdminUserController::class, 'store'])->name('store')->middleware('admin.permission:' . AdminPermissions::USERS_CREATE);
             Route::get('/{user}', [AdminUserController::class, 'show'])->name('show')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
             Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);
             Route::patch('/{user}', [AdminUserController::class, 'update'])->name('update')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);

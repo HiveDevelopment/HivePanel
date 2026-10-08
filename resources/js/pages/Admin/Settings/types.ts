@@ -1,7 +1,22 @@
 export type TwoFactorRequirement = 'not_required' | 'admin_only' | 'all_users'
 
 export type SettingsPayload = {
-    ai: { enabled: boolean; provider: string; model: string; url: string; has_key: boolean }
+    invitations: { 
+        subject: string; 
+        greeting: string; 
+        message: string; 
+        button_text: string; 
+        footer: string 
+    }
+    
+    ai: { 
+        enabled: boolean; 
+        provider: string; 
+        model: string; 
+        url: string; 
+        has_key: boolean 
+    
+    }
     general: {
         company_name: string
         company_logo?: string | null

@@ -39,6 +39,7 @@ class AdminSettingsController extends Controller
 
                 'captcha' => $this->safeCaptchaSettings(),
                 'ai' => $this->safeAISettings(),
+                'invitations' => \App\Support\InvitationTemplate::settings(),
             ],
 
             'oauthProviders' => $this->oauthProviders(),
@@ -67,6 +68,24 @@ class AdminSettingsController extends Controller
     {
         $settings = \App\AI\AISettings::current();
         return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key']), 'providers' => collect(\App\Support\AppSettings::get('ai')['providers'] ?? [])->map(fn ($v) => ['has_key' => !empty($v['encrypted_key']), 'model' => $v['model'] ?? ''])->all()];
+    }
+
+    public function updateInvitations(Request $request)
+    {
+        $data = $request->validate([
+            'subject' => ['required', 'string', 'max:180'],
+            'greeting' => ['required', 'string', 'max:180'],
+            'message' => ['required', 'string', 'max:4000'],
+            'button_text' => ['required', 'string', 'max:80'],
+            'footer' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        \App\Models\AppSetting::query()->updateOrCreate(
+            ['key' => 'invitation_template'],
+            ['value' => $data]
+        );
+
+        return back()->with('success', 'Invitation email template updated.');
     }
 
     public function updateGeneral(Request $request)
