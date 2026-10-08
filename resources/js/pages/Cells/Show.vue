@@ -3,6 +3,8 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import CellHeader from '@/components/cells/CellHeader.vue'
 import StatChartCard from '@/components/cells/StatChartCard.vue'
 import { Head } from '@inertiajs/vue3'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { Clock3, Network, Cpu, MemoryStick, HardDrive, ArrowDownUp, Server, Globe2, Sparkles, X, Terminal, FileText, ArrowUp, ShieldCheck, Copy, Check, LoaderCircle } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
@@ -36,6 +38,10 @@ const consolePoppedOut = ref(false)
 const aiDialog = ref(false)
 const aiBusy = ref(false)
 const aiAnswer = ref('')
+const formattedAiAnswer = computed(() => {
+    if (!aiAnswer.value) return ''
+    return DOMPurify.sanitize(marked.parse(aiAnswer.value, { breaks: true, gfm: true }) as string)
+})
 const aiQuestion = ref('')
 const aiCopied = ref(false)
 const aiSuggestions = ['Explain these errors', 'Why did my server crash?', 'Suggest fixes']
@@ -1161,7 +1167,8 @@ function restartCell() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="hive-ai-title"
-                class="flex max-h-[min(90vh,850px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#101216] shadow-2xl"
+                class="flex w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#101216] shadow-2xl"
+                :class="aiBusy || aiAnswer ? 'h-[min(90vh,960px)]' : 'h-auto max-h-[90vh]'"
             >
                 <div class="flex shrink-0 items-center gap-3 border-b border-zinc-800/80 px-5 py-4">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400">
@@ -1176,7 +1183,8 @@ function restartCell() {
                     </button>
                 </div>
 
-                <div class="min-h-0 space-y-4 overflow-y-auto px-5 py-5">
+                <div class="min-h-0 space-y-4 overflow-y-auto px-5 py-5 lg:px-7"
+                    :class="aiBusy || aiAnswer ? 'flex-1' : ''">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300">
                             <Terminal :size="13" class="shrink-0" /><span class="truncate">{{ cell.name }}</span>
@@ -1191,7 +1199,7 @@ function restartCell() {
                         <textarea
                             id="hive-ai-question"
                             v-model="aiQuestion"
-                            rows="3"
+                            rows="2"
                             class="block w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0"
                             placeholder="What caused my server to stop during startup?"
                             @keydown.ctrl.enter.prevent="askConsoleAI"
@@ -1231,7 +1239,7 @@ function restartCell() {
                                 <Check v-if="aiCopied" :size="14" /><Copy v-else :size="14" />{{ aiCopied ? 'Copied' : 'Copy' }}
                             </button>
                         </div>
-                        <div class="whitespace-pre-wrap break-words px-4 py-4 text-sm leading-7 text-zinc-300 select-text">{{ aiAnswer }}</div>
+                        <div class="hive-ai-markdown min-w-0 break-words px-5 py-5 text-sm leading-7 text-zinc-300 select-text" v-html="formattedAiAnswer"></div>
                     </section>
 
                     <div class="flex items-start gap-2 rounded-xl border border-zinc-800/70 bg-zinc-900/40 p-3">
@@ -1334,3 +1342,31 @@ function restartCell() {
         </div>
     </AppLayout>
 </template>
+<style scoped>
+.hive-ai-markdown :deep(h1),
+.hive-ai-markdown :deep(h2),
+.hive-ai-markdown :deep(h3),
+.hive-ai-markdown :deep(h4) { color: #f4f4f5; font-weight: 650; line-height: 1.35; margin: 1.5rem 0 .65rem; }
+.hive-ai-markdown :deep(h1) { font-size: 1.45rem; }
+.hive-ai-markdown :deep(h2) { font-size: 1.25rem; }
+.hive-ai-markdown :deep(h3) { font-size: 1.08rem; }
+.hive-ai-markdown :deep(h1:first-child),
+.hive-ai-markdown :deep(h2:first-child),
+.hive-ai-markdown :deep(h3:first-child) { margin-top: 0; }
+.hive-ai-markdown :deep(p) { margin: .65rem 0 1rem; }
+.hive-ai-markdown :deep(strong) { color: #fafafa; font-weight: 650; }
+.hive-ai-markdown :deep(ul) { list-style: disc; padding-left: 1.5rem; margin: .75rem 0 1rem; }
+.hive-ai-markdown :deep(ol) { list-style: decimal; padding-left: 1.5rem; margin: .75rem 0 1rem; }
+.hive-ai-markdown :deep(li) { padding-left: .15rem; margin: .3rem 0; }
+.hive-ai-markdown :deep(li > p) { margin: .25rem 0; }
+.hive-ai-markdown :deep(a) { color: #fb923c; text-decoration: underline; overflow-wrap: anywhere; }
+.hive-ai-markdown :deep(blockquote) { border-left: 3px solid #f97316; padding: .35rem 1rem; margin: 1rem 0; color: #a1a1aa; background: #18181b; }
+.hive-ai-markdown :deep(code) { background: #27272a; color: #fdba74; border-radius: .3rem; padding: .1rem .35rem; font-size: .88em; overflow-wrap: anywhere; }
+.hive-ai-markdown :deep(pre) { overflow-x: auto; max-width: 100%; background: #09090b; border: 1px solid #3f3f46; border-radius: .65rem; padding: 1rem; margin: 1rem 0; line-height: 1.6; }
+.hive-ai-markdown :deep(pre code) { background: transparent; color: #e4e4e7; padding: 0; border-radius: 0; overflow-wrap: normal; }
+.hive-ai-markdown :deep(table) { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 1rem 0; }
+.hive-ai-markdown :deep(th),
+.hive-ai-markdown :deep(td) { border: 1px solid #3f3f46; padding: .55rem .8rem; text-align: left; }
+.hive-ai-markdown :deep(th) { background: #27272a; color: #fafafa; }
+.hive-ai-markdown :deep(hr) { border: 0; border-top: 1px solid #3f3f46; margin: 1.5rem 0; }
+</style>
