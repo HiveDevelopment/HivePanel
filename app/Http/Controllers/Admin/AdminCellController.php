@@ -110,7 +110,7 @@ class AdminCellController extends Controller
             'start_on_completion' => ['boolean'],
 
             'comb_id' => ['required', 'exists:combs,id'],
-            'version' => ['required', 'string', 'max:255'],
+            'version' => ['nullable', 'string', 'max:255'],
             'skip_install_script' => ['boolean'],
 
             'memory_mb' => ['required', 'integer', 'min:0'],

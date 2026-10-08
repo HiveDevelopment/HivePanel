@@ -110,12 +110,30 @@ const selectedComb = computed(() =>
     props.combs.find((comb) => String(comb.id) === String(form.comb_id))
 )
 
-const combVariables = computed(() => {
-    const variables = selectedComb.value?.data?.variables
-    return variables && typeof variables === 'object' && !Array.isArray(variables) ? variables : {}
-})
+const combVariables = computed<Record<string, any>>(() => {
+    const data = selectedComb.value?.data ?? {}
+    const variables = data.variables_schema ?? data.variables ?? []
 
-const hasVersion = computed(() => Object.keys(combVariables.value).some((key) => key.toLowerCase() === 'version'))
+    if (Array.isArray(variables)) {
+        return Object.fromEntries(
+            variables
+                .filter((variable) => variable && typeof variable.name === 'string')
+                .map((variable) => [variable.name, variable])
+        )
+    }
+
+    if (variables && typeof variables === 'object') {
+        return variables
+    }
+
+    return {}
+});
+
+const hasVersion = computed(() => {
+    return Object.keys(combVariables.value).some(
+        (key) => key.trim().toLowerCase() === 'version'
+    )
+})
 
 const versionVariableKey = computed(() => Object.keys(combVariables.value).find((key) => key.toLowerCase() === 'version'))
 
@@ -206,25 +224,36 @@ watch(
 )
 
 watch(selectedComb, (comb) => {
-    const data = comb?.data ?? {}
-    form.docker_image = String(data.docker?.image ?? data.image ?? '')
-    form.startup_command = String(data.startup?.command ?? (typeof data.startup === 'string' ? data.startup : ''))
-    form.variables = {}
-    form.version = ''
+    const data = comb?.data ?? {};
 
-    const variables = data.variables
-    if (variables && typeof variables === 'object' && !Array.isArray(variables)) {
-        for (const [key, definition] of Object.entries(variables)) {
-            const value = definition && typeof definition === 'object'
-                ? (definition as Record<string, any>).default ?? (definition as Record<string, any>).value ?? ''
-                : definition
-            form.variables[key] = String(value ?? '')
-        }
+    form.docker_image = String(data.docker?.image ?? data.image ?? '');
+    form.startup_command = String(
+        data.startup?.command ??
+        (typeof data.startup === 'string' ? data.startup : '')
+    );
+
+    form.variables = {};
+    form.version = '';
+
+    for (const [key, definition] of Object.entries(combVariables.value)) {
+        const value =
+            definition && typeof definition === 'object'
+                ? (definition as Record<string, any>).default ??
+                  (definition as Record<string, any>).value ??
+                  ''
+                : definition;
+
+        form.variables[key] = String(value ?? '');
     }
 
-    const key = Object.keys(form.variables).find((name) => name.toLowerCase() === 'version')
-    if (key) form.version = form.variables[key]
-})
+    const key = Object.keys(form.variables).find(
+        (name) => name.toLowerCase() === 'version'
+    );
+
+    if (key) {
+        form.version = form.variables[key];
+    }
+});
 
 watch(() => form.version, (version) => {
     if (versionVariableKey.value) form.variables[versionVariableKey.value] = version
@@ -249,9 +278,14 @@ function goToStep(step: number) {
 }
 
 function submit() {
-    router.post('/admin/cells', form.data(), {
+    form.post('/admin/cells', {
         preserveScroll: true,
-    })
+        onError: (errors) => {
+            if (errors.version || errors.comb_id || errors.variables) {
+                currentStep.value = 3;
+            }
+        },
+    });
 }
 </script>
 
@@ -310,6 +344,23 @@ function submit() {
 
                     <form class="grid gap-5 xl:grid-cols-[1fr_380px]" @submit.prevent="submit">
                         <div class="space-y-5">
+
+                            <div
+                                v-if="Object.keys(form.errors).length"
+                                role="alert"
+                                class="rounded-button border border-red-500/30 bg-red-500/10 p-4"
+                            >
+                                <p class="mb-2 text-sm font-bold text-red-400">
+                                    Unable to deploy Cell
+                                </p>
+
+                                <ul class="space-y-1 text-sm text-red-300">
+                                    <li v-for="(message, field) in form.errors" :key="field">
+                                        {{ message }}
+                                    </li>
+                                </ul>
+                            </div>
+                            
                             <section v-if="currentStep === 1" class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
                                 <div class="mb-5 flex items-center gap-3">
                                     <Info class="size-5 text-hive" />

@@ -108,17 +108,38 @@ class CellProvisioningService
                     $comb,
                 );
 
-                $variables = collect(
-                    (array) (
-                        $data['variables']
-                        ?? []
-                    )
-                )
+                $schema = $combData['variables_schema'] ?? [];
+
+                $defaults = collect($schema)
+                    ->filter(fn ($variable) => is_array($variable) && filled($variable['name'] ?? null))
+                    ->mapWithKeys(fn ($variable) => [
+                        $variable['name'] => $variable['default'] ?? '',
+                    ])
+                    ->all();
+
+                $submitted = (array) ($data['variables'] ?? []);
+
+                foreach ($submitted as $key => $value) {
+                    if (filled($value)) {
+                        $defaults[$key] = $value;
+                    }
+                }
+
+                $version = $data['version'] ?? null;
+
+                if (blank($version)) {
+                    $version = $defaults['version'] ?? '';
+                }
+
+                $defaults['memory'] = $data['memory_mb'];
+                $defaults['version'] = $version;
+                $defaults['server_port'] = $allocation->port;
+                $defaults['server_ip'] = $allocation->ip;
+
+                $variables = collect($defaults)
                     ->mapWithKeys(function ($value, $key) {
                         if (is_bool($value)) {
-                            $value = $value
-                                ? 'true'
-                                : 'false';
+                            $value = $value ? 'true' : 'false';
                         } elseif ($value === null) {
                             $value = '';
                         } elseif (is_scalar($value)) {
@@ -126,21 +147,12 @@ class CellProvisioningService
                         } else {
                             $value = json_encode(
                                 $value,
-                                JSON_UNESCAPED_SLASHES
-                                | JSON_UNESCAPED_UNICODE
+                                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
                             ) ?: '';
                         }
 
-                        return [
-                            (string) $key => $value,
-                        ];
+                        return [(string) $key => $value];
                     })
-                    ->merge([
-                        'memory' => (string) $data['memory_mb'],
-                        'version' => (string) $data['version'],
-                        'server_port' => (string) $allocation->port,
-                        'server_ip' => (string) $allocation->ip,
-                    ])
                     ->all();
 
                 $workerCell = $this->cells->createCell(

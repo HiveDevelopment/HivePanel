@@ -80,9 +80,6 @@ function power(id: string, action: 'start' | 'stop') {
       <div class="mx-auto max-w-[1600px] space-y-7">
         <header class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-500/90">
-              <span class="h-1.5 w-1.5 rounded-full bg-amber-500" /> Infrastructure / Cells
-            </div>
             <h1 class="text-3xl font-bold tracking-tight text-white sm:text-[34px]">Your servers</h1>
             <p class="mt-2 text-sm text-zinc-500">Monitor and manage your game servers in one place.</p>
           </div>
