@@ -59,7 +59,7 @@ const form = useForm({
     start_on_completion: true,
 
     comb_id: '',
-    version: '1.21.8',
+    version: '',
     skip_install_script: false,
 
     memory_mb: 2048,
@@ -77,12 +77,10 @@ const form = useForm({
     backup_limit: null as number | null,
     backup_storage_mb: null as number | null,
 
-    docker_image: 'hivepanel/java:25',
-    startup_command: 'java -Xms128M -XX:MaxRAMPercentage=95.0 -jar {{SERVER_JARFILE}}',
+    docker_image: '',
+    startup_command: '',
 
-    variables: {
-        SERVER_JARFILE: 'server.jar',
-    },
+    variables: {} as Record<string, string>,
 })
 
 const steps = [
@@ -111,6 +109,15 @@ const selectedAdditionalAllocations = computed(() =>
 const selectedComb = computed(() =>
     props.combs.find((comb) => String(comb.id) === String(form.comb_id))
 )
+
+const combVariables = computed(() => {
+    const variables = selectedComb.value?.data?.variables
+    return variables && typeof variables === 'object' && !Array.isArray(variables) ? variables : {}
+})
+
+const hasVersion = computed(() => Object.keys(combVariables.value).some((key) => key.toLowerCase() === 'version'))
+
+const versionVariableKey = computed(() => Object.keys(combVariables.value).find((key) => key.toLowerCase() === 'version'))
 
 const filteredUsers = computed(() => {
     const q = form.owner_email.toLowerCase().trim()
@@ -147,7 +154,7 @@ const canContinue = computed(() => {
     }
 
     if (currentStep.value === 3) {
-        return !!form.comb_id && !!form.version
+        return !!form.comb_id && !!form.docker_image && !!form.startup_command && (!hasVersion.value || !!form.version)
     }
 
     return true
@@ -158,7 +165,9 @@ const canSubmit = computed(() =>
     !!form.node_id &&
     !!form.allocation_id &&
     !!form.comb_id &&
-    !!form.version
+    !!form.docker_image &&
+    !!form.startup_command &&
+    (!hasVersion.value || !!form.version)
 )
 
 watch(
@@ -197,26 +206,28 @@ watch(
 )
 
 watch(selectedComb, (comb) => {
-    if (!comb?.data) return
+    const data = comb?.data ?? {}
+    form.docker_image = String(data.docker?.image ?? data.image ?? '')
+    form.startup_command = String(data.startup?.command ?? (typeof data.startup === 'string' ? data.startup : ''))
+    form.variables = {}
+    form.version = ''
 
-    if (comb.data.image) {
-        form.docker_image = comb.data.image
-    }
-
-    if (comb.data.startup) {
-        form.startup_command = comb.data.startup
-    }
-
-    if (comb.data.variables) {
-        form.variables = {
-            ...form.variables,
-            ...comb.data.variables,
+    const variables = data.variables
+    if (variables && typeof variables === 'object' && !Array.isArray(variables)) {
+        for (const [key, definition] of Object.entries(variables)) {
+            const value = definition && typeof definition === 'object'
+                ? (definition as Record<string, any>).default ?? (definition as Record<string, any>).value ?? ''
+                : definition
+            form.variables[key] = String(value ?? '')
         }
     }
 
-    if (comb.data.variables?.version) {
-        form.version = comb.data.variables.version
-    }
+    const key = Object.keys(form.variables).find((name) => name.toLowerCase() === 'version')
+    if (key) form.version = form.variables[key]
+})
+
+watch(() => form.version, (version) => {
+    if (versionVariableKey.value) form.variables[versionVariableKey.value] = version
 })
 
 function selectOwner(user: UserRecord) {
@@ -493,12 +504,12 @@ function submit() {
                                     </div>
 
                                     <div class="grid gap-4 md:grid-cols-2">
-                                        <div>
+                                        <div v-if="hasVersion">
                                             <label class="text-sm font-bold text-zinc-400">Server Version</label>
                                             <input
                                                 v-model="form.version"
                                                 type="text"
-                                                placeholder="1.21.8"
+                                                placeholder="Enter server version"
                                                 class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive"
                                             />
                                         </div>
@@ -511,7 +522,7 @@ function submit() {
                                             <input
                                                 v-model="form.docker_image"
                                                 type="text"
-                                                placeholder="hivepanel/java:25"
+                                                placeholder="Comb Docker image"
                                                 class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 font-mono text-sm font-bold text-white outline-none transition focus:border-hive"
                                             />
                                         </div>
@@ -624,7 +635,7 @@ function submit() {
                             :additional-allocations="selectedAdditionalAllocations"
                             :name="form.name"
                             :comb="selectedComb ? `${selectedComb.game} / ${selectedComb.name}` : ''"
-                            :version="form.version"
+                            :version="hasVersion ? form.version : ''"
                             :owner-email="form.owner_email"
                             :memory-mb="form.memory_mb"
                             :disk-mb="form.disk_mb"
