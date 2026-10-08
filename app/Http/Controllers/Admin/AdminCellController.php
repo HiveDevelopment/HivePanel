@@ -94,60 +94,60 @@ class AdminCellController extends Controller
         ]);
     }
 
+    public function store(
+        Request $request,
+        CellProvisioningService $provisioning,
+    ) {
+        $data = $request->validate([
+            'node_id' => ['required', 'exists:nodes,id'],
+            'allocation_id' => ['required', 'exists:node_allocations,id'],
+            'additional_allocation_ids' => ['nullable', 'array'],
+            'additional_allocation_ids.*' => ['string', 'exists:node_allocations,id'],
 
-public function store(
-    Request $request,
-    CellProvisioningService $provisioning,
-) {
-    $data = $request->validate([
-        'node_id' => ['required', 'exists:nodes,id'],
-        'allocation_id' => ['required', 'exists:node_allocations,id'],
-        'additional_allocation_ids' => ['nullable', 'array'],
-        'additional_allocation_ids.*' => ['string', 'exists:node_allocations,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'owner_email' => ['nullable', 'email', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'start_on_completion' => ['boolean'],
 
-        'name' => ['required', 'string', 'max:255'],
-        'owner_email' => ['nullable', 'email', 'max:255'],
-        'description' => ['nullable', 'string', 'max:1000'],
-        'start_on_completion' => ['boolean'],
+            'comb_id' => ['required', 'exists:combs,id'],
+            'version' => ['required', 'string', 'max:255'],
+            'skip_install_script' => ['boolean'],
 
-        'comb_id' => ['required', 'exists:combs,id'],
-        'version' => ['required', 'string', 'max:255'],
-        'skip_install_script' => ['boolean'],
+            'memory_mb' => ['required', 'integer', 'min:0'],
+            'overhead_memory_mb' => ['required', 'integer', 'min:0'],
+            'swap_mb' => ['required', 'integer', 'min:-1'],
+            'disk_mb' => ['required', 'integer', 'min:0'],
+            'cpu_percent' => ['required', 'integer', 'min:0', 'max:1000'],
+            'cpu_pinning' => ['nullable', 'string', 'max:255'],
+            'io_weight' => ['required', 'integer', 'min:10', 'max:1000'],
+            'oom_killer' => ['boolean'],
+            'exclude_from_resource_calculation' => ['boolean'],
 
-        'memory_mb' => ['required', 'integer', 'min:0'],
-        'overhead_memory_mb' => ['required', 'integer', 'min:0'],
-        'swap_mb' => ['required', 'integer', 'min:-1'],
-        'disk_mb' => ['required', 'integer', 'min:0'],
-        'cpu_percent' => ['required', 'integer', 'min:0', 'max:1000'],
-        'cpu_pinning' => ['nullable', 'string', 'max:255'],
-        'io_weight' => ['required', 'integer', 'min:10', 'max:1000'],
-        'oom_killer' => ['boolean'],
-        'exclude_from_resource_calculation' => ['boolean'],
+            'database_limit' => ['nullable', 'integer', 'min:0'],
+            'allocation_limit' => ['nullable', 'integer', 'min:0'],
+            'backup_limit' => ['nullable', 'integer', 'min:0'],
+            'backup_storage_mb' => ['nullable', 'integer', 'min:0'],
 
-        'database_limit' => ['nullable', 'integer', 'min:0'],
-        'allocation_limit' => ['nullable', 'integer', 'min:0'],
-        'backup_limit' => ['nullable', 'integer', 'min:0'],
-        'backup_storage_mb' => ['nullable', 'integer', 'min:0'],
+            'docker_image' => ['nullable', 'string', 'max:500'],
+            'startup_command' => ['nullable', 'string', 'max:1000'],
 
-        'docker_image' => ['nullable', 'string', 'max:500'],
-        'startup_command' => ['nullable', 'string', 'max:1000'],
+            'variables' => ['nullable', 'array'],
+        ]);
 
-        'variables' => ['nullable', 'array'],
-    ]);
+        $owner = ! empty($data['owner_email'])
+            ? User::where('email', $data['owner_email'])->firstOrFail()
+            : $request->user();
 
-    $owner = ! empty($data['owner_email'])
-        ? User::where('email', $data['owner_email'])->firstOrFail()
-        : $request->user();
+        $provisioning->provision(
+            $data,
+            $owner,
+        );
 
-    $provisioning->provision(
-        $data,
-        $owner,
-    );
+        return redirect()
+            ->route('admin.cells.index')
+            ->with('success', 'Cell created successfully.');
+    }
 
-    return redirect()
-        ->route('admin.cells.index')
-        ->with('success', 'Cell created successfully.');
-}
     public function show(Cell $cell)
     {
         $cell->load([
@@ -166,7 +166,7 @@ public function store(
     {
         $cell->load([
             'owner:id,name,email',
-            'node:id,name,location',
+            'node',
             'allocation:id,cell_id,node_id,ip,port,alias,is_reserved',
             'allocations:id,cell_id,node_id,ip,port,alias,is_reserved',
         ]);
