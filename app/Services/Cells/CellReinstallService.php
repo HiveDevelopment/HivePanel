@@ -13,7 +13,8 @@ use Throwable;
 
 class CellReinstallService
 {
-    public function __construct(private readonly CellNodeClient $cells) {
+    public function __construct(private readonly CellNodeClient $cells)
+    {
     }
 
     public function reinstall(Cell $cell, Comb $comb, array $variables, bool $startAfterInstall = false): Cell
@@ -21,6 +22,7 @@ class CellReinstallService
         $cell->loadMissing([
             'node',
             'allocation',
+            'allocations',
         ]);
 
         if (! $cell->node) {
@@ -35,7 +37,7 @@ class CellReinstallService
             throw new RuntimeException('This cell does not have a primary allocation.');
         }
 
-        $metadata = $cell->metadata ?? [];
+        $metadata = (array) $cell->metadata;
 
         $variables = [
             ...$variables,
@@ -44,22 +46,31 @@ class CellReinstallService
             'server_ip' => $cell->allocation->ip,
         ];
 
-        $combData = $comb->data ?? [];
+        $combData = (array) ($comb->data ?? []);
 
         $dockerImage = data_get(
             $combData,
             'docker.image',
-            data_get($combData, 'image'),
+            data_get($combData, 'image')
         );
 
         $startupCommand = data_get(
             $combData,
             'startup.command',
-            data_get($combData, 'startup'),
+            data_get($combData, 'startup')
         );
 
         try {
-            DB::transaction(function () use ($cell, $comb, $combData, $metadata, $variables, $dockerImage, $startupCommand, $startAfterInstall): void {
+            DB::transaction(function () use (
+                $cell,
+                $comb,
+                $combData,
+                $metadata,
+                $variables,
+                $dockerImage,
+                $startupCommand,
+                $startAfterInstall
+            ): void {
                 $metadata['comb_id'] = $comb->id;
                 $metadata['comb_data'] = $combData;
                 $metadata['variables'] = $variables;
@@ -89,18 +100,13 @@ class CellReinstallService
             $cell->loadMissing([
                 'node',
                 'allocation',
+                'allocations',
             ]);
 
-            /*
-             * Refresh the Worker's definition before destroying
-             * the old instance data.
-             */
+            // Push the current Comb definition to the Worker before reinstalling.
             $this->cells->updateCellDefinition($cell);
 
-            /*
-             * The Worker can now safely remove/recreate the
-             * instance directory ready for installation.
-             */
+            // Reset the instance directory now that the Worker has the new definition.
             $this->cells->prepareReinstall($cell);
 
             InstallCellJob::dispatch($cell->id, $startAfterInstall);
@@ -119,7 +125,11 @@ class CellReinstallService
 
     public function retry(Cell $cell, bool $startAfterInstall = false): Cell
     {
-        $cell->loadMissing('node');
+        $cell->loadMissing([
+            'node',
+            'allocation',
+            'allocations',
+        ]);
 
         if (! $cell->node) {
             throw new RuntimeException('This cell is not assigned to a node.');
@@ -129,15 +139,42 @@ class CellReinstallService
             throw new RuntimeException('This cell does not have a daemon ID.');
         }
 
-        $cell->forceFill([
-            'install_status' => CellInstallStatus::PENDING,
-            'install_failure_reason' => null,
-            'installed_at' => null,
-        ])->save();
+        if (! $cell->allocation) {
+            throw new RuntimeException('This cell does not have a primary allocation.');
+        }
 
-        InstallCellJob::dispatch($cell->id, $startAfterInstall);
+        try {
+            $cell->forceFill([
+                'install_status' => CellInstallStatus::PENDING,
+                'install_failure_reason' => null,
+                'installed_at' => null,
+            ])->save();
 
-        return $cell->refresh();
+            $cell->invalidateWorkerSync();
+
+            $cell->refresh();
+            $cell->loadMissing([
+                'node',
+                'allocation',
+                'allocations',
+            ]);
+
+            // Retry using the Cell's currently saved definition.
+            $this->cells->updateCellDefinition($cell);
+            $this->cells->prepareReinstall($cell);
+
+            InstallCellJob::dispatch($cell->id, $startAfterInstall);
+
+            return $cell->refresh();
+        } catch (Throwable $exception) {
+            $cell->forceFill([
+                'install_status' => CellInstallStatus::FAILED,
+                'install_failure_reason' => $this->failureMessage($exception),
+                'installed_at' => null,
+            ])->save();
+
+            throw $exception;
+        }
     }
 
     private function failureMessage(Throwable $exception): string

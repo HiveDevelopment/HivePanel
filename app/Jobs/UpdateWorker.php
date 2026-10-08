@@ -36,12 +36,20 @@ class UpdateWorker implements ShouldQueue
         $node = $update->node;
 
         if (! $node) {
-            $this->markFailed($update, 'The Worker node no longer exists.');
+            $this->markFailed(
+                $update,
+                'The Worker node no longer exists.',
+            );
 
             return;
         }
 
-        if ($this->versionsMatch($node->worker_version, $update->target_version)) {
+        if (
+            $this->versionsMatch(
+                $node->worker_version,
+                $update->target_version,
+            )
+        ) {
             $this->markComplete($update);
 
             return;
@@ -58,42 +66,60 @@ class UpdateWorker implements ShouldQueue
         try {
             $status = $nodes->requestWorkerUpdate(
                 $node,
-                'v'.$this->normaliseVersion($update->target_version),
+                'v'.$this->normaliseVersion(
+                    $update->target_version,
+                ),
             );
         } catch (Throwable $exception) {
             /*
-             * An empty/reset response can happen after the Worker accepted
-             * the request and began shutting down. Keep only those narrowly
-             * defined transport failures ambiguous. DNS failures, refused
-             * connections, timeouts and HTTP errors are real dispatch
-             * failures and must be shown to the administrator.
+             * Some transport errors are ambiguous because the Worker may
+             * have accepted the request and begun shutting down before the
+             * HTTP response reached the Panel.
+             *
+             * Do NOT mark the Worker as restarting here. We have not
+             * actually observed that state.
+             *
+             * Keep the update in dispatching and let the monitor determine
+             * whether the Worker accepted the update.
              */
             if ($this->isAmbiguousTransportFailure($exception)) {
                 $update->forceFill([
-                    'status' => WorkerUpdate::STATUS_RESTARTING,
+                    'status' => WorkerUpdate::STATUS_DISPATCHING,
                     'dispatched_at' => now(),
                     'error' => null,
                     'failed_at' => null,
                 ])->save();
 
+                $this->dispatchMonitor($update);
+
                 return;
             }
 
-            $this->markFailed($update, $exception->getMessage());
+            $this->markFailed(
+                $update,
+                $exception->getMessage(),
+            );
 
             return;
         }
 
+        /*
+         * The request returned successfully.
+         *
+         * Only report "restarting" when the Worker itself explicitly says
+         * that it is restarting. A queued/checking/downloading/etc. response
+         * remains "dispatching" from the Panel's perspective.
+         */
         $update->forceFill([
-            'status' => $this->panelStatusForWorkerState($status['state'] ?? null),
+            'status' => $this->panelStatusForWorkerState(
+                $status['state'] ?? null,
+            ),
             'dispatched_at' => now(),
             'error' => null,
             'failed_at' => null,
         ])->save();
 
-        MonitorWorkerUpdate::dispatch($update->id)
-            ->delay(now()->addSeconds(5))
-            ->onQueue('worker-updates');
+        $this->dispatchMonitor($update);
     }
 
     public function failed(?Throwable $exception): void
@@ -106,6 +132,10 @@ class UpdateWorker implements ShouldQueue
             return;
         }
 
+        /*
+         * A heartbeat may have already confirmed the new version even if
+         * the queue job subsequently failed.
+         */
         if (
             $update->node
             && $this->versionsMatch(
@@ -118,44 +148,70 @@ class UpdateWorker implements ShouldQueue
             return;
         }
 
-        if ($update->status === WorkerUpdate::STATUS_RESTARTING) {
+        /*
+         * Don't overwrite a terminal state that may have been written by
+         * the monitor or heartbeat reconciliation.
+         */
+        if (in_array($update->status, [
+            WorkerUpdate::STATUS_COMPLETE,
+            WorkerUpdate::STATUS_FAILED,
+        ], true)) {
             return;
         }
 
         $this->markFailed(
             $update,
-            $exception?->getMessage() ?? 'The Worker update request failed.',
+            $exception?->getMessage()
+                ?? 'The Worker update request failed.',
         );
+    }
+
+    private function dispatchMonitor(WorkerUpdate $update): void
+    {
+        MonitorWorkerUpdate::dispatch($update->id)
+            ->delay(now()->addSeconds(5))
+            ->onQueue('worker-updates');
     }
 
     private function panelStatusForWorkerState(mixed $state): string
     {
-        return strtolower(trim((string) $state)) === 'restarting'
+        $state = strtolower(trim((string) $state));
+
+        return $state === 'restarting'
             ? WorkerUpdate::STATUS_RESTARTING
             : WorkerUpdate::STATUS_DISPATCHING;
     }
 
-    private function isAmbiguousTransportFailure(Throwable $exception): bool
-    {
+    private function isAmbiguousTransportFailure(
+        Throwable $exception,
+    ): bool {
         $message = strtolower($exception->getMessage());
 
         return str_contains($message, 'curl error 52')
             || str_contains($message, 'empty reply from server')
             || str_contains($message, 'curl error 56')
             || str_contains($message, 'recv failure')
-            || str_contains($message, 'connection reset by peer');
+            || str_contains(
+                $message,
+                'connection reset by peer',
+            );
     }
 
-    private function versionsMatch(?string $current, ?string $target): bool
-    {
+    private function versionsMatch(
+        ?string $current,
+        ?string $target,
+    ): bool {
         $current = $this->normaliseVersion($current);
         $target = $this->normaliseVersion($target);
 
-        return $current !== null && $target !== null && $current === $target;
+        return $current !== null
+            && $target !== null
+            && $current === $target;
     }
 
-    private function markComplete(WorkerUpdate $update): void
-    {
+    private function markComplete(
+        WorkerUpdate $update,
+    ): void {
         $update->forceFill([
             'status' => WorkerUpdate::STATUS_COMPLETE,
             'error' => null,
@@ -164,8 +220,10 @@ class UpdateWorker implements ShouldQueue
         ])->save();
     }
 
-    private function markFailed(WorkerUpdate $update, string $message): void
-    {
+    private function markFailed(
+        WorkerUpdate $update,
+        string $message,
+    ): void {
         $update->forceFill([
             'status' => WorkerUpdate::STATUS_FAILED,
             'error' => mb_substr($message, 0, 10000),
@@ -173,8 +231,9 @@ class UpdateWorker implements ShouldQueue
         ])->save();
     }
 
-    private function normaliseVersion(?string $version): ?string
-    {
+    private function normaliseVersion(
+        ?string $version,
+    ): ?string {
         if (! is_string($version)) {
             return null;
         }
