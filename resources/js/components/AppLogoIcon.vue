@@ -13,5 +13,5 @@ defineProps<Props>();
 </script>
 
 <template>
-    <img src="https://cdn.thatbritish.one/hivepanel-icon.png" alt="P.S We Care Forms Logo" :class="className" />
+    <img src="https://cdn.thatbritish.one/hivepanel-icon.png" alt="HivePanel Icon" :class="className" />
 </template>
