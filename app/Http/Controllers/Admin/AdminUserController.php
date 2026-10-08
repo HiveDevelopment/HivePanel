@@ -9,6 +9,11 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules;
+use App\Notifications\UserInvitation;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -24,6 +29,59 @@ class AdminUserController extends Controller
                 ->get()
                 ->map(fn (User $user) => $this->userPayload($user)),
         ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('Admin/Users/Create', [
+            'roles' => Role::query()->orderBy('name')->get(['id', 'name', 'description']),
+        ]);
+    }
+
+    public function store(Request $request, AuditLogger $audit)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'method' => ['required', Rule::in(['invite', 'password'])],
+            'password' => ['required_if:method,password', 'nullable', 'confirmed', Rules\Password::defaults()],
+            'is_admin' => ['required', 'boolean'],
+            'roles' => ['array'],
+            'roles.*' => ['uuid', 'exists:roles,id'],
+        ]);
+
+        try {
+            $user = DB::transaction(function () use ($data, $audit) {
+                $user = User::create([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'password' => $data['method'] === 'password' ? $data['password'] : Str::random(80),
+                    'is_admin' => $data['is_admin'],
+                ]);
+                $user->roles()->sync($data['roles'] ?? []);
+
+                if ($data['method'] === 'invite') {
+                    $token = Password::broker()->createToken($user);
+                    $user->notify(new UserInvitation($token));
+                }
+
+                $audit->log('user.created', null, "User \"{$user->email}\" created.", [
+                    'user_id' => $user->id,
+                    'method' => $data['method'],
+                    'roles' => $data['roles'] ?? [],
+                    'is_admin' => $data['is_admin'],
+                ]);
+
+                return $user;
+            });
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->withErrors(['email' => 'Could not create the user or deliver the invitation. Check the mail configuration and try again.']);
+        }
+
+        return redirect()->route('admin.users.show', $user)->with('success',
+            $data['method'] === 'invite' ? 'User created and invitation sent.' : 'User created.'
+        );
     }
 
     public function show(User $user)

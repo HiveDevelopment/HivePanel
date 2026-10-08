@@ -14,6 +14,7 @@ import { computed, ref } from 'vue'
 import AuthenticationSettings from './Partials/AuthenticationSettings.vue'
 import GeneralSettings from './Partials/GeneralSettings.vue'
 import AISettings from './Partials/AISettings.vue'
+import InvitationSettings from './Partials/InvitationSettings.vue'
 import SecuritySettings from './Partials/SecuritySettings.vue'
 import type { OAuthProvider, OidcProvider, SettingsPayload } from './types'
 
@@ -35,6 +36,12 @@ const tabs = [
         label: 'Security',
         description: 'Authentication policies',
         icon: Lock,
+    },
+    { 
+        key: 'invitations', 
+        label: 'Invitations', 
+        description: 'New user email templates', 
+        icon: Mail 
     },
     { 
         key: 'ai', 
@@ -153,6 +160,8 @@ const activeTabDetails = computed(() => {
                             />
 
                             <AISettings v-if="activeTab === 'ai'" :settings="settings.ai" />
+
+                            <InvitationSettings v-if="activeTab === 'invitations'" :settings="settings.invitations" />
 
                             <AuthenticationSettings
                                 v-if="activeTab === 'authentication'"
