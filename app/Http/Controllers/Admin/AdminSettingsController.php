@@ -5,13 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\TestMail;
 use App\Models\AppSetting;
-use App\Support\AppSettings;
 use App\Models\OAuthProvider;
+use App\Models\OidcProvider;
+use App\Support\AppSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
-use App\Models\OidcProvider;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\File;
 use Inertia\Inertia;
 
 class AdminSettingsController extends Controller
@@ -23,10 +25,10 @@ class AdminSettingsController extends Controller
                 'general' => $this->setting('general', [
                     'company_name' => 'HivePanel',
                     'company_logo' => null,
+                    'company_favicon' => null,
                     'require_2fa' => 'not_required',
                     'default_language' => 'en',
                 ]),
-
                 'security' => $this->setting('security', [
                     'allow_registration' => false,
                     'require_email_verification' => false,
@@ -34,16 +36,12 @@ class AdminSettingsController extends Controller
                     'session_lifetime' => 120,
                     'password_min_length' => 8,
                 ]),
-
                 'mail' => $this->safeMailSettings(),
-
                 'captcha' => $this->safeCaptchaSettings(),
                 'ai' => $this->safeAISettings(),
                 'invitations' => \App\Support\InvitationTemplate::settings(),
             ],
-
             'oauthProviders' => $this->oauthProviders(),
-
             'oidcProviders' => OidcProvider::query()
                 ->orderBy('name')
                 ->get()
@@ -80,7 +78,7 @@ class AdminSettingsController extends Controller
             'footer' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        \App\Models\AppSetting::query()->updateOrCreate(
+        AppSetting::query()->updateOrCreate(
             ['key' => 'invitation_template'],
             ['value' => $data]
         );
@@ -92,19 +90,52 @@ class AdminSettingsController extends Controller
     {
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:100'],
-            'company_logo' => ['nullable', 'string', 'max:2048'],
             'default_language' => ['required', 'string', 'max:10'],
+            'company_logo' => ['nullable', 'string', 'max:2048'],
+            'company_favicon' => ['nullable', 'string', 'max:2048'],
+            'logo_upload' => ['nullable', File::image()->types(['png', 'jpg', 'jpeg', 'webp'])->max('2mb')],
+            'favicon_upload' => ['nullable', File::image()->types(['png', 'jpg', 'jpeg', 'webp'])->max('1mb')],
+            'reset_logo' => ['boolean'],
+            'reset_favicon' => ['boolean'],
         ]);
 
         $existing = $this->setting('general', [
+            'company_name' => 'HivePanel',
+            'company_logo' => null,
+            'company_favicon' => null,
             'require_2fa' => 'not_required',
+            'default_language' => 'en',
         ]);
 
-        $this->setSetting('general', [
-            ...$existing,
-            ...$data,
-        ]);
+        $updated = $existing;
+        $updated['company_name'] = $data['company_name'];
+        $updated['default_language'] = $data['default_language'];
 
+        foreach (['logo', 'favicon'] as $asset) {
+            $key = 'company_'.$asset;
+            $uploadKey = $asset.'_upload';
+            $resetKey = 'reset_'.$asset;
+            $old = $existing[$key] ?? null;
+            $next = $old;
+            if ($request->boolean($resetKey)) {
+                $next = null;
+            } elseif ($request->hasFile($uploadKey)) {
+                $path = $request->file($uploadKey)->store('branding', 'public');
+                $next = Storage::disk('public')->url($path);
+            } elseif ($request->filled($key) && $data[$key] !== $old) {
+                if (! filter_var($data[$key], FILTER_VALIDATE_URL) || ! in_array(parse_url($data[$key], PHP_URL_SCHEME), ['http', 'https'], true)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([$key => 'Enter a valid HTTP or HTTPS image URL.']);
+                }
+                $next = $data[$key];
+            }
+            $updated[$key] = $next;
+            // Only remove assets we created. Never delete arbitrary paths or external URLs.
+            if ($old !== $next && is_string($old) && str_starts_with($old, '/storage/branding/')) {
+                Storage::disk('public')->delete(substr($old, strlen('/storage/')));
+            }
+        }
+
+        $this->setSetting('general', $updated);
         return back()->with('success', 'General settings updated.');
     }
 
@@ -127,13 +158,9 @@ class AdminSettingsController extends Controller
         ]);
 
         $general['require_2fa'] = $data['require_2fa'];
-
         $this->setSetting('general', $general);
-
         unset($data['require_2fa']);
-
         $this->setSetting('security', $data);
-
         return back()->with('success', 'Security settings updated.');
     }
 
@@ -150,13 +177,11 @@ class AdminSettingsController extends Controller
         ]);
 
         $existing = $this->setting('mail', []);
-
         if (! filled($data['password'] ?? null)) {
             $data['password'] = $existing['password'] ?? '';
         }
 
         $this->setSetting('mail', $data);
-
         return back()->with('success', 'Mail settings updated.');
     }
 
@@ -176,7 +201,6 @@ class AdminSettingsController extends Controller
         Config::set('mail.mailers.smtp.password', $mail['password'] ?? null);
         Config::set('mail.from.address', $mail['from_address'] ?? config('mail.from.address'));
         Config::set('mail.from.name', $mail['from_name'] ?? 'HivePanel');
-
         Mail::to($data['email'])->send(new TestMail());
 
         return back()->with('success', 'Test email sent.');
@@ -192,38 +216,32 @@ class AdminSettingsController extends Controller
         ]);
 
         $existing = $this->setting('captcha', []);
-
         if (! filled($data['secret_key'] ?? null)) {
             $data['secret_key'] = $existing['secret_key'] ?? '';
         }
 
         $this->setSetting('captcha', $data);
-
         return back()->with('success', 'Captcha settings updated.');
     }
 
     public function updateOAuth(Request $request)
     {
         $providers = ['discord', 'google', 'github'];
-
         $data = $request->validate([
             'providers' => ['required', 'array'],
         ]);
 
         foreach ($providers as $provider) {
             $payload = $request->input("providers.{$provider}", []);
-
             $validated = validator($payload, [
                 'enabled' => ['boolean'],
                 'client_id' => ['nullable', 'string', 'max:255'],
                 'client_secret' => ['nullable', 'string', 'max:255'],
                 'redirect_url' => ['nullable', 'url', 'max:2048'],
             ])->validate();
-
             $existing = OAuthProvider::firstOrCreate([
                 'provider' => $provider,
             ]);
-
             $existing->update([
                 'enabled' => (bool) ($validated['enabled'] ?? false),
                 'client_id' => $validated['client_id'] ?? null,
@@ -265,7 +283,6 @@ class AdminSettingsController extends Controller
         ]);
 
         $mail['password'] = '';
-
         return $mail;
     }
 
@@ -277,9 +294,7 @@ class AdminSettingsController extends Controller
             'site_key' => '',
             'secret_key' => '',
         ]);
-
         $captcha['secret_key'] = '';
-
         return $captcha;
     }
 
@@ -316,10 +331,8 @@ class AdminSettingsController extends Controller
         ]);
 
         $slug = Str::slug($data['name']);
-
         $baseSlug = $slug;
         $suffix = 2;
-
         while (OidcProvider::where('slug', $slug)->exists()) {
             $slug = "{$baseSlug}-{$suffix}";
             $suffix++;
@@ -364,14 +377,13 @@ class AdminSettingsController extends Controller
             'scopes' => $data['scopes'] ?? ['openid', 'profile', 'email'],
             'allow_registration' => (bool) ($data['allow_registration'] ?? false),
         ]);
-
+        
         return back()->with('success', 'OpenID Connect provider updated.');
     }
 
     public function destroyOidc(OidcProvider $oidcProvider)
     {
         $oidcProvider->delete();
-
         return back()->with('success', 'OpenID Connect provider removed.');
     }
 }
