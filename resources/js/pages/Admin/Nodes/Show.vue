@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import UsageChart from '@/components/charts/UsageChart.vue'
-import ConfirmationModal from '@/components/ui/ConfirmationModal.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import NodeNavigation from './NodeNavigation.vue'
 import { Head, Link, router } from '@inertiajs/vue3'
@@ -53,6 +52,7 @@ let timer: number | undefined
 
 const showDeleteModal = ref(false)
 const deleting = ref(false)
+const deleteError = ref('')
 
 const isOnline = computed(() => {
     if (!props.node.last_seen_at) return false
@@ -134,13 +134,12 @@ function workerBadgeIcon() {
 
 function deleteNode() {
     deleting.value = true
-
+    deleteError.value = ''
     router.delete(`/admin/nodes/${props.node.id}`, {
         preserveScroll: true,
-        onFinish: () => {
-            deleting.value = false
-            showDeleteModal.value = false
-        },
+        onSuccess: () => { showDeleteModal.value = false },
+        onError: (errors) => { deleteError.value = Object.values(errors).join(' ') || 'Unable to delete node.' },
+        onFinish: () => { deleting.value = false },
     })
 }
 
@@ -537,6 +536,17 @@ onUnmounted(() => {
                     </div>
                 </div>
             </main>
+        </div>
+        <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" @click.self="showDeleteModal = false">
+            <div class="w-full max-w-md space-y-4 rounded-panel border border-status-danger/40 bg-surface p-6">
+                <h2 class="text-lg font-black text-white">Delete Node?</h2>
+                <p class="text-sm text-zinc-400">This permanently deletes {{ node.name }}. This action cannot be undone.</p>
+                <p v-if="deleteError" role="alert" class="text-sm text-red-400">{{ deleteError }}</p>
+                <div class="flex justify-end gap-3">
+                    <button type="button" class="rounded-button border border-zinc-700 px-4 py-2" @click="showDeleteModal = false">Cancel</button>
+                    <button type="button" :disabled="deleting" class="rounded-button bg-status-danger px-4 py-2 font-bold text-white disabled:opacity-50" @click="deleteNode">{{ deleting ? 'Deleting...' : 'Delete Node' }}</button>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>

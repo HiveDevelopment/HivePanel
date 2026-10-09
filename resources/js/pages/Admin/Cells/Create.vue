@@ -16,6 +16,7 @@ import {
     Container,
     Info,
     Search,
+    Plus,
     Settings,
     Terminal,
     User,
@@ -46,6 +47,10 @@ const props = defineProps<{
 const currentStep = ref(1)
 const allocations = ref<any[]>([])
 const loadingAllocations = ref(false)
+const showAllocationModal = ref(false)
+const creatingAllocation = ref(false)
+const allocationError = ref('')
+const allocationForm = ref({ ip: '', port: '', alias: '' })
 const ownerSearchFocused = ref(false)
 
 const form = useForm({
@@ -134,6 +139,17 @@ const hasVersion = computed(() => {
         (key) => key.trim().toLowerCase() === 'version'
     )
 })
+
+const editableCombVariables = computed(() => Object.entries(combVariables.value)
+    .filter(([key]) => !['version', 'memory', 'server_port', 'server_ip'].includes(key.toLowerCase()))
+    .map(([key, definition]) => ({
+        key,
+        label: typeof definition === 'object' ? (definition.name || key) : key,
+        description: typeof definition === 'object' ? (definition.description || '') : '',
+        required: typeof definition === 'object' ? Boolean(definition.required) : false,
+        type: typeof definition === 'object' ? (definition.type || 'string') : 'string',
+    }))
+)
 
 const versionVariableKey = computed(() => Object.keys(combVariables.value).find((key) => key.toLowerCase() === 'version'))
 
@@ -258,6 +274,52 @@ watch(selectedComb, (comb) => {
 watch(() => form.version, (version) => {
     if (versionVariableKey.value) form.variables[versionVariableKey.value] = version
 })
+
+async function createAllocation() {
+    if (!form.node_id || creatingAllocation.value) return
+    creatingAllocation.value = true
+    allocationError.value = ''
+    try {
+        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content
+        const xsrf = document.cookie.split('; ').find((cookie) => cookie.startsWith('XSRF-TOKEN='))?.split('=')[1]
+        const response = await fetch(`/admin/nodes/${form.node_id}/allocations`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+                ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+            },
+            body: JSON.stringify({
+                ip: allocationForm.value.ip.trim(),
+                port: Number(allocationForm.value.port),
+                alias: allocationForm.value.alias.trim() || null,
+            }),
+        })
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}))
+            allocationError.value = error.message || Object.values(error.errors || {}).flat().join(' ') || 'Could not create allocation.'
+            return
+        }
+        const listResponse = await fetch(`/admin/nodes/${form.node_id}/available-allocations`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+        })
+        if (!listResponse.ok) throw new Error('Allocation created, but the list could not be refreshed.')
+        const data = await listResponse.json()
+        allocations.value = data.allocations ?? []
+        const created = allocations.value.find((item) => item.ip === allocationForm.value.ip.trim() && Number(item.port) === Number(allocationForm.value.port))
+        if (created) form.allocation_id = String(created.id)
+        showAllocationModal.value = false
+        allocationForm.value = { ip: '', port: '', alias: '' }
+    } catch (error) {
+        allocationError.value = error instanceof Error ? error.message : 'Could not create allocation.'
+    } finally {
+        creatingAllocation.value = false
+    }
+}
 
 function selectOwner(user: UserRecord) {
     form.owner_email = user.email
@@ -446,6 +508,11 @@ function submit() {
                                     :disabled="!form.node_id"
                                     :loading="loadingAllocations"
                                 />
+                                <div class="flex justify-end">
+                                    <button type="button" :disabled="!form.node_id" class="inline-flex items-center gap-2 rounded-button border border-hive/40 px-4 py-2 text-sm font-bold text-hive disabled:opacity-40" @click="allocationError = ''; showAllocationModal = true">
+                                        <Plus class="size-4" /> Create Allocation
+                                    </button>
+                                </div>
 
                                 <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
                                     <div class="mb-5 flex items-center gap-3">
@@ -563,6 +630,12 @@ function submit() {
                                                 placeholder="Enter server version"
                                                 class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive"
                                             />
+                                        </div>
+
+                                        <div v-for="variable in editableCombVariables" :key="variable.key">
+                                            <label class="text-sm font-bold text-zinc-400">{{ variable.label }}<span v-if="variable.required" class="text-red-400"> *</span></label>
+                                            <input v-model="form.variables[variable.key]" :type="variable.type === 'number' || variable.type === 'integer' ? 'number' : 'text'" :required="variable.required" class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm text-white outline-none focus:border-hive" />
+                                            <p v-if="variable.description" class="mt-1 text-xs text-zinc-500">{{ variable.description }}</p>
                                         </div>
 
                                         <div>
@@ -700,5 +773,25 @@ function submit() {
                 </div>
             </main>
         </div>
+            <div v-if="showAllocationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" @click.self="showAllocationModal = false">
+                <form class="w-full max-w-md space-y-4 rounded-panel border border-zinc-700 bg-surface p-6" @submit.prevent="createAllocation">
+                    <h2 class="text-lg font-black">Create Allocation</h2>
+                    <p class="text-sm text-zinc-400">Add an allocation to the selected node and select it for this Cell.</p>
+                    <p v-if="allocationError" role="alert" class="text-sm text-red-400">{{ allocationError }}</p>
+                    <label class="block text-sm font-bold text-zinc-400">IP Address
+                        <input v-model="allocationForm.ip" required placeholder="0.0.0.0" class="mt-2 w-full rounded-button border border-zinc-700 bg-[#0d0f11] px-4 py-3 text-white" />
+                    </label>
+                    <label class="block text-sm font-bold text-zinc-400">Port
+                        <input v-model="allocationForm.port" required type="number" min="1" max="65535" class="mt-2 w-full rounded-button border border-zinc-700 bg-[#0d0f11] px-4 py-3 text-white" />
+                    </label>
+                    <label class="block text-sm font-bold text-zinc-400">Alias (optional)
+                        <input v-model="allocationForm.alias" class="mt-2 w-full rounded-button border border-zinc-700 bg-[#0d0f11] px-4 py-3 text-white" />
+                    </label>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" class="rounded-button border border-zinc-700 px-4 py-2" @click="showAllocationModal = false">Cancel</button>
+                        <button type="submit" :disabled="creatingAllocation" class="rounded-button bg-hive px-4 py-2 font-bold text-black disabled:opacity-50">{{ creatingAllocation ? 'Creating...' : 'Create Allocation' }}</button>
+                    </div>
+                </form>
+            </div>
     </AppLayout>
 </template>

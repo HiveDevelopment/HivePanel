@@ -365,7 +365,7 @@ SERVICE;
             'node_id' => $id,
         ]);
 
-        return back();
+        return redirect()->route('admin.nodes.index')->with('success', 'Node deleted successfully.');
     }
 
     public function statsJson(Node $node)
