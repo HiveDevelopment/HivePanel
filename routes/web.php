@@ -25,6 +25,7 @@ use App\Http\Controllers\Cells\CellConsoleController;
 use App\Http\Controllers\Cells\CellController;
 use App\Http\Controllers\Cells\CellDatabaseController;
 use App\Http\Controllers\Cells\CellFileController;
+use App\Http\Controllers\Cells\CellPasteController;
 use App\Http\Controllers\Cells\CellImporterController;
 use App\Http\Controllers\Cells\CellPlayerController;
 use App\Http\Controllers\Cells\CellPowerController;
@@ -229,6 +230,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/{id}/files', [CellFileController::class, 'index'])->name('files')->middleware('cell.permission:' . CellPermissions::FILES_VIEW);
         Route::get('/{id}/files-json', [CellFileController::class, 'json'])->name('files-json')->middleware('cell.permission:' . CellPermissions::FILES_VIEW);
+        Route::post('/{id}/share/file', [CellPasteController::class, 'file'])->name('share.file')->middleware(['cell.permission:' . CellPermissions::FILES_READ, 'throttle:10,1']);
+        Route::post('/{id}/share/console', [CellPasteController::class, 'console'])->name('share.console')->middleware(['cell.permission:' . CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
         Route::get('/{id}/files/download', [CellFileController::class, 'download'])->name('files.download')->middleware('cell.permission:' . CellPermissions::FILES_READ);
         Route::get('/{id}/files/edit', [CellFileController::class, 'edit'])->name('files.edit')->middleware('cell.permission:' . CellPermissions::FILES_READ);
         Route::get('/{id}/files/read', [CellFileController::class, 'read'])->name('files.read')->middleware('cell.permission:' . CellPermissions::FILES_READ);

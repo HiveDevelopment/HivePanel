@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
+import HivePasteShare from '@/components/cells/HivePasteShare.vue'
 import CellHeader from '@/components/cells/CellHeader.vue'
 import StatChartCard from '@/components/cells/StatChartCard.vue'
 import { Head } from '@inertiajs/vue3'
@@ -29,6 +30,35 @@ type ConsoleEntry = {
     message: string
 }
 
+const consolePasteOpen = ref(false)
+const consolePasteBusy = ref(false)
+const consolePasteError = ref('')
+const consolePasteUrl = ref('')
+const consolePasteSelected = ref(false)
+const consolePasteText = ref('')
+function openConsolePaste() {
+    const selected = window.getSelection()?.toString().trim() ?? ''
+    consolePasteSelected.value = selected.length > 0
+    consolePasteText.value = selected || visibleConsoleLines.value.slice(-200).map(line => `${formatConsoleTime(line.timestamp)}  ${line.message}`).join('\n')
+    consolePasteError.value = ''
+    consolePasteUrl.value = ''
+    consolePasteOpen.value = true
+}
+async function shareConsolePaste() {
+    consolePasteBusy.value = true
+    consolePasteError.value = ''
+    try {
+        const response = await fetch(`/cells/${cellId.value}/share/console`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: JSON.stringify({ content: consolePasteText.value, selection: consolePasteSelected.value }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.message || result.errors?.content?.[0] || 'Unable to share console.')
+        consolePasteUrl.value = result.url
+    } catch (error) { consolePasteError.value = error instanceof Error ? error.message : 'Unable to share console.' }
+    finally { consolePasteBusy.value = false }
+}
 const consoleLines = ref<ConsoleEntry[]>([])
 const command = ref('')
 const consoleEl = ref<HTMLElement | null>(null)
@@ -931,6 +961,7 @@ function restartCell() {
         :active-cell-status="currentStatus"
         :context="'server'"
     >
+        <HivePasteShare :open="consolePasteOpen" :busy="consolePasteBusy" title="Console output" :error="consolePasteError" :url="consolePasteUrl" :description="consolePasteSelected ? 'Share selected console text. Review it for secrets before uploading; anyone with the link can view it.' : 'Share the last 200 visible console lines. Review them for secrets before uploading; anyone with the link can view them.'" @close="consolePasteOpen = false" @confirm="shareConsolePaste" />
         <Head :title="cell.name" />
 
         <div class="min-h-screen min-w-0 max-w-full bg-surface-dark text-white">
@@ -1002,6 +1033,7 @@ function restartCell() {
 
                                             <div class="flex shrink-0 items-center gap-1.5 font-sans">
                                                 <button type="button" class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive" @click="aiDialog = true">Ask AI</button>
+                                                <button type="button" class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive" @click="openConsolePaste">Share via HivePaste</button>
                                                 <button type="button" class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive" title="Download console log" @click="exportConsole">Export</button>
                                                 <button type="button" class="rounded p-1.5 text-zinc-500 transition hover:text-red-400" title="Clear console display" aria-label="Clear console display" @click="clearVisibleConsole">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg>

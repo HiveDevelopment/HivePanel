@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
+import HivePasteShare from '@/components/cells/HivePasteShare.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
@@ -983,6 +984,36 @@ function contextOpenEntry() {
 
     closeContextMenu()
     openEntry(entry)
+}
+
+const pasteEntry = ref<FileEntry | null>(null)
+const pasteBusy = ref(false)
+const pasteError = ref('')
+const pasteUrl = ref('')
+
+function shareFile(entry: FileEntry) {
+    closeContextMenu()
+    pasteEntry.value = entry
+    pasteError.value = ''
+    pasteUrl.value = ''
+}
+
+async function submitFileShare() {
+    if (!pasteEntry.value || pasteBusy.value) return
+    pasteBusy.value = true
+    pasteError.value = ''
+    try {
+        const response = await fetch(`/cells/${cellId.value}/share/file`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: JSON.stringify({ path: pasteEntry.value.path }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.message || result.errors?.content?.[0] || 'Unable to share file.')
+        pasteUrl.value = result.url
+    } catch (error) {
+        pasteError.value = error instanceof Error ? error.message : 'Unable to share file.'
+    } finally { pasteBusy.value = false }
 }
 
 function contextDownload() {
@@ -2001,6 +2032,8 @@ onUnmounted(() => {
             </main>
         </div>
 
+        <HivePasteShare :open="!!pasteEntry" :busy="pasteBusy" :title="pasteEntry?.name ?? ''" :error="pasteError" :url="pasteUrl" @close="pasteEntry = null" @confirm="submitFileShare" />
+
         <div
             v-if="contextMenuOpen && !isBackupMode"
             data-file-context-menu
@@ -2053,6 +2086,16 @@ onUnmounted(() => {
                         <Folder v-if="isFolder(contextEntry)" class="size-4" />
                         <File v-else class="size-4" />
                         {{ isFolder(contextEntry) ? 'Open' : 'Edit' }}
+                    </button>
+
+                    <button
+                        v-if="!isFolder(contextEntry)"
+                        type="button"
+                        class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-bold text-zinc-300 transition hover:bg-hive/10 hover:text-hive"
+                        @click="shareFile(contextEntry)"
+                    >
+                        <LinkIcon class="size-4" />
+                        Share via HivePaste
                     </button>
 
                     <button

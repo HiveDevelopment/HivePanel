@@ -14,6 +14,12 @@ return [
     |
     */
 
+    'hivepaste' => [
+        'enabled' => env('HIVEPASTE_ENABLED', true),
+        'url' => env('HIVEPASTE_URL', 'https://paste.hivepanel.dev'),
+        'max_bytes' => (int) env('HIVEPASTE_MAX_BYTES', 524288),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],

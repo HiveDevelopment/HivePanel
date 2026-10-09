@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
+import HivePasteShare from '@/components/cells/HivePasteShare.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
@@ -10,6 +11,25 @@ const props = defineProps<{
     path: string
 }>()
 
+const pasteOpen = ref(false)
+const pasteBusy = ref(false)
+const pasteError = ref('')
+const pasteUrl = ref('')
+async function shareEditorFile() {
+    pasteBusy.value = true
+    pasteError.value = ''
+    try {
+        const response = await fetch(`/cells/${props.cell.id}/share/file`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            body: JSON.stringify({ path: props.path }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.message || 'Unable to share file.')
+        pasteUrl.value = result.url
+    } catch (error) { pasteError.value = error instanceof Error ? error.message : 'Unable to share file.' }
+    finally { pasteBusy.value = false }
+}
 const content = ref('')
 const originalContent = ref('')
 const loading = ref(true)
@@ -132,6 +152,7 @@ onUnmounted(() => {
     >
         <Head :title="`${cell.name} - ${path}`" />
 
+        <HivePasteShare :open="pasteOpen" :busy="pasteBusy" :title="path" :error="pasteError" :url="pasteUrl" description="This uploads the saved version of this file. Anyone with the link can read it. Review it for secrets first." @close="pasteOpen = false" @confirm="shareEditorFile" />
         <div class="min-h-screen bg-surface-dark text-white">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-4">
@@ -150,6 +171,8 @@ onUnmounted(() => {
                                     <ArrowLeft class="size-4" />
                                     Back
                                 </button>
+
+                                <button type="button" class="rounded-button border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:border-hive hover:text-hive" :disabled="loading || isDirty" title="Shares the saved file; save changes first" @click="pasteError = ''; pasteUrl = ''; pasteOpen = true">Share via HivePaste</button>
 
                                 <button
                                     class="inline-flex items-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-white transition hover:bg-hive-light disabled:cursor-not-allowed disabled:opacity-60"
