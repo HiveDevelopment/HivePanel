@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
+import { computed } from 'vue'
 import {
     ArrowLeft,
     Cpu,
@@ -18,6 +19,7 @@ const props = defineProps<{
         editable: boolean
         message: string
     }
+    variableSchema: { name: string; label?: string; description?: string; type?: string; required?: boolean; default?: string | number | boolean; options?: any[] }[]
     allocations: {
         id: string
         ip: string
@@ -31,6 +33,7 @@ const props = defineProps<{
 
 const form = useForm({
     name: props.cell.name ?? '',
+    variables: Object.fromEntries(props.variableSchema.filter(variable => !['memory', 'server_ip', 'server_port'].includes(variable.name)).map(variable => [variable.name, String(props.cell.variables?.[variable.name] ?? variable.default ?? '')])),
     memory_mb: Number(props.cell.limits?.memory_mb ?? 1024),
     cpu_percent: Number(props.cell.limits?.cpu_percent ?? 100),
     disk_mb: Number(props.cell.limits?.disk_mb ?? 0),
@@ -38,6 +41,8 @@ const form = useForm({
     additional_allocation_ids: (props.cell.additional_allocations ?? []).map((allocation: any) => allocation.id),
 })
 
+
+const editableVariables = computed(() => props.variableSchema.filter(variable => !['memory', 'server_ip', 'server_port'].includes(variable.name)))
 
 function editStateTitle() {
     switch (props.editState.status) {
@@ -491,6 +496,28 @@ function primaryAllocationChanged() {
                                     <p v-if="form.errors.additional_allocation_ids" class="mt-2 text-xs font-bold text-status-danger">
                                         {{ form.errors.additional_allocation_ids }}
                                     </p>
+                                </div>
+                            </section>
+
+                            <section v-if="editableVariables.length" class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                                <h2 class="text-lg font-black">Environment Variables</h2>
+                                <p class="mt-1 text-sm text-zinc-500">Change the variables defined by this Cell's Comb. Stop the Cell before saving changes.</p>
+                                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                                    <div v-for="variable in editableVariables" :key="variable.name">
+                                        <label :for="`variable-${variable.name}`" class="text-xs font-black uppercase tracking-wide text-zinc-500">
+                                            {{ variable.label || variable.name }}<span v-if="variable.required" class="text-status-danger"> *</span>
+                                        </label>
+                                        <select v-if="variable.type === 'boolean'" :id="`variable-${variable.name}`" v-model="form.variables[variable.name]" class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm text-white outline-none focus:border-hive">
+                                            <option value="true">True</option>
+                                            <option value="false">False</option>
+                                        </select>
+                                        <select v-else-if="variable.options?.length" :id="`variable-${variable.name}`" v-model="form.variables[variable.name]" class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm text-white outline-none focus:border-hive">
+                                            <option v-for="option in variable.options" :key="String(typeof option === 'object' ? option.value : option)" :value="String(typeof option === 'object' ? option.value : option)">{{ typeof option === 'object' ? (option.label || option.value) : option }}</option>
+                                        </select>
+                                        <input v-else :id="`variable-${variable.name}`" v-model="form.variables[variable.name]" :type="variable.type === 'number' || variable.type === 'integer' ? 'number' : 'text'" :required="variable.required" class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm text-white outline-none transition focus:border-hive" :class="{ 'border-status-danger': form.errors[`variables.${variable.name}`] }" />
+                                        <p v-if="variable.description" class="mt-2 text-xs text-zinc-500">{{ variable.description }}</p>
+                                        <p v-if="form.errors[`variables.${variable.name}`]" class="mt-2 text-xs font-bold text-status-danger">{{ form.errors[`variables.${variable.name}`] }}</p>
+                                    </div>
                                 </div>
                             </section>
 

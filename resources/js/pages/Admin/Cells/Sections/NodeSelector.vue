@@ -27,7 +27,6 @@ const emit = defineEmits<{
                 :class="String(modelValue) === String(node.id)
                     ? 'border-hive bg-hive/10'
                     : 'border-zinc-800 bg-[#0d0f11] hover:border-zinc-600'"
-                :disabled="node.available_allocations_count <= 0"
                 @click="emit('update:modelValue', node.id)"
             >
                 <div class="flex items-start justify-between gap-3">

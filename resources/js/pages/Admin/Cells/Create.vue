@@ -621,6 +621,10 @@ function submit() {
                                         </div>
                                     </div>
 
+                                    <div v-if="selectedComb && (hasVersion || editableCombVariables.length)" class="rounded-button border border-hive/20 bg-hive/5 p-4">
+                                        <h3 class="text-sm font-black text-white">Environment Variables</h3>
+                                        <p class="mt-1 text-xs text-zinc-400">Configure the variables used by this Comb during installation and startup. Memory and network allocation are managed in their own steps.</p>
+                                    </div>
                                     <div class="grid gap-4 md:grid-cols-2">
                                         <div v-if="hasVersion">
                                             <label class="text-sm font-bold text-zinc-400">Server Version</label>

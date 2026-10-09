@@ -227,6 +227,10 @@ class AdminCellController extends Controller
         return Inertia::render('Admin/Cells/Edit', [
             'cell' => $this->cellPayload($cell),
             'editState' => $editState,
+            'variableSchema' => collect(Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data['variables_schema'] ?? [])
+                ->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']))
+                ->values()
+                ->all(),
             'allocations' => $cell->node
                 ? $cell->node->allocations()
                     ->where('is_reserved', false)
@@ -270,7 +274,24 @@ class AdminCellController extends Controller
             'allocation_id' => ['required', 'exists:node_allocations,id'],
             'additional_allocation_ids' => ['nullable', 'array'],
             'additional_allocation_ids.*' => ['string', 'exists:node_allocations,id'],
+            'variables' => ['nullable', 'array'],
+            'variables.*' => ['nullable', 'scalar'],
         ]);
+
+        $comb = Comb::query()->find(data_get($cell->metadata, 'comb_id'));
+        $schema = collect($comb?->data['variables_schema'] ?? [])->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']));
+        $editableNames = $schema->pluck('name')->reject(fn ($name) => in_array($name, ['memory', 'server_ip', 'server_port'], true))->all();
+        $submittedVariables = collect($data['variables'] ?? [])->only($editableNames)->map(fn ($value) => (string) ($value ?? ''))->all();
+        foreach ($schema as $variable) {
+            $name = $variable['name'];
+            if (! in_array($name, $editableNames, true)) continue;
+            if (! empty($variable['required']) && trim($submittedVariables[$name] ?? '') === '') {
+                return back()->withErrors(["variables.{$name}" => 'This variable is required.']);
+            }
+            if (in_array($variable['type'] ?? '', ['number', 'integer'], true) && isset($submittedVariables[$name]) && $submittedVariables[$name] !== '' && ! is_numeric($submittedVariables[$name])) {
+                return back()->withErrors(["variables.{$name}" => 'Enter a valid number.']);
+            }
+        }
 
         $worker = $cells->cellForSync($cell);
 
@@ -313,10 +334,11 @@ class AdminCellController extends Controller
             'disk_mb' => (int) data_get($oldMetadata, 'limits.disk_mb', 0),
             'primary_allocation_id' => (string) $cell->primary_allocation_id,
             'allocation_ids' => $oldAllocationIds,
+            'variables' => (array) data_get($oldMetadata, 'variables', []),
         ];
 
         try {
-            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata): void {
+            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata, $submittedVariables): void {
                 $requestedIds = collect([
                     (string) $data['allocation_id'],
                     ...$additionalIds->all(),
@@ -379,6 +401,7 @@ class AdminCellController extends Controller
 
                 $metadata['variables'] = [
                     ...(array) data_get($metadata, 'variables', []),
+                    ...$submittedVariables,
                     'memory' => (string) $data['memory_mb'],
                     'server_ip' => $primaryAllocation->ip,
                     'server_port' => (string) $primaryAllocation->port,
@@ -432,6 +455,7 @@ class AdminCellController extends Controller
                 'disk_mb' => [$old['disk_mb'], (int) $data['disk_mb']],
                 'primary_allocation_id' => [$old['primary_allocation_id'], (string) $cell->primary_allocation_id],
                 'allocations' => [$old['allocation_ids'], $newAllocationIds],
+                'variables' => [$old['variables'], (array) data_get($cell->metadata, 'variables', [])],
             ])->filter(fn (array $values) => $values[0] !== $values[1])
                 ->keys()
                 ->values()
