@@ -46,6 +46,11 @@ class AdminPermissions
     public const UPDATES_VIEW = 'admin.updates.view';
     public const UPDATES_INSTALL = 'admin.updates.install';
 
+    public const EXTENSIONS_VIEW = 'admin.extensions.view';
+    public const EXTENSIONS_CREATE = 'admin.extensions.create';
+    public const EXTENSIONS_UPDATE = 'admin.extensions.update';
+    public const EXTENSIONS_DELETE = 'admin.extensions.delete';
+
     public static function groups(): array
     {
         return [
@@ -100,6 +105,12 @@ class AdminPermissions
             'Updates' => [
                 self::UPDATES_VIEW => 'View HivePanel updates',
                 self::UPDATES_INSTALL => 'Install HivePanel updates',
+            ],
+            'Extensions' => [
+                self::EXTENSIONS_VIEW => 'View installed extensions',
+                self::EXTENSIONS_CREATE => 'Install new extensions',
+                self::EXTENSIONS_UPDATE => 'Enable, disable and manage extensions',
+                self::EXTENSIONS_DELETE => 'Uninstall extensions',
             ],
         ];
     }

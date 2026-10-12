@@ -1,0 +1,7 @@
+{
+  "id": "hivepanel.hello-nectar",
+  "name": "Hello Nectar",
+  "version": "0.1.0",
+  "panelCompatibility": ">=1.0.0",
+  "permissions": []
+}
