@@ -24,12 +24,14 @@ import {
 
 export type NavEntry = (NavItem & { type?: 'item' }) | {
     type: 'group'
+    id?: string
     title: string
     items: NavItem[]
 }
 
 const item = (title: string, href: string, icon: NavItem['icon']): NavItem => ({ title, href, icon })
-const group = (title: string, items: NavItem[]): NavEntry => ({ type: 'group', title, items })
+const groupIds: Record<string, string> = { 'Overview & Access': 'overview', Management: 'management', 'Automation & Recovery': 'automation', Configuration: 'configuration', Minecraft: 'game', 'Discord Bot': 'game', Steam: 'game' }
+const group = (title: string, items: NavItem[]): NavEntry => ({ type: 'group', id: groupIds[title], title, items })
 
 export const dashboardNavigation: NavEntry[] = [
     item('Servers', '', Home),

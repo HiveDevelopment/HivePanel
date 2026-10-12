@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/collapsible'
 import { Link, usePage } from '@inertiajs/vue3'
 import { ChevronDown } from 'lucide-vue-next'
+import { t } from '@/composables/useLanguage'
 import { computed } from 'vue'
 import type { NavItem } from '@/types'
 
@@ -76,7 +77,7 @@ function isActive(href: string) {
                     <CollapsibleTrigger
                         class="flex w-full items-center justify-between rounded-button px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-500 transition hover:bg-surface-hover hover:text-zinc-300"
                     >
-                        <span>{{ item.title }}</span>
+                        <span>{{ t(item.title) }}</span>
                         <ChevronDown class="size-4 transition group-data-[state=open]/collapsible:rotate-180" />
                     </CollapsibleTrigger>
 
@@ -92,7 +93,7 @@ function isActive(href: string) {
                                 >
                                     <Link :href="child.href">
                                         <component :is="child.icon" />
-                                        <span>{{ child.title }}</span>
+                                        <span>{{ t(child.title) }}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
@@ -107,7 +108,7 @@ function isActive(href: string) {
                     >
                         <Link :href="item.href">
                             <component :is="item.icon" />
-                            <span>{{ item.title }}</span>
+                            <span>{{ t(item.title) }}</span>
                         </Link>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
