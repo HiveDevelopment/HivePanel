@@ -81,7 +81,21 @@ class NectarExtensionController extends Controller
 
     public function update(Request $request, string $id, ExtensionManager $manager): RedirectResponse
     {
-        $data = $request->validate(['enabled' => ['required', 'boolean'], 'approve_network' => ['sometimes', 'boolean']]);
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'], 'approve_network' => ['sometimes', 'boolean'],
+            'navigation_overrides' => ['sometimes', 'array', 'max:10'],
+            'navigation_overrides.*' => ['array:group'],
+            'navigation_overrides.*.group' => ['required', 'in:extensions,overview,management,automation,configuration,game,tools'],
+        ]);
+        if (isset($data['navigation_overrides'])) {
+            $extension = collect($manager->installed())->firstWhere('id', $id);
+            abort_unless($extension, 404);
+            $slugs = array_column($extension['manifest']['frontend']['pages'] ?? [], 'slug');
+            foreach (array_keys($data['navigation_overrides']) as $slug) {
+                if (! in_array($slug, $slugs, true)) throw ValidationException::withMessages(['navigation_overrides' => 'Unknown extension page.']);
+            }
+            \Illuminate\Support\Facades\DB::table('nectar_extensions')->where('extension_id', $id)->update(['navigation_overrides' => json_encode($data['navigation_overrides'])]);
+        }
         if ($data['enabled'] && ($data['approve_network'] ?? false)) {
             \Illuminate\Support\Facades\DB::table('nectar_extensions')->where('extension_id', $id)->update(['network_approved' => true]);
         }
@@ -91,7 +105,7 @@ class NectarExtensionController extends Controller
             throw ValidationException::withMessages(['enabled' => $e->getMessage()]);
         }
 
-        return back()->with('success', $data['enabled'] ? 'Extension enabled.' : 'Extension disabled.');
+        return back()->with('success', array_key_exists('navigation_overrides', $data) ? 'Sidebar placement saved.' : ($data['enabled'] ? 'Extension enabled.' : 'Extension disabled.'));
     }
 
     public function destroy(string $id, ExtensionManager $manager): RedirectResponse

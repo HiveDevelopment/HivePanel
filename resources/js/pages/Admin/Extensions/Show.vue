@@ -10,12 +10,15 @@ type Extension = {
     version: string;
     enabled: boolean;
     networkApproved?: boolean;
-    manifest: { permissions?: string[]; network?: { http?: { hosts: string[] }; tcp?: { scope: string } }; settings?: Array<{ key: string }>; frontend?: { slots?: string[] }; panelCompatibility?: string; description?: string; author?: string };
+    navigationOverrides?: Record<string, { group: string }>;
+    manifest: { permissions?: string[]; network?: { http?: { hosts: string[] }; tcp?: { scope: string } }; settings?: Array<{ key: string }>; frontend?: { slots?: string[]; pages?: Array<{ slug: string; title: string; sidebar?: { group?: string } }> }; panelCompatibility?: string; description?: string; author?: string };
 };
 const props = defineProps<{ extension: Extension; networkAudits?: Array<{ id: number; operation: string; destination: string | null; outcome: string; created_at: string }> }>();
 const page = usePage();
-const actionError = computed(() => page.props.errors.enabled || page.props.errors.extension);
+const actionError = computed(() => page.props.errors.enabled || page.props.errors.extension || page.props.errors.navigation_overrides);
 const needsNetworkApproval = computed(() => !props.extension.networkApproved && props.extension.manifest.permissions?.some(permission => permission.startsWith('network.')));
+const pagePlacement = ref(Object.fromEntries((props.extension.manifest.frontend?.pages ?? []).map(page => [page.slug, { group: props.extension.navigationOverrides?.[page.slug]?.group ?? page.sidebar?.group ?? 'extensions' }])));
+const savePlacement = () => router.patch(`/admin/extensions/${props.extension.id}`, { enabled: props.extension.enabled, navigation_overrides: pagePlacement.value }, { preserveScroll: true });
 const busy = ref(false);
 const approveNetwork = ref(false);
 const changeState = () => {
@@ -92,6 +95,16 @@ const remove = () => {
                     </label>
                     <p v-if="needsNetworkApproval" class="mt-3 text-sm text-amber-400">Network approval is required. Review the hosts and TCP scope above, tick the approval checkbox, then select Approve and enable.</p>
                     <p v-else-if="extension.networkApproved" class="mt-3 text-sm text-status-success">Declared network permissions approved.</p>
+                    <div v-if="extension.manifest.frontend?.pages?.length" class="mt-6 space-y-3">
+                        <h2 class="text-lg font-black">Sidebar placement</h2>
+                        <label v-for="entry in extension.manifest.frontend.pages" :key="entry.slug" class="block text-sm text-zinc-400">
+                            {{ entry.title }}
+                            <select v-model="pagePlacement[entry.slug].group" class="mt-2 block rounded-button border border-zinc-700 bg-surface-dark px-3 py-2 text-white">
+                                <option value="overview">Overview &amp; Access</option><option value="management">Management</option><option value="automation">Automation &amp; Recovery</option><option value="configuration">Configuration</option><option value="game">Game</option><option value="tools">Tools</option><option value="extensions">Extensions</option>
+                            </select>
+                        </label>
+                        <button type="button" class="rounded-button border border-zinc-700 px-3 py-2 text-sm font-bold" @click="savePlacement">Save placement</button>
+                    </div>
                     <h2 class="mt-6 text-lg font-black">Manage</h2>
                     <div v-if="actionError" role="alert" class="mt-4 rounded-button border border-status-danger/30 bg-status-danger/10 p-3 text-sm font-bold text-status-danger">{{ actionError }}</div>
                     <p class="mt-2 text-sm text-zinc-500">Enabled extensions can appear in the panel's configured Nectar slots.</p>

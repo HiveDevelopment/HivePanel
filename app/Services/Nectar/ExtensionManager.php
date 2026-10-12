@@ -38,6 +38,7 @@ class ExtensionManager
             'version' => $row->version,
             'enabled' => (bool) $row->enabled,
             'networkApproved' => (bool) ($row->network_approved ?? false),
+            'navigationOverrides' => json_decode($row->navigation_overrides ?? '{}', true) ?: [],
             'manifest' => json_decode($row->manifest, true),
         ])->all();
     }
@@ -71,6 +72,10 @@ class ExtensionManager
             'frontend.pages.*.title' => ['required', 'string', 'max:60'],
             'frontend.pages.*.entry' => ['required', 'string', 'regex:/^dist\/pages\/[a-z][a-z0-9-]{0,47}\.html$/D'],
             'frontend.pages.*.navigation' => ['sometimes', 'boolean'],
+            'frontend.pages.*.context' => ['sometimes', Rule::in(['dashboard', 'cell'])],
+            'frontend.pages.*.sidebar' => ['sometimes', 'array:group,icon'],
+            'frontend.pages.*.sidebar.group' => ['sometimes', Rule::in(['extensions', 'overview', 'management', 'automation', 'configuration', 'game', 'tools'])],
+            'frontend.pages.*.sidebar.icon' => ['sometimes', Rule::in(['puzzle', 'vote', 'settings', 'download', 'network', 'terminal'])],
             'backend' => ['prohibited'],
             'hooks' => ['prohibited'],
             'permissions' => ['sometimes', 'array', 'list', 'max:5'],
@@ -383,7 +388,7 @@ class ExtensionManager
             && (! str_starts_with($capability, 'network.') || ($extension->network_approved ?? false));
     }
 
-    public function pages(): array
+    public function pages(?\App\Models\Cell $cell = null): array
     {
         $pages = [];
         foreach ($this->installed() as $extension) {
@@ -392,12 +397,22 @@ class ExtensionManager
             }
 
             foreach ($extension['manifest']['frontend']['pages'] ?? [] as $page) {
+                $context = $page['context'] ?? 'dashboard';
+                if (($context === 'cell') !== ($cell !== null)) continue;
+                if ($cell) {
+                    $comb = \App\Models\Comb::find(data_get($cell->metadata, 'comb_id'));
+                    $scopes = $extension['manifest']['frontend']['combs'] ?? [];
+                    if ($scopes && ! in_array((string) ($comb?->external_id ?? $cell->comb), $scopes, true) && ! in_array('game:' . strtolower((string) ($comb?->game ?? data_get($cell->metadata, 'comb_data.game', ''))), $scopes, true)) continue;
+                }
                 $pages[] = [
                     'extensionId' => $extension['id'],
                     'extensionName' => $extension['name'],
                     'slug' => $page['slug'],
                     'title' => $page['title'],
-                    'href' => route('nectar.pages.show', [
+                    'context' => $context,
+                    'sidebarGroup' => $extension['navigationOverrides'][$page['slug']]['group'] ?? $page['sidebar']['group'] ?? 'extensions',
+                    'icon' => $page['sidebar']['icon'] ?? 'puzzle',
+                    'href' => $cell ? route('nectar.pages.cell', ['cell' => $cell->id, 'id' => $extension['id'], 'slug' => $page['slug']]) : route('nectar.pages.show', [
                         'id' => $extension['id'],
                         'slug' => $page['slug'],
                     ]),

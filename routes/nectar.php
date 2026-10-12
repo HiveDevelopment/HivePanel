@@ -62,6 +62,10 @@ Route::middleware(['web', 'auth', 'verified'])->group(function () {
     Route::get('/nectar/navigation', [NectarPageController::class, 'navigation'])
         ->name('nectar.navigation');
 
+    Route::get('/cells/{cell}/extensions/{id}/{slug}', [NectarPageController::class, 'showCell'])
+        ->where(['id' => '[a-z0-9.-]+', 'slug' => '[a-z][a-z0-9-]*'])
+        ->middleware('cell.permission:console.view')->name('nectar.pages.cell');
+
     Route::get('/extensions/{id}/{slug}', [NectarPageController::class, 'show'])
         ->where([
             'id' => '[a-z0-9.-]+',

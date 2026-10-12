@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { extensionTheme } from '@/composables/useDesignTokens';
+import { locale, extensionMessages } from '@/composables/useLanguage';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 const props = defineProps<{
@@ -74,7 +76,7 @@ async function handleMessage(event: MessageEvent) {
     if (!message || message.nectar !== 'v1') return;
 
     if (message.type === 'ready') {
-        send({ type: 'init', nonce, cellId: props.cellId ?? null });
+        send({ type: 'init', nonce, cellId: props.cellId ?? null, ui: { theme: extensionTheme(), locale: locale.value, messages: extensionMessages() } });
         return;
     }
 
@@ -137,8 +139,9 @@ async function handleMessage(event: MessageEvent) {
     }
 }
 
-onMounted(() => window.addEventListener('message', handleMessage));
-onBeforeUnmount(() => { window.removeEventListener('message', handleMessage); if (pollTimer) clearInterval(pollTimer); });
+const sendUi = () => send({ type: 'ui', nonce, ui: { theme: extensionTheme(), locale: locale.value, messages: extensionMessages() } });
+onMounted(() => { window.addEventListener('message', handleMessage); window.addEventListener('hivepanel-ui-changed', sendUi); });
+onBeforeUnmount(() => { window.removeEventListener('message', handleMessage); window.removeEventListener('hivepanel-ui-changed', sendUi); if (pollTimer) clearInterval(pollTimer); });
 </script>
 
 <template>
