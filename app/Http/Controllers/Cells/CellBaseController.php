@@ -33,7 +33,12 @@ abstract class CellBaseController extends Controller
         Cell $cell,
         CellNodeClient $cells,
     ): array {
-        $workerCell = $cells->cell($cell);
+        try {
+            $workerCell = $cells->cell($cell);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $workerCell = ['error' => true, 'message' => 'Node status is unavailable.'];
+        }
 
         if (($workerCell['error'] ?? false) === true) {
             abort(
@@ -53,66 +58,14 @@ abstract class CellBaseController extends Controller
         Cell $cell,
         CellNodeClient $cells,
     ): array {
-        $workerCell = $cells->cell($cell);
-
-        if (($workerCell['error'] ?? false) === true) {
-            return $this->mergePanelCell(
-                $cell,
-                [
-                    'status' => 'offline',
-                    'error' => true,
-                    'message' => $workerCell['message']
-                        ?? 'Node unavailable',
-                ],
-            );
-        }
-
-        return $this->mergePanelCell(
-            $cell,
-            $workerCell,
-        );
+        return app(\App\Services\Cells\CellDashboardService::class)->frontendCell($cell, $cells);
     }
 
     protected function mergePanelCell(
         Cell $cell,
         array $workerCell,
     ): array {
-        return [
-            ...$workerCell,
-
-            'id' => $cell->id,
-            'daemon_id' => $cell->daemon_id,
-            'node_id' => $cell->node_id,
-
-            'name' => $workerCell['name']
-                ?? $cell->name,
-
-            'comb_data' => (array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? $workerCell['comb_data'] ?? data_get($cell->metadata, 'comb_data', [])),
-
-            'comb' => $workerCell['comb']
-                ?? $cell->comb,
-
-            'install_status' => $cell->install_status instanceof CellInstallStatus
-                ? $cell->install_status->value
-                : $cell->install_status,
-
-            'install_status_label' => $cell->install_status instanceof CellInstallStatus
-                ? $cell->install_status->label()
-                : ucfirst(
-                    (string) $cell->install_status,
-                ),
-
-            'install_failure_reason' => $cell->install_failure_reason,
-
-            'installed_at' => $cell->installed_at
-                ?->toIso8601String(),
-
-            'node' => [
-                'id' => $cell->node?->id,
-                'name' => $cell->node?->name,
-                'location' => $cell->node?->location,
-            ],
-        ];
+        return app(\App\Services\Cells\CellDashboardService::class)->mergePanelCell($cell, $workerCell);
     }
 
     protected function installationPageIfNeeded(

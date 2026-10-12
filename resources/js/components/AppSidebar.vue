@@ -109,7 +109,7 @@ const navigation = computed<NavEntry[]>(() => {
         </SidebarHeader>
 
         <SidebarContent>
-            <SidebarActiveCell v-if="activeCell" :cell="activeCell" :status="sidebarCellStatus" />
+            <SidebarActiveCell v-if="context === 'server' && activeCell" :cell="activeCell" :status="sidebarCellStatus" />
 
             <div
                 v-if="context === 'server' && activeCell && !installed"

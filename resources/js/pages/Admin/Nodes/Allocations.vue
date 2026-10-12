@@ -2,7 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.vue'
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue'
 import NodeNavigation from './NodeNavigation.vue'
-import { Head, Link, router, useForm } from '@inertiajs/vue3'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import {
     Activity,
     ArrowLeft,
@@ -22,6 +22,9 @@ const props = defineProps<{
     node: any
     allocations: any[]
 }>()
+
+const page = usePage()
+const allocationError = computed(() => page.props.errors.allocations)
 
 const form = useForm({
     ip: '0.0.0.0',
@@ -82,7 +85,7 @@ function submit() {
         payload.port_end = form.port_end
     }
 
-    router.post(`/admin/nodes/${props.node.id}/allocations`, payload, {
+    form.transform(() => payload).post(`/admin/nodes/${props.node.id}/allocations`, {
         preserveScroll: true,
         onSuccess: () => {
             form.port = ''
@@ -221,6 +224,14 @@ function formatDate(value?: string) {
                     </section>
 
                     <NodeNavigation :node-id="node.id" active="allocations" />
+
+                    <div
+                        v-if="allocationError"
+                        role="alert"
+                        class="rounded-button border border-status-danger/30 bg-status-danger/10 p-4 text-sm font-bold text-status-danger"
+                    >
+                        {{ allocationError }}
+                    </div>
 
                     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <div class="rounded-panel border border-zinc-800 bg-surface p-5">
@@ -434,13 +445,6 @@ function formatDate(value?: string) {
                                     <div v-if="form.errors.notes" class="mt-1 text-xs font-bold text-status-danger">
                                         {{ form.errors.notes }}
                                     </div>
-                                </div>
-
-                                <div
-                                    v-if="form.errors.allocations"
-                                    class="rounded-button border border-status-danger/30 bg-status-danger/10 p-3 text-xs font-bold text-status-danger"
-                                >
-                                    {{ form.errors.allocations }}
                                 </div>
 
                                 <button

@@ -275,7 +275,11 @@ class AdminCellController extends Controller
             'additional_allocation_ids' => ['nullable', 'array'],
             'additional_allocation_ids.*' => ['string', 'exists:node_allocations,id'],
             'variables' => ['nullable', 'array'],
-            'variables.*' => ['nullable', 'scalar'],
+            'variables.*' => ['nullable', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! is_scalar($value)) {
+                    $fail('The :attribute field must be text, a number or a boolean.');
+                }
+            }],
         ]);
 
         $comb = Comb::query()->find(data_get($cell->metadata, 'comb_id'));

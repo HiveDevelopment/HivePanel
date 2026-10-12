@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import NectarSlot from '@/components/nectar/NectarSlot.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePoll } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
-type CellStatus = 'offline' | 'starting' | 'running' | 'stopping';
+type CellStatus = 'offline' | 'starting' | 'running' | 'stopping' | 'unknown';
 type Cell = {
     id: string;
     name: string;
@@ -20,13 +20,15 @@ const props = withDefaults(defineProps<{ cells?: Cell[]; combs?: Comb[] }>(), {
     cells: () => [],
     combs: () => [],
 });
+usePoll(5000, { only: ['cells'], preserveScroll: true });
+
 const search = ref('');
 const statusFilter = ref<'all' | CellStatus>('all');
 const sort = ref<'created' | 'name'>('created');
 const pending = ref<Record<string, boolean>>({});
 
 function normaliseStatus(status?: string): CellStatus {
-    return status === 'running' || status === 'starting' || status === 'stopping' ? status : 'offline';
+    return status === 'running' || status === 'starting' || status === 'stopping' || status === 'offline' ? status : 'unknown';
 }
 const filteredCells = computed(() => {
     const q = search.value.trim().toLowerCase();
@@ -168,6 +170,7 @@ function power(id: string, action: 'start' | 'stop') {
                                 <option value="all">All statuses</option>
                                 <option value="running">Running</option>
                                 <option value="offline">Offline</option>
+                            <option value="unknown">Unknown</option>
                                 <option value="starting">Starting</option>
                                 <option value="stopping">Stopping</option>
                             </select>
@@ -206,7 +209,7 @@ function power(id: string, action: 'start' | 'stop') {
                                                     'border-amber-500/20 bg-amber-500/10 text-amber-400': ['starting', 'stopping'].includes(
                                                         normaliseStatus(cell.status),
                                                     ),
-                                                    'border-white/10 bg-white/[0.035] text-zinc-400': normaliseStatus(cell.status) === 'offline',
+                                                    'border-white/10 bg-white/[0.035] text-zinc-400': ['offline', 'unknown'].includes(normaliseStatus(cell.status)),
                                                 }"
                                                 ><span
                                                     class="status-dot"
@@ -277,7 +280,7 @@ function power(id: string, action: 'start' | 'stop') {
                                             type="button"
                                             class="action-btn border-amber-500/30 bg-amber-500 text-[#1a1305] hover:bg-amber-400 disabled:border-white/[0.06] disabled:bg-white/[0.04] disabled:text-zinc-600"
                                             :disabled="
-                                                !!pending[cell.id] || ['running', 'starting', 'stopping'].includes(normaliseStatus(cell.status))
+                                                !!pending[cell.id] || normaliseStatus(cell.status) !== 'offline'
                                             "
                                             @click="power(cell.id, 'start')"
                                         >

@@ -171,7 +171,7 @@ onUnmounted(() => {
                                             {{ node.name }}
                                         </h1>
 
-                                        <span class="rounded-full border border-hive/30 bg-hive/10 px-2 py-0.5 text-xs font-bold text-hive">
+                                        <span v-if="node?.location" class="rounded-full border border-hive/30 bg-hive/10 px-2 py-0.5 text-xs font-bold text-hive">
                                             {{ node.location }}
                                         </span>
 

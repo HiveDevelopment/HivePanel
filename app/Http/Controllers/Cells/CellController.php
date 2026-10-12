@@ -12,18 +12,10 @@ use Inertia\Inertia;
 
 class CellController extends CellBaseController
 {
-    public function index(CellNodeClient $cells)
+    public function index(\App\Services\Cells\CellDashboardService $dashboard)
     {
-        $panelCells = Cell::query()
-            ->visibleTo(request()->user())
-            ->with('node')
-            ->latest()
-            ->get();
-
         return Inertia::render('Dashboard', [
-            'cells' => $panelCells
-                ->map(fn (Cell $cell) => $this->frontendCell($cell, $cells))
-                ->values(),
+            'cells' => fn () => $dashboard->visibleCells(request()->user()),
             'combs' => [],
         ]);
     }

@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cell;
+use App\Services\Cells\CellDashboardService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request, CellDashboardService $dashboard)
     {
-        $cells = Cell::visibleTo($request->user())
-            ->with('node')
-            ->orderBy('name')
-            ->get();
-
         return Inertia::render('Dashboard', [
-            'cells' => $cells,
+            'cells' => fn () => $dashboard->visibleCells($request->user(), true),
+            'combs' => [],
         ]);
     }
 }

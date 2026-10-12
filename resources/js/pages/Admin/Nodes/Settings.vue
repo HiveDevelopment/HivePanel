@@ -317,16 +317,6 @@ function save() {
                                 <label class="mt-5 flex items-center justify-between gap-4 rounded-button border border-zinc-800 bg-surface-light px-4 py-3">
                                     <span>
                                         <span class="block text-sm font-bold text-zinc-300">Active</span>
-                                        <span class="text-xs text-zinc-500">
-                                            Allow new cells to be created on this node.
-                                        </span>
-                                    </span>
-
-                                    <input v-model="form.is_active" type="checkbox" class="accent-hive" />
-                                </label>
-                                <label class="mt-5 flex items-center justify-between gap-4 rounded-button border border-zinc-800 bg-surface-light px-4 py-3">
-                                    <span>
-                                        <span class="block text-sm font-bold text-zinc-300">Active</span>
                                         <span class="text-xs text-zinc-500">Allow new cells to be created on this node.</span>
                                     </span>
                                     <input v-model="form.is_active" type="checkbox" class="accent-hive" />
