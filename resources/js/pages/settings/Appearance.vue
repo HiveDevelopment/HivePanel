@@ -25,7 +25,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
         <SettingsLayout>
             <div class="space-y-5">
-                <section class="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111315]">
+                <section class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
                     <div class="border-b border-white/[0.06] px-5 py-5 sm:px-6">
                         <div class="flex items-start gap-3">
                             <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-hive/15 bg-hive/[0.06]">
@@ -65,8 +65,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             </div>
                         </div>
                     </div>
+                    <DesignTokenSettings />
                 </section>
-                <DesignTokenSettings />
             </div>
         </SettingsLayout>
     </AppLayout>

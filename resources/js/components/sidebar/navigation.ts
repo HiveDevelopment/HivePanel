@@ -99,6 +99,7 @@ const adminPermissions: Record<string, string> = {
     '/admin': 'admin.dashboard.view',
     '/admin/users': 'admin.users.view',
     '/admin/roles': 'admin.roles.view',
+    '/admin/themes': 'admin.settings.view',
     '/admin/settings': 'admin.settings.view',
     '/admin/updates': 'admin.updates.view',
     '/admin/nodes': 'admin.nodes.view',
@@ -128,6 +129,7 @@ export function adminNavigation(isSuperAdmin: boolean, permissions: string[]): N
         group('Platform', [
             item('Extensions', '/admin/extensions', Puzzle),
             item('Updates', '/admin/updates', RefreshCw),
+            item('Themes', '/admin/themes', SlidersHorizontal),
             item('Settings', '/admin/settings', Settings),
         ]),
     ]

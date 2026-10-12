@@ -30,12 +30,17 @@ export function applyTokens(input: unknown) {
     if (typeof document !== 'undefined') {
         for (const [key, value] of Object.entries(tokens)) document.documentElement.style.setProperty(`--hp-${key}`, typeof value === 'number' ? `${value}px` : rgb(value));
     }
-    try { localStorage.setItem('hivepanel.designTokens', JSON.stringify(tokens)); } catch { /* In-memory theme remains usable. */ }
+
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('hivepanel-ui-changed'));
 }
 
-export function initializeDesignTokens() {
-    try { applyTokens(JSON.parse(localStorage.getItem('hivepanel.designTokens') ?? 'null') ?? hive); } catch { applyTokens(hive); }
+export function initializeDesignTokens(props: any = {}) {
+    const catalog = props.themes;
+    const offered = Array.isArray(catalog?.themes) ? catalog.themes : [];
+    const selected = offered.find((theme: any) => theme.id === props.themePreference)
+        ?? offered.find((theme: any) => theme.id === catalog?.default);
+    try { applyTokens(selected?.tokens ?? hive); } catch { applyTokens(hive); }
+    try { localStorage.removeItem('hivepanel.designTokens'); } catch { /* Old local custom themes are no longer used. */ }
 }
 
 export function extensionTheme(): Record<string, string> {

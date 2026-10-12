@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminUpdateController;
 use App\Http\Controllers\Admin\AdminWorkerUpdateController;
 use App\Http\Controllers\Admin\AdminRoleController;
+use App\Http\Controllers\Admin\AdminThemeController;
 use App\Http\Controllers\Cells\CellActivityController;
 use App\Http\Controllers\Cells\CellBackupController;
 use App\Http\Controllers\Cells\CellBackupMountController;
@@ -130,6 +131,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/workers-outdated', [AdminWorkerUpdateController::class, 'updateOutdated'])->name('workers.outdated')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
             Route::post('/workers/{node}', [AdminWorkerUpdateController::class, 'update'])->name('workers.update')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
         });
+
+        Route::get('themes', [AdminThemeController::class, 'index'])->name('themes.index');
+        Route::put('themes', [AdminThemeController::class, 'update'])->name('themes.update');
 
         // Settings
         Route::prefix('settings')->name('settings.')->group(function () {

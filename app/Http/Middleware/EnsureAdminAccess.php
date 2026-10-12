@@ -56,6 +56,10 @@ class EnsureAdminAccess
                 : AdminPermissions::UPDATES_VIEW;
         }
 
+        if (str_starts_with($name, 'admin.themes.')) {
+            return $name === 'admin.themes.index' ? AdminPermissions::SETTINGS_VIEW : AdminPermissions::SETTINGS_UPDATE;
+        }
+
         if (str_starts_with($name, 'admin.settings.')) {
             return $name === 'admin.settings.index'
                 ? AdminPermissions::SETTINGS_VIEW

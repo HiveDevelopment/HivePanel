@@ -71,5 +71,9 @@
     "votifier.noCell": "No compatible Cell is available.",
     "votifier.connecting": "Connecting to the listener…",
     "votifier.accepted": "Test vote accepted. Check the vote listener for rewards.",
-    "votifier.tokenHelp": "Use the token for service name HivePanelTest. The token is cleared after sending."
+    "votifier.tokenHelp": "Use the token for service name HivePanelTest. The token is cleared after sending.",
+    "Themes": "Themes",
+    "theme.select": "Panel theme",
+    "theme.default": "Panel default",
+    "theme.offered": "Choose from the themes offered by your administrator."
 }

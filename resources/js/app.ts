@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
@@ -34,6 +34,8 @@ createInertiaApp({
         ),
 
     setup({ el, App, props, plugin }) {
+        initializeDesignTokens(props.initialPage.props);
+        router.on('navigate', event => initializeDesignTokens(event.detail.page.props));
         panelName =
             (props.initialPage.props as any).appSettings?.name ?? 'Hive Panel'
 
@@ -53,5 +55,4 @@ createInertiaApp({
 // This will set light / dark mode on page load...
 initializeTheme();
 
-initializeDesignTokens();
 initializeLanguage();

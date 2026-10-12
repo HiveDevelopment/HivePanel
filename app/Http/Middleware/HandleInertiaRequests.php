@@ -35,6 +35,9 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
 
+            'themes' => fn () => \App\Support\PanelThemes::offered(),
+            'themePreference' => $request->user()?->theme_id,
+
             'name' => config('app.name'),
 
             'appSettings' => [

@@ -1,48 +1,75 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { applyTokens, designTokens, themePresets } from '@/composables/useDesignTokens';
+import { computed, ref } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
+import { ChevronDown, Languages, Palette } from 'lucide-vue-next';
 import { availableLanguages, locale, setLanguage, t } from '@/composables/useLanguage';
 
-const draft = ref(JSON.stringify(designTokens.value, null, 4));
-const error = ref('');
-function apply() {
-    try { applyTokens(JSON.parse(draft.value)); error.value = ''; } catch { error.value = t('theme.invalid'); }
-}
-function preset(name: keyof typeof themePresets) {
-    applyTokens(themePresets[name]); draft.value = JSON.stringify(designTokens.value, null, 4); error.value = '';
-}
-function exportTheme() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(designTokens.value, null, 4)], { type: 'application/json' }));
-    const link = document.createElement('a'); link.href = url; link.download = 'hivepanel-theme.json'; link.click(); URL.revokeObjectURL(url);
-}
-async function importTheme(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    if (file.size > 8192) { error.value = t('theme.invalid'); return; }
-    try { draft.value = await file.text(); apply(); } catch { error.value = t('theme.invalid'); }
+const page = usePage<any>();
+const saving = ref(false);
+const themes = computed(() => page.props.themes?.themes ?? []);
+const selectedTheme = computed(() => themes.value.some((theme: any) => theme.id === page.props.themePreference) ? page.props.themePreference : '');
+
+function selectTheme(event: Event) {
+    router.patch('/settings/theme', { theme_id: (event.target as HTMLSelectElement).value || null }, {
+        preserveScroll: true,
+        onStart: () => { saving.value = true; },
+        onFinish: () => { saving.value = false; },
+    });
 }
 </script>
 
 <template>
-    <section class="rounded-panel border border-zinc-800 bg-surface p-5 text-white">
-        <h2 class="font-bold">{{ t('theme.preset') }}</h2>
-        <p class="mt-2 text-sm text-zinc-400">{{ t('theme.description') }}</p>
-        <div class="mt-4 flex gap-2">
-            <button v-for="(_, name) in themePresets" :key="name" type="button" class="rounded-button border border-zinc-700 px-4 py-2 capitalize" @click="preset(name)">{{ name }}</button>
+    <div class="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+        <div class="p-5 sm:p-6">
+            <div class="flex items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.025]">
+                    <Palette class="size-4 text-zinc-500" />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <label for="panel-theme" class="text-sm font-medium text-zinc-200">{{ t('theme.select') }}</label>
+                    <p id="panel-theme-description" class="mt-1 text-xs leading-5 text-zinc-500">{{ t('theme.offered') }}</p>
+                    <div class="relative mt-4 w-full sm:max-w-sm">
+                        <select
+                            id="panel-theme"
+                            :value="selectedTheme"
+                            :disabled="saving"
+                            aria-describedby="panel-theme-description panel-theme-error"
+                            :aria-invalid="Boolean(page.props.errors?.theme_id)"
+                            class="h-11 w-full appearance-none rounded-button border border-white/[0.08] bg-surface-dark py-2 pl-3 pr-10 text-sm font-medium text-zinc-200 outline-none transition focus:border-hive/50 focus:ring-2 focus:ring-hive/10 disabled:cursor-wait disabled:opacity-60"
+                            @change="selectTheme"
+                        >
+                            <option value="">{{ t('theme.default') }}</option>
+                            <option v-for="theme in themes" :key="theme.id" :value="theme.id">{{ theme.name }}</option>
+                        </select>
+                        <ChevronDown class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                    </div>
+                    <p v-if="page.props.errors?.theme_id" id="panel-theme-error" role="alert" class="mt-2 text-xs text-status-danger">{{ page.props.errors.theme_id }}</p>
+                </div>
+            </div>
         </div>
-        <label class="mt-5 block text-sm font-bold">{{ t('theme.custom') }}<textarea v-model="draft" spellcheck="false" rows="15" class="mt-2 block w-full rounded-button border border-zinc-700 bg-surface-dark p-3 font-mono text-xs" /></label>
-        <p v-if="error" role="alert" class="mt-2 text-sm text-status-danger">{{ error }}</p>
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" class="rounded-button bg-hive px-4 py-2 font-bold text-black" @click="apply">{{ t('theme.apply') }}</button>
-            <button type="button" class="rounded-button border border-zinc-700 px-3 py-2" @click="preset('hive')">{{ t('theme.reset') }}</button>
-            <button type="button" class="rounded-button border border-zinc-700 px-3 py-2" @click="exportTheme">{{ t('theme.export') }}</button>
-            <input type="file" accept="application/json,.json" aria-label="Import theme JSON" class="text-xs" @change="importTheme" />
+
+        <div class="p-5 sm:p-6">
+            <div class="flex items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.025]">
+                    <Languages class="size-4 text-zinc-500" />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <label for="panel-language" class="text-sm font-medium text-zinc-200">{{ t('language.title') }}</label>
+                    <p id="panel-language-description" class="mt-1 text-xs leading-5 text-zinc-500">{{ t('language.description') }}</p>
+                    <div class="relative mt-4 w-full sm:max-w-sm">
+                        <select
+                            id="panel-language"
+                            :value="locale"
+                            aria-describedby="panel-language-description"
+                            class="h-11 w-full appearance-none rounded-button border border-white/[0.08] bg-surface-dark py-2 pl-3 pr-10 text-sm font-medium text-zinc-200 outline-none transition focus:border-hive/50 focus:ring-2 focus:ring-hive/10"
+                            @change="setLanguage(($event.target as HTMLSelectElement).value)"
+                        >
+                            <option v-for="language in availableLanguages" :key="language.id" :value="language.id">{{ language.name }}</option>
+                        </select>
+                        <ChevronDown class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                    </div>
+                </div>
+            </div>
         </div>
-        <label class="mt-6 block font-bold">{{ t('language.title') }}
-            <select :value="locale" class="mt-2 block rounded-button border border-zinc-700 bg-surface-dark px-3 py-2" @change="setLanguage(($event.target as HTMLSelectElement).value)">
-                <option v-for="language in availableLanguages" :key="language.id" :value="language.id">{{ language.name }}</option>
-            </select>
-        </label>
-        <p class="mt-2 text-sm text-zinc-400">{{ t('language.description') }}</p>
-    </section>
+    </div>
 </template>

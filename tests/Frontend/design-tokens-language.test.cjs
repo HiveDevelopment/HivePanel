@@ -22,3 +22,9 @@ test('translations fall back to English and reject unsupported locales', () => {
  const key = Object.keys(en).find(key => !(key in de)); assert.ok(key); assert.equal(language.t(key),en[key]);
  language.setLanguage('unknown'); assert.equal(language.locale.value,'de'); assert.equal(language.t('unknown.key'),'unknown.key');
 });
+
+test('only offered themes apply and missing preferences use the admin default', () => {
+ const props = { themes: { default: 'ocean', themes: [{ id: 'ocean', tokens: themes.themePresets.ocean }] }, themePreference: 'removed' };
+ themes.initializeDesignTokens(props); assert.equal(themes.designTokens.value.accent, themes.themePresets.ocean.accent);
+ props.themePreference = 'ocean'; themes.initializeDesignTokens(props); assert.equal(themes.designTokens.value.accent, themes.themePresets.ocean.accent);
+});

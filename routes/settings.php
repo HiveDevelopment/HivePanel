@@ -19,20 +19,15 @@ Route::middleware('auth')->group(function () {
     Route::redirect('settings/password', 'settings/security')->name('password.edit');
     Route::put('settings/password', [PasswordController::class, 'update'])->name('password.update');
 
-    Route::post('settings/two-factor', [TwoFactorAuthenticationController::class, 'enable'])
-        ->middleware('password.confirm')
-        ->name('two-factor.enable');
+    Route::post('settings/two-factor', [TwoFactorAuthenticationController::class, 'enable'])->middleware('password.confirm')->name('two-factor.enable');
 
-    Route::post('settings/two-factor/confirm', [TwoFactorAuthenticationController::class, 'confirm'])
-        ->name('two-factor.confirm');
+    Route::post('settings/two-factor/confirm', [TwoFactorAuthenticationController::class, 'confirm'])->name('two-factor.confirm');
 
-    Route::delete('settings/two-factor', [TwoFactorAuthenticationController::class, 'disable'])
-        ->middleware('password.confirm')
-        ->name('two-factor.disable');
+    Route::delete('settings/two-factor', [TwoFactorAuthenticationController::class, 'disable'])->middleware('password.confirm')->name('two-factor.disable');
 
-    Route::post('settings/two-factor/recovery-codes', [TwoFactorAuthenticationController::class, 'recoveryCodes'])
-        ->middleware('password.confirm')
-        ->name('two-factor.recovery-codes');
+    Route::post('settings/two-factor/recovery-codes', [TwoFactorAuthenticationController::class, 'recoveryCodes'])->middleware('password.confirm')->name('two-factor.recovery-codes');
+
+    Route::patch('settings/theme', [\App\Http\Controllers\Settings\ThemeController::class, 'update'])->name('theme.update');
 
     Route::get('settings/appearance', function () {
         return Inertia::render('settings/Appearance');
