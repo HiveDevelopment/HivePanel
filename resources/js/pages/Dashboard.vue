@@ -102,14 +102,14 @@ function power(id: string, action: 'start' | 'stop') {
 <template>
     <AppLayout>
         <Head title="Cells" />
-        <main class="min-h-screen bg-[#090b0e] px-5 py-8 text-zinc-100 sm:px-8 xl:px-10">
+        <main class="min-h-screen bg-surface-dark px-5 py-8 text-zinc-100 sm:px-8 xl:px-10">
             <div class="mx-auto max-w-[1600px] space-y-7">
                 <header class="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <h1 class="text-3xl font-bold tracking-tight text-white sm:text-[34px]">Your servers</h1>
                         <p class="mt-2 text-sm text-zinc-500">Monitor and manage your game servers in one place.</p>
                     </div>
-                    <div class="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#111419] px-3.5 py-2.5 text-xs text-zinc-400">
+                    <div class="flex items-center gap-2 rounded-panel border border-zinc-800 bg-surface px-3.5 py-2.5 text-xs text-zinc-400">
                         <span class="h-2 w-2 rounded-full bg-emerald-400" /> {{ counts.online }} online <span class="mx-1 text-zinc-700">/</span>
                         {{ counts.total }} total
                     </div>
@@ -138,7 +138,7 @@ function power(id: string, action: 'start' | 'stop') {
                     </div>
                 </section>
 
-                <section class="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0f1217]">
+                <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
                     <div class="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <h2 class="text-base font-semibold text-white">
@@ -342,7 +342,7 @@ function power(id: string, action: 'start' | 'stop') {
 
 <style scoped>
 .stat-card {
-    @apply rounded-xl border border-white/[0.07] bg-[#111419] px-5 py-4;
+    @apply rounded-panel border border-zinc-800 bg-surface px-5 py-4;
 }
 .stat-label {
     @apply flex items-center gap-2 text-xs font-medium text-zinc-400;

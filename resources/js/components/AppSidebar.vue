@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import NavMixed from '@/components/NavMixed.vue';
-import NavUser from '@/components/NavUser.vue';
 import SidebarActiveCell from '@/components/sidebar/SidebarActiveCell.vue';
 import type { NavEntry } from '@/components/sidebar/navigation';
 import { adminNavigation, dashboardNavigation, serverNavigation } from '@/components/sidebar/navigation';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Link, usePage } from '@inertiajs/vue3';
 import { Clock3, Puzzle } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
@@ -129,9 +128,6 @@ const navigation = computed<NavEntry[]>(() => {
             <NavMixed :items="navigation" />
         </SidebarContent>
 
-        <SidebarFooter>
-            <NavUser />
-        </SidebarFooter>
     </Sidebar>
 
     <slot />
