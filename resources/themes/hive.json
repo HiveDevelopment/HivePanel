@@ -1,0 +1,18 @@
+{
+    "accent": "#ff8a00",
+    "accentLight": "#ff9f24",
+    "accentDark": "#d86e00",
+    "surface": "#111315",
+    "surfaceDark": "#0b0d0f",
+    "surfaceLight": "#15181b",
+    "surfaceHover": "#131619",
+    "surfaceElevated": "#171a1d",
+    "foreground": "#f4f4f5",
+    "muted": "#a1a1aa",
+    "border": "#27272a",
+    "success": "#53d769",
+    "warning": "#ffc400",
+    "danger": "#ef4444",
+    "panelRadius": 12,
+    "buttonRadius": 10
+}

@@ -122,3 +122,21 @@ html {
 *::-webkit-scrollbar-corner {
     background: #0d0f11;
 }
+:root {
+    --hp-accent: 255 138 0;
+    --hp-accentLight: 255 159 36;
+    --hp-accentDark: 216 110 0;
+    --hp-surface: 17 19 21;
+    --hp-surfaceDark: 11 13 15;
+    --hp-surfaceLight: 21 24 27;
+    --hp-surfaceHover: 19 22 25;
+    --hp-surfaceElevated: 23 26 29;
+    --hp-foreground: 244 244 245;
+    --hp-muted: 161 161 170;
+    --hp-border: 39 39 42;
+    --hp-success: 83 215 105;
+    --hp-warning: 255 196 0;
+    --hp-danger: 239 68 68;
+    --hp-panelRadius: 12px;
+    --hp-buttonRadius: 10px;
+}

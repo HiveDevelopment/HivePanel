@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DesignTokenSettings from '@/components/DesignTokenSettings.vue'
+import { t } from '@/composables/useLanguage'
 import AppearanceTabs from '@/components/AppearanceTabs.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import SettingsLayout from '@/layouts/settings/Layout.vue'
@@ -19,7 +21,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Appearance settings" />
+        <Head :title="t('appearance.title')" />
 
         <SettingsLayout>
             <div class="space-y-5">
@@ -32,11 +34,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                             <div>
                                 <h2 class="text-sm font-semibold text-white">
-                                    Appearance
+                                    {{ t('appearance.heading') }}
                                 </h2>
 
                                 <p class="mt-1 text-xs leading-5 text-zinc-500">
-                                    Choose how HivePanel looks on this device.
+                                    {{ t('appearance.description') }}
                                 </p>
                             </div>
                         </div>
@@ -64,6 +66,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </div>
                     </div>
                 </section>
+                <DesignTokenSettings />
             </div>
         </SettingsLayout>
     </AppLayout>

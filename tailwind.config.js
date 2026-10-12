@@ -19,30 +19,30 @@ export default {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',
                 sm: 'calc(var(--radius) - 4px)',
-                panel: '12px',
-                button: '10px',
+                panel: 'var(--hp-panelRadius)',
+                button: 'var(--hp-buttonRadius)',
             },
 
             colors: {
                 hive: {
-                    DEFAULT: '#ff8a00',
-                    light: '#ff9f24',
-                    dark: '#d86e00',
-                    muted: 'rgba(255, 138, 0, 0.12)',
+                    DEFAULT: 'rgb(var(--hp-accent) / <alpha-value>)',
+                    light: 'rgb(var(--hp-accentLight) / <alpha-value>)',
+                    dark: 'rgb(var(--hp-accentDark) / <alpha-value>)',
+                    muted: 'rgb(var(--hp-accent) / 0.12)',
                 },
 
                 surface: {
-                    DEFAULT: '#111315',
-                    light: '#15181b',
-                    hover: '#131619',
-                    elevated: '#171a1d',
-                    dark: '#0b0d0f',
+                    DEFAULT: 'rgb(var(--hp-surface) / <alpha-value>)',
+                    light: 'rgb(var(--hp-surfaceLight) / <alpha-value>)',
+                    hover: 'rgb(var(--hp-surfaceHover) / <alpha-value>)',
+                    elevated: 'rgb(var(--hp-surfaceElevated) / <alpha-value>)',
+                    dark: 'rgb(var(--hp-surfaceDark) / <alpha-value>)',
                 },
 
                 status: {
-                    success: '#53d769',
-                    warning: '#ffc400',
-                    danger: '#ef4444',
+                    success: 'rgb(var(--hp-success) / <alpha-value>)',
+                    warning: 'rgb(var(--hp-warning) / <alpha-value>)',
+                    danger: 'rgb(var(--hp-danger) / <alpha-value>)',
                 },
 
                 background: 'hsl(var(--background))',
