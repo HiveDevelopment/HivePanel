@@ -7,6 +7,8 @@ use App\Models\Comb;
 use App\Services\RegistryService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class AdminCombController extends Controller
@@ -220,6 +222,21 @@ class AdminCombController extends Controller
         array $manifest,
         array $data
     ): array {
+        $validator = Validator::make($manifest, [
+            'console_commands' => ['sometimes', 'array', 'max:50'],
+            'console_commands.*' => ['string', 'max:200', 'regex:/^[^\r\n]+$/'],
+            'stop' => ['sometimes', 'array'],
+            'stop.command' => ['sometimes', 'nullable', 'string', 'max:1000', 'regex:/^[^\r\n]*$/'],
+            'stop.timeout' => ['sometimes', 'integer', 'min:1', 'max:600'],
+            'stop.signal' => ['sometimes', Rule::in(['SIGTERM', 'SIGINT', 'SIGHUP', 'SIGQUIT'])],
+        ]);
+        if ($validator->fails()) {
+            throw ValidationException::withMessages(['manifest' => $validator->errors()->first()]);
+        }
+        if (isset($manifest['stop']) && array_key_exists('command', $manifest['stop']) && $manifest['stop']['command'] === null) {
+            $manifest['stop']['command'] = '';
+        }
+
         $category = strtolower(trim($data['category']));
         $group = strtolower(trim($data['group']));
         $game = isset($data['game'])

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
+import CombConsoleSettings from '@/components/combs/CombConsoleSettings.vue'
+import { useCombManifest } from '@/composables/useCombManifest'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import { ArrowLeft, Box, Save } from 'lucide-vue-next'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 
 type CombCategory =
     | 'game'
@@ -52,6 +54,10 @@ const commonGroups = [
 ]
 
 const form = useForm({
+    console_commands_text: '',
+    stop_command: 'stop',
+    stop_timeout: 30,
+    stop_signal: 'SIGTERM',
     external_id: props.comb.external_id,
     name: props.comb.name,
     category: (props.comb.category ??
@@ -99,55 +105,7 @@ const sourceLabel = computed(() => {
     }
 })
 
-let synchronisingManifest = false
-
-function syncManifestFromFields() {
-    if (synchronisingManifest) {
-        return
-    }
-
-    try {
-        const manifest = JSON.parse(
-            form.manifest || '{}',
-        )
-
-        manifest.id = form.external_id
-        manifest.name = form.name
-        manifest.category = form.category
-        manifest.group = form.group
-
-        if (form.game.trim()) {
-            manifest.game = form.game.trim()
-        } else {
-            delete manifest.game
-        }
-
-        synchronisingManifest = true
-
-        form.manifest = JSON.stringify(
-            manifest,
-            null,
-            2,
-        )
-
-        synchronisingManifest = false
-    } catch {
-        // Do not overwrite manually edited invalid JSON.
-        // Laravel will return the manifest validation error
-        // when the user attempts to save it.
-    }
-}
-
-watch(
-    () => [
-        form.external_id,
-        form.name,
-        form.category,
-        form.group,
-        form.game,
-    ],
-    syncManifestFromFields,
-)
+const { syncManifestFromFields } = useCombManifest(form)
 
 function submit() {
     syncManifestFromFields()
@@ -407,6 +365,8 @@ function submit() {
                                 {{ form.errors.manifest }}
                             </p>
                         </section>
+
+                        <CombConsoleSettings :form="form" />
 
                         <div class="flex justify-end">
                             <button

@@ -208,8 +208,8 @@ class AdminCellController extends Controller
                 } elseif ($this->workerCellIsRunning($worker['cell'] ?? [])) {
                     $editState = [
                         'status' => 'running',
-                        'editable' => false,
-                        'message' => 'Stop the Cell before changing its name, resource limits or allocations.',
+                        'editable' => true,
+                        'message' => 'The Cell is running. Saved changes are queued and apply on the next start; restart to publish new allocations.',
                     ];
                 }
             } catch (Throwable $exception) {
@@ -307,11 +307,7 @@ class AdminCellController extends Controller
             ]);
         }
 
-        if ($this->workerCellIsRunning($worker['cell'] ?? [])) {
-            return back()->withErrors([
-                'worker' => 'Stop the Cell before changing its name, resource limits or allocations.',
-            ]);
-        }
+        $running = $this->workerCellIsRunning($worker['cell'] ?? []);
 
         $additionalIds = collect($data['additional_allocation_ids'] ?? [])
             ->map(fn ($id) => (string) $id)
@@ -338,7 +334,9 @@ class AdminCellController extends Controller
         ];
 
         try {
-            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata, $submittedVariables): void {
+            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata, $submittedVariables, $running): void {
+                $lockedCell = Cell::query()->whereKey($cell->getKey())->lockForUpdate()->firstOrFail();
+                $oldMetadata = (array) $lockedCell->metadata;
                 $requestedIds = collect([
                     (string) $data['allocation_id'],
                     ...$additionalIds->all(),
@@ -366,15 +364,8 @@ class AdminCellController extends Controller
 
                 abort_unless($primaryAllocation, 422, 'The selected primary allocation is not available.');
 
-                NodeAllocation::query()
-                    ->where('cell_id', $cell->id)
-                    ->whereNotIn('id', $requestedIds)
-                    ->lockForUpdate()
-                    ->get()
-                    ->each
-                    ->update([
-                        'cell_id' => null,
-                    ]);
+                // Retain previous ownership until the Worker acknowledges the
+                // new definition; a concurrent start can still use those ports.
 
                 NodeAllocation::query()
                     ->whereIn('id', $requestedIds)
@@ -391,6 +382,7 @@ class AdminCellController extends Controller
                     ->values();
 
                 $metadata = $oldMetadata;
+                $metadata['desired_allocation_ids'] = $requestedIds->all();
 
                 $metadata['limits'] = [
                     ...(array) data_get($metadata, 'limits', []),
@@ -500,7 +492,7 @@ class AdminCellController extends Controller
                 ]
             );
 
-            return redirect()->route('admin.cells.show', $cell)->with('success', 'Cell updated successfully.');
+            return redirect()->route('admin.cells.show', $cell)->with('success', $running ? 'Cell changes saved. Restart the Cell to apply them, including new TCP/UDP allocations.' : 'Cell updated successfully.');
         } catch (Throwable $exception) {
             report($exception);
 
@@ -614,6 +606,7 @@ class AdminCellController extends Controller
 
             'additional_allocations' => $cell->allocations
                 ->filter(fn (NodeAllocation $allocation) => (string) $allocation->id !== (string) $cell->primary_allocation_id)
+                ->filter(fn (NodeAllocation $allocation) => ! is_array(data_get($cell->metadata, 'desired_allocation_ids')) || in_array((string) $allocation->id, array_map('strval', data_get($cell->metadata, 'desired_allocation_ids')), true))
                 ->sortBy([
                     ['ip', 'asc'],
                     ['port', 'asc'],

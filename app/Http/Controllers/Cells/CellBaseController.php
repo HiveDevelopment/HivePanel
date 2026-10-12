@@ -87,6 +87,8 @@ abstract class CellBaseController extends Controller
             'name' => $workerCell['name']
                 ?? $cell->name,
 
+            'comb_data' => (array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? $workerCell['comb_data'] ?? data_get($cell->metadata, 'comb_data', [])),
+
             'comb' => $workerCell['comb']
                 ?? $cell->comb,
 

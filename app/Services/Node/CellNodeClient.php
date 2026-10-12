@@ -39,6 +39,7 @@ class CellNodeClient
 
     public function startCell(Cell $cell): array
     {
+        $this->updateCellDefinition($cell);
         return $this->nodeClient->client($cell->node)
             ->post('/cells/' . rawurlencode($cell->daemon_id) . '/start')
             ->throw()
@@ -48,7 +49,9 @@ class CellNodeClient
     public function stopCell(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/stop')
+            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/stop', [
+                'stop' => (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', []))['stop'] ?? null,
+            ])
             ->throw()
             ->json();
     }
@@ -209,6 +212,7 @@ class CellNodeClient
 
         $additionalAllocations = $cell->allocations
             ->filter(fn ($allocation) => $allocation->id !== $primaryAllocationId)
+            ->filter(fn ($allocation) => ! is_array(data_get($cell->metadata, 'desired_allocation_ids')) || in_array((string) $allocation->id, array_map('strval', data_get($cell->metadata, 'desired_allocation_ids')), true))
             ->map(fn ($allocation) => [
                 'ip' => $allocation->ip,
                 'port' => $allocation->port,
@@ -223,7 +227,7 @@ class CellNodeClient
         $featureLimits = (array) data_get($metadata, 'feature_limits', []);
         $docker = (array) data_get($metadata, 'docker', []);
         $startup = (array) data_get($metadata, 'startup', []);
-        $combData = (array) data_get($metadata, 'comb_data', []);
+        $combData = (array) (\App\Models\Comb::find(data_get($metadata, 'comb_id'))?->data ?? data_get($metadata, 'comb_data', []));
         $variables = (array) data_get($metadata, 'variables', []);
 
         return [

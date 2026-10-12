@@ -50,17 +50,36 @@ class CellSyncService
             ]);
         }
 
+        $workerCell = $worker['cell'] ?? [];
+        $pending = (bool) ($workerCell['configuration_pending'] ?? false);
+        $running = ($workerCell['running'] ?? false) || ($workerCell['status'] ?? '') === 'running';
+        $desiredIds = data_get($cell->metadata, 'desired_allocation_ids');
+
         $expected = $this->expectedDefinition($cell);
         $actual = $this->workerDefinition($worker['cell'] ?? []);
 
         $differences = $this->differences($expected, $actual);
 
+        if (count($differences) === 0 && is_array($desiredIds) && (! $running || ! $pending)) {
+            // The old container is gone or the desired definition is applied.
+            \Illuminate\Support\Facades\DB::transaction(function () use ($cell, $desiredIds): void {
+                $current = Cell::query()->whereKey($cell->getKey())->lockForUpdate()->first();
+                if (! $current || data_get($current->metadata, 'desired_allocation_ids') !== $desiredIds) {
+                    return; // A newer edit owns the allocations now.
+                }
+                \App\Models\NodeAllocation::query()->where('cell_id', $cell->id)->whereNotIn('id', $desiredIds)->update(['cell_id' => null]);
+            });
+            $cell->unsetRelation('allocations');
+            $cell->load('allocations');
+        }
+
         return $this->storeInspection($cell, [
             'status' => count($differences) === 0 ? 'synced' : 'out_of_sync',
             'synced' => count($differences) === 0,
             'repairable' => count($differences) > 0,
+            'configuration_pending' => $pending,
             'message' => count($differences) === 0
-                ? 'The Worker definition matches HivePanel.'
+                ? ($pending ? 'Changes are saved on the Worker and will apply on the next start.' : 'The Worker definition matches HivePanel.')
                 : 'The Worker definition differs from HivePanel.',
             'differences' => $differences,
             'expected' => $expected,

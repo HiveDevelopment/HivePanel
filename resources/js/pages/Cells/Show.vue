@@ -39,6 +39,7 @@ const props = defineProps<{
 }>();
 
 const liveStats = ref({ ...props.stats });
+const configurationPending = computed(() => liveStats.value?.configuration_pending ?? props.cell?.configuration_pending ?? false);
 type ConsoleEntry = {
     timestamp: string | null;
     message: string;
@@ -87,6 +88,7 @@ async function shareConsolePaste() {
 }
 const consoleLines = ref<ConsoleEntry[]>([]);
 const command = ref('');
+const restartBusy = ref(false);
 const consoleEl = ref<HTMLElement | null>(null);
 const popoutConsoleEl = ref<HTMLElement | null>(null);
 
@@ -259,7 +261,7 @@ const currentStatus = computed<CellStatus>(() => {
     return 'offline';
 });
 
-const commandSuggestions = [
+const minecraftCommandSuggestions = [
     'help',
     'list',
     'stop',
@@ -280,6 +282,16 @@ const commandSuggestions = [
     'weather clear',
     'save-all',
 ];
+const commandSuggestions = computed<string[]>(() => {
+    const manifest = props.cell?.comb_data ?? {}
+    if (Array.isArray(manifest.console_commands)) {
+        return [...new Set(manifest.console_commands.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0))] as string[]
+    }
+    const game = String(manifest.game ?? '').toLowerCase()
+    const group = String(manifest.group ?? '').toLowerCase()
+    return game === 'minecraft' || group === 'minecraft' ? minecraftCommandSuggestions : []
+})
+
 
 const filteredCommandSuggestions = computed(() => {
     const value = command.value.trim().toLowerCase();
@@ -288,7 +300,7 @@ const filteredCommandSuggestions = computed(() => {
         return [];
     }
 
-    return commandSuggestions.filter((suggestion) => suggestion.toLowerCase().startsWith(value)).slice(0, 6);
+    return commandSuggestions.value.filter((suggestion) => suggestion.toLowerCase().startsWith(value)).slice(0, 6);
 });
 
 let pollTimer: number | undefined;
@@ -296,9 +308,9 @@ let consolePollTimer: number | undefined;
 let statsLoading = false;
 let consoleLoading = false;
 
-async function refreshStats() {
+async function refreshStats(): Promise<boolean> {
     if (!cellId.value || !canUseRuntime.value || statsLoading) {
-        return;
+        return false;
     }
 
     statsLoading = true;
@@ -311,10 +323,12 @@ async function refreshStats() {
         });
 
         if (!response.ok) {
-            return;
+            return false;
         }
 
         const data = await response.json();
+
+        if (data.error || typeof data.running !== 'boolean') return false;
 
         liveStats.value = data;
 
@@ -325,9 +339,11 @@ async function refreshStats() {
         pushHistory(networkRxHistory.value, data.network_rx_bytes ?? 0);
 
         pushHistory(networkTxHistory.value, data.network_tx_bytes ?? 0);
+        return true;
     } catch {
         // A temporary Worker/network failure should not
         // break the Cell page.
+        return false;
     } finally {
         statsLoading = false;
     }
@@ -729,68 +745,71 @@ function formatUtcTime() {
     }).format(new Date());
 }
 
-async function startCell() {
-    if (!cellId.value || !canUseRuntime.value) {
-        return;
-    }
-
+async function startCell(): Promise<boolean> {
+    if (!cellId.value || !canUseRuntime.value) return false;
     consoleLines.value.push(localConsoleEntry('container@hivepanel~ Server marked as starting...'));
-
     startConsolePolling();
-
-    await fetch(route('cells.start', cellId.value), {
-        method: 'POST',
-
-        headers: {
-            Accept: 'application/json',
-
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
-        },
-    });
-
-    await refreshStats();
-
-    window.setTimeout(() => {
-        startConsolePolling();
-    }, 1000);
-}
-
-async function stopCell() {
-    if (!cellId.value || !canUseRuntime.value) {
-        return;
-    }
-
-    consoleLines.value.push(localConsoleEntry('container@hivepanel~ Stopping server...'));
-
-    await fetch(route('cells.stop', cellId.value), {
-        method: 'POST',
-
-        headers: {
-            Accept: 'application/json',
-
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
-        },
-    });
-
-    stopConsolePolling();
-
-    window.setTimeout(async () => {
+    try {
+        const response = await fetch(route('cells.start', cellId.value), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+        });
+        if (!response.ok) throw new Error(`Start failed (HTTP ${response.status}).`);
         await refreshStats();
-        setOfflineConsoleMessage();
-    }, 1000);
-}
-
-function restartCell() {
-    if (!cellId.value || !canUseRuntime.value) {
-        return;
+        window.setTimeout(startConsolePolling, 1000);
+        return true;
+    } catch (error) {
+        consoleLines.value.push(localConsoleEntry(error instanceof Error ? error.message : 'Start request failed.'));
+        return false;
     }
-
-    void stopCell();
-
-    window.setTimeout(() => {
-        void startCell();
-    }, 1500);
 }
+
+async function stopCell(): Promise<boolean> {
+    if (!cellId.value || !canUseRuntime.value) return false;
+    consoleLines.value.push(localConsoleEntry('container@hivepanel~ Stopping server...'));
+    try {
+        const response = await fetch(route('cells.stop', cellId.value), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+        });
+        if (!response.ok) throw new Error(`Stop failed (HTTP ${response.status}).`);
+        // Keep save/shutdown output visible until the runtime reports offline.
+        startConsolePolling();
+        await refreshStats();
+        return true;
+    } catch (error) {
+        consoleLines.value.push(localConsoleEntry(error instanceof Error ? error.message : 'Stop request failed.'));
+        return false;
+    }
+}
+
+async function restartCell() {
+    if (!cellId.value || !canUseRuntime.value || restartBusy.value) return;
+    restartBusy.value = true;
+    try {
+        if (!await stopCell()) return;
+        const grace = Math.max(1, Math.min(600, Number(props.cell?.comb_data?.stop?.timeout) || 30));
+        const deadline = Date.now() + (grace * 2 + 10) * 1000;
+        while (Date.now() < deadline) {
+            const refreshed = await refreshStats();
+            if (refreshed && liveStats.value?.running === false) {
+                await startCell();
+                return;
+            }
+            await new Promise(resolve => window.setTimeout(resolve, 1000));
+        }
+        consoleLines.value.push(localConsoleEntry('Restart cancelled: the worker has not confirmed that the Cell is offline. Check the shutdown command and signal.'));
+    } finally {
+        restartBusy.value = false;
+    }
+}
+
 </script>
 
 <template>
@@ -815,6 +834,7 @@ function restartCell() {
             <main class="min-w-0 max-w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto w-full min-w-0 max-w-full space-y-5">
                     <CellHeader :cell="cell" :current-status="currentStatus" @start="startCell" @restart="restartCell" @stop="stopCell" />
+                    <p v-if="configurationPending" class="mt-3 rounded-button border border-status-warning/30 bg-status-warning/10 p-3 text-sm text-status-warning">Saved configuration changes will apply on the next start. Restart the Cell to publish new TCP/UDP allocations.</p>
 
                     <div class="grid min-w-0 max-w-full gap-4 xl:grid-cols-[minmax(0,1fr)_355px]">
                         <div class="min-w-0 space-y-4">
