@@ -22,6 +22,7 @@ class CellSettingsController extends CellBaseController
 
         return Inertia::render('Cells/Settings', [
             'cell' => $workerCell,
+            'shutdownCommandOverride' => (string) data_get($cell->metadata, 'variables.shutdown_command', ''),
         ]);
     }
 
@@ -63,6 +64,26 @@ class CellSettingsController extends CellBaseController
         );
 
         return response()->json($result);
+    }
+
+    public function updateShutdown(string $id, Request $request, AuditLogger $audit)
+    {
+        $cell = $this->panelCellOrFail($id);
+        $data = $request->validate([
+            'shutdown_command' => ['nullable', 'string', 'max:1000', 'not_regex:/[\r\n\x00]/'],
+        ]);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($cell, $data): void {
+            $locked = \App\Models\Cell::query()->whereKey($cell->id)->lockForUpdate()->firstOrFail();
+            $metadata = (array) $locked->metadata;
+            $metadata['variables']['shutdown_command'] = trim((string) ($data['shutdown_command'] ?? ''));
+            $locked->forceFill(['metadata' => $metadata])->save();
+            $locked->invalidateWorkerSync();
+        });
+
+        $audit->log(AuditEvent::SETTINGS_UPDATED, $cell, 'Cell shutdown command override was updated.', ['fields' => ['shutdown_command']]);
+
+        return response()->json(['message' => 'Shutdown command saved. It will be used for the next Stop or Restart.']);
     }
 
     public function utility(string $id, string $utility, CellNodeClient $cells, AuditLogger $audit)

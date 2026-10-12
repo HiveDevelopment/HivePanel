@@ -66,7 +66,7 @@ class AdminCellController extends Controller
                     'name' => $comb->name,
                     'game' => $comb->game,
                     'source' => $comb->source,
-                    'data' => $comb->data,
+                    'data' => [...(array) $comb->data, 'variables_schema' => app(\App\Services\Cells\CellShutdownService::class)->variableSchema((array) $comb->data)],
                 ]),
 
             'users' => User::query()
@@ -132,6 +132,7 @@ class AdminCellController extends Controller
             'startup_command' => ['nullable', 'string', 'max:1000'],
 
             'variables' => ['nullable', 'array'],
+            'variables.shutdown_command' => ['nullable', 'string', 'max:1000', 'not_regex:/[\r\n\x00]/'],
         ]);
 
         $owner = ! empty($data['owner_email'])
@@ -227,7 +228,7 @@ class AdminCellController extends Controller
         return Inertia::render('Admin/Cells/Edit', [
             'cell' => $this->cellPayload($cell),
             'editState' => $editState,
-            'variableSchema' => collect(Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data['variables_schema'] ?? [])
+            'variableSchema' => collect(app(\App\Services\Cells\CellShutdownService::class)->variableSchema((array) (Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data ?? [])))
                 ->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']))
                 ->values()
                 ->all(),
@@ -282,9 +283,13 @@ class AdminCellController extends Controller
             }],
         ]);
 
+        $request->validate([
+            'variables.shutdown_command' => ['nullable', 'string', 'max:1000', 'not_regex:/[\r\n\x00]/'],
+        ]);
+
         $comb = Comb::query()->find(data_get($cell->metadata, 'comb_id'));
         $schema = collect($comb?->data['variables_schema'] ?? [])->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']));
-        $editableNames = $schema->pluck('name')->reject(fn ($name) => in_array($name, ['memory', 'server_ip', 'server_port'], true))->all();
+        $editableNames = $schema->pluck('name')->push('shutdown_command')->reject(fn ($name) => in_array($name, ['memory', 'server_ip', 'server_port'], true))->all();
         $submittedVariables = collect($data['variables'] ?? [])->only($editableNames)->map(fn ($value) => (string) ($value ?? ''))->all();
         foreach ($schema as $variable) {
             $name = $variable['name'];
@@ -524,7 +529,26 @@ class AdminCellController extends Controller
         ]);
 
         if ($cell->daemon_id && $cell->node) {
-            $cells->deleteCell($cell);
+            try {
+                $cells->deleteCell($cell);
+            } catch (\Illuminate\Http\Client\RequestException $exception) {
+                $message = 'The worker could not delete this Cell. Please try again.';
+                if ($exception->response->status() === 400 && str_contains(strtolower($exception->response->body()), 'cell must be stopped')) {
+                    $message = 'Stop the Cell before deleting it.';
+                } else {
+                    report($exception);
+                }
+
+                return back()->withErrors(['worker' => $message]);
+            } catch (\Illuminate\Http\Client\ConnectionException $exception) {
+                report($exception);
+
+                return back()->withErrors(['worker' => 'The worker could not be reached. The Cell has not been deleted. Check the node connection and try again.']);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return back()->withErrors(['worker' => 'The Cell could not be deleted. Please try again.']);
+            }
         }
 
         DB::transaction(function () use ($cell, $audit) {

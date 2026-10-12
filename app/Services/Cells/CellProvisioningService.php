@@ -160,7 +160,7 @@ class CellProvisioningService
                     [
                         'name' => $data['name'],
                         'comb' => $comb->external_id,
-                        'comb_data' => $combData,
+                        'comb_data' => app(CellShutdownService::class)->combForCell($combData, $variables),
 
                         'allocation' => [
                             'ip' => $allocation->ip,

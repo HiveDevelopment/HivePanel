@@ -50,7 +50,7 @@ class CellNodeClient
     {
         return $this->nodeClient->client($cell->node)
             ->post('/cells/' . rawurlencode($cell->daemon_id) . '/stop', [
-                'stop' => (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', []))['stop'] ?? null,
+                'stop' => app(\App\Services\Cells\CellShutdownService::class)->combForCell((array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', [])), (array) data_get($cell->metadata, 'variables', []))['stop'] ?? null,
             ])
             ->throw()
             ->json();
@@ -229,6 +229,7 @@ class CellNodeClient
         $startup = (array) data_get($metadata, 'startup', []);
         $combData = (array) (\App\Models\Comb::find(data_get($metadata, 'comb_id'))?->data ?? data_get($metadata, 'comb_data', []));
         $variables = (array) data_get($metadata, 'variables', []);
+        $combData = app(\App\Services\Cells\CellShutdownService::class)->combForCell($combData, $variables);
 
         return [
             'name' => $cell->name,

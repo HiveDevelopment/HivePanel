@@ -260,6 +260,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/{id}/settings', [CellSettingsController::class, 'index'])->name('settings.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
         Route::patch('/{id}/settings', [CellSettingsController::class, 'update'])->name('settings.update')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
+        Route::patch('/{id}/settings/shutdown', [CellSettingsController::class, 'updateShutdown'])->name('settings.shutdown')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
         Route::post('/{id}/utilities/{utility}', [CellSettingsController::class, 'utility'])->name('utilities.run')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
 
         Route::get('/{id}/reinstall', [CellReinstallController::class, 'show'])->name('reinstall.show')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);

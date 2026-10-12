@@ -6,7 +6,11 @@ import { Bug, Clock, HardDrive, RefreshCw, Save, Server, Trash, Wrench } from 'l
 
 const props = defineProps<{
     cell: any
+    shutdownCommandOverride?: string
 }>()
+
+const shutdownCommand = ref(props.shutdownCommandOverride ?? '')
+const savingShutdown = ref(false)
 
 const saving = ref(false)
 const runningUtility = ref('')
@@ -29,6 +33,30 @@ function csrfToken() {
 function showToast(message: string) {
     toastMessage.value = message
     setTimeout(() => toastMessage.value = '', 3000)
+}
+
+async function saveShutdown() {
+    if (!cellId.value || savingShutdown.value) return
+    savingShutdown.value = true
+    error.value = ''
+    try {
+        const response = await fetch(`/cells/${cellId.value}/settings/shutdown`, {
+            method: 'PATCH',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
+            body: JSON.stringify({ shutdown_command: shutdownCommand.value }),
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+            error.value = data.errors?.shutdown_command?.[0] ?? data.message ?? 'The shutdown command could not be saved.'
+            return
+        }
+        showToast(data.message)
+    } catch {
+        error.value = 'The shutdown command could not be saved. Check your connection and try again.'
+    } finally {
+        savingShutdown.value = false
+    }
 }
 
 async function saveSettings() {
@@ -114,6 +142,13 @@ async function runUtility(utility: string) {
                     <div v-if="error" class="rounded-panel border border-status-danger/30 bg-status-danger/10 p-4 text-sm font-bold text-status-danger">
                         {{ error }}
                     </div>
+
+                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                        <h2 class="text-lg font-black">Shutdown command override</h2>
+                        <p class="mt-2 text-sm text-zinc-500">Leave blank to use the Comb command. Enter one console command for this Cell. The Comb signal and grace period still apply.</p>
+                        <input v-model="shutdownCommand" maxlength="1000" placeholder="Use Comb default" class="mt-4 w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none focus:border-hive" />
+                        <button type="button" :disabled="savingShutdown" class="mt-4 rounded-button bg-hive px-4 py-2 text-sm font-bold text-black disabled:opacity-50" @click="saveShutdown">{{ savingShutdown ? 'Saving...' : 'Save shutdown command' }}</button>
+                    </section>
 
                     <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
                         <div class="flex items-center gap-3">
