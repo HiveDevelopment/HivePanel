@@ -5,6 +5,8 @@ const props = defineProps<{
     extensionId: string;
     src: string;
     title: string;
+    cellId?: string;
+    compact?: boolean;
 }>();
 
 type BridgeMessage = {
@@ -14,10 +16,11 @@ type BridgeMessage = {
     requestId?: string;
     method?: string;
     events?: string[];
+    params?: Record<string, unknown>;
 };
 
 const frame = ref<HTMLIFrameElement | null>(null);
-const nonce = crypto.randomUUID();
+const nonce = Array.from(crypto.getRandomValues(new Uint8Array(24)), value => value.toString(16).padStart(2, '0')).join('');
 const pending = new Set<string>();
 const subscriptions = new Set<string>();
 let pollTimer: ReturnType<typeof setInterval> | undefined;
@@ -71,7 +74,7 @@ async function handleMessage(event: MessageEvent) {
     if (!message || message.nectar !== 'v1') return;
 
     if (message.type === 'ready') {
-        send({ type: 'init', nonce });
+        send({ type: 'init', nonce, cellId: props.cellId ?? null });
         return;
     }
 
@@ -110,7 +113,8 @@ async function handleMessage(event: MessageEvent) {
             ? 'cells'
             : message.method === 'settings.get'
                 ? 'settings'
-                : null;
+                : message.method === 'network.http' ? 'network/http'
+                    : message.method === 'network.tcp' ? 'network/tcp' : null;
         if (!endpoint) throw new Error('Unsupported method');
         const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         const response = await fetch(`/nectar/capabilities/${encodeURIComponent(props.extensionId)}/${endpoint}`, {
@@ -121,10 +125,10 @@ async function handleMessage(event: MessageEvent) {
                 'Content-Type': 'application/json',
                 ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
             },
-            body: '{}',
+            body: JSON.stringify(message.params ?? {}),
         });
-        if (!response.ok) throw new Error(`Capability denied (${response.status})`);
-        const payload = await response.json();
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.message ?? `Capability denied (${response.status})`);
         send({ type: 'response', nonce, requestId, ok: true, data: payload });
     } catch (error) {
         send({ type: 'response', nonce, requestId, ok: false, error: error instanceof Error ? error.message : 'Request failed' });
@@ -144,6 +148,7 @@ onBeforeUnmount(() => { window.removeEventListener('message', handleMessage); if
         :src="src"
         sandbox="allow-scripts"
         referrerpolicy="no-referrer"
-        class="min-h-[70vh] w-full border-0 bg-transparent"
+        class="w-full border-0 bg-transparent"
+        :class="compact ? 'h-96' : 'min-h-[70vh]'"
     />
 </template>

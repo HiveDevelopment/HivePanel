@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NectarBridgeFrame from './NectarBridgeFrame.vue';
 import { onMounted, ref, watch } from 'vue';
 
 type SlotName = 'dashboard.widgets' | 'server.console.after' | 'server.overview.after';
@@ -64,13 +65,12 @@ watch(() => [props.name, props.cellId], load);
                 </h2>
             </header>
 
-            <iframe
+            <NectarBridgeFrame
+                :extension-id="extension.id"
                 :title="extension.name"
                 :src="extension.url"
-                sandbox="allow-scripts"
-                referrerpolicy="no-referrer"
-                loading="lazy"
-                class="h-64 w-full border-0 bg-transparent"
+                :cell-id="cellId"
+                compact
             />
         </article>
     </section>

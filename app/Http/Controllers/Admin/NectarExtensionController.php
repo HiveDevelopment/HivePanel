@@ -58,7 +58,7 @@ class NectarExtensionController extends Controller
         $extension = collect($manager->installed())->firstWhere('id', $id);
         abort_unless($extension, 404);
 
-        return Inertia::render('Admin/Extensions/Show', ['extension' => $extension]);
+        return Inertia::render('Admin/Extensions/Show', ['extension' => $extension, 'networkAudits' => \Illuminate\Support\Facades\DB::table('nectar_network_audits')->where('extension_id', $id)->orderByDesc('id')->limit(30)->get()]);
     }
 
     public function settings(string $id, ExtensionSettings $settings, ExtensionManager $manager): Response
@@ -81,7 +81,10 @@ class NectarExtensionController extends Controller
 
     public function update(Request $request, string $id, ExtensionManager $manager): RedirectResponse
     {
-        $data = $request->validate(['enabled' => ['required', 'boolean']]);
+        $data = $request->validate(['enabled' => ['required', 'boolean'], 'approve_network' => ['sometimes', 'boolean']]);
+        if ($data['enabled'] && ($data['approve_network'] ?? false)) {
+            \Illuminate\Support\Facades\DB::table('nectar_extensions')->where('extension_id', $id)->update(['network_approved' => true]);
+        }
         try {
             $manager->setEnabled($id, $data['enabled']);
         } catch (RuntimeException $e) {

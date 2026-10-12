@@ -37,12 +37,20 @@ class ExtensionManager
             'name' => $row->name,
             'version' => $row->version,
             'enabled' => (bool) $row->enabled,
+            'networkApproved' => (bool) ($row->network_approved ?? false),
             'manifest' => json_decode($row->manifest, true),
         ])->all();
     }
 
     public function validate(array $manifest): array
     {
+        if (isset($manifest['capabilities'])) {
+            if (isset($manifest['permissions']) && $manifest['permissions'] !== $manifest['capabilities']) {
+                throw ValidationException::withMessages(['capabilities' => 'Use one matching capability declaration.']);
+            }
+            $manifest['permissions'] = $manifest['capabilities'];
+            unset($manifest['capabilities']);
+        }
         Validator::make($manifest, [
             'id' => ['required', 'string', 'regex:/^[a-z0-9][a-z0-9.-]{2,159}$/D'],
             'name' => ['required', 'string', 'max:100'],
@@ -66,7 +74,13 @@ class ExtensionManager
             'backend' => ['prohibited'],
             'hooks' => ['prohibited'],
             'permissions' => ['sometimes', 'array', 'list', 'max:5'],
-            'permissions.*' => ['required', 'string', 'distinct', Rule::in(['cells.read', 'settings.read'])],
+            'permissions.*' => ['required', 'string', 'distinct', Rule::in(['cells.read', 'settings.read', 'network.http', 'network.tcp'])],
+            'network' => ['sometimes', 'array:http,tcp'],
+            'network.http' => ['sometimes', 'array:hosts'],
+            'network.http.hosts' => ['required_with:network.http', 'array', 'list', 'min:1', 'max:20'],
+            'network.http.hosts.*' => ['required', 'string', 'distinct', 'max:253', 'regex:/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/D'],
+            'network.tcp' => ['sometimes', 'array:scope'],
+            'network.tcp.scope' => ['required_with:network.tcp', Rule::in(['cell-allocations'])],
             'settings' => ['sometimes', 'array', 'list', 'max:30'],
             'settings.*' => ['required', 'array'],
             'settings.*.key' => ['required', 'string', 'regex:/^[a-z][a-z0-9_]{0,47}$/D', 'distinct'],
@@ -86,6 +100,12 @@ class ExtensionManager
             'hooks.prohibited' => 'Backend hooks are not supported by Nectar yet.',
             'permissions.*.in' => 'The extension requests an unsupported capability.',
         ])->validate();
+
+        foreach (['http', 'tcp'] as $transport) {
+            if (in_array("network.{$transport}", $manifest['permissions'] ?? [], true) !== isset($manifest['network'][$transport])) {
+                throw ValidationException::withMessages(['network' => 'Each network capability must have its matching scope declaration.']);
+            }
+        }
 
         if (empty($manifest['frontend']['slots']) && empty($manifest['frontend']['pages'])) {
             throw ValidationException::withMessages([
@@ -312,6 +332,12 @@ class ExtensionManager
             throw new RuntimeException('Unknown extension');
         }
 
+        $extension = DB::table('nectar_extensions')->where('extension_id', $id)->first();
+        $manifest = json_decode($extension->manifest, true);
+        if ($enabled && array_intersect(['network.http', 'network.tcp'], $manifest['permissions'] ?? []) && ! ($extension->network_approved ?? false)) {
+            throw new RuntimeException('Approve the declared network permissions before enabling this extension.');
+        }
+
         DB::table('nectar_extensions')->where('extension_id', $id)->update([
             'enabled' => $enabled,
             'updated_at' => now(),
@@ -353,7 +379,8 @@ class ExtensionManager
         $manifest = json_decode($extension->manifest, true);
 
         return is_array($manifest)
-            && in_array($capability, $manifest['permissions'] ?? [], true);
+            && in_array($capability, $manifest['permissions'] ?? [], true)
+            && (! str_starts_with($capability, 'network.') || ($extension->network_approved ?? false));
     }
 
     public function pages(): array

@@ -42,6 +42,10 @@ Route::middleware(['web'])->group(function () {
 */
 
 Route::middleware(['web', 'auth', 'verified'])->group(function () {
+    Route::post('/nectar/capabilities/{id}/network/{transport}', [\App\Http\Controllers\NectarNetworkController::class, 'handle'])
+        ->where(['id' => '[a-z0-9][a-z0-9.-]{2,159}', 'transport' => 'http|tcp'])
+        ->middleware('throttle:60,1')->name('nectar.capabilities.network');
+
     Route::post('/nectar/capabilities/{id}/events', [NectarEventController::class, 'subscribe'])
         ->where('id', '[a-z0-9.-]+')->middleware('throttle:60,1')
         ->name('nectar.capabilities.events');
@@ -98,7 +102,7 @@ Route::middleware(['web', 'auth', 'verified'])->group(function () {
 
             Route::patch('/{id}', [NectarExtensionController::class, 'update'])
                 ->where('id', '[a-z0-9.-]+')
-                ->name('update');
+                ->middleware('admin.permission:admin.extensions.update')->name('update');
 
             Route::delete('/{id}', [NectarExtensionController::class, 'destroy'])
                 ->where('id', '[a-z0-9.-]+')
