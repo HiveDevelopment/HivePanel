@@ -93,6 +93,7 @@ async function refreshActiveCell() {
     loading = true
 
     try {
+        const requestedId = activeCell.value.id
         const response = await fetch(
             `/cells/${activeCell.value.id}/stats-json`,
             {
@@ -108,13 +109,13 @@ async function refreshActiveCell() {
 
         const stats = await response.json()
 
+        if (activeCell.value?.id !== requestedId || stats.error || typeof stats.running !== 'boolean') return
+
         activeCellStats.value = stats
 
         activeCellStatus.value = stats.running
             ? 'running'
-            : normaliseStatus(
-                activeCell.value.status,
-            )
+            : 'offline'
     } catch {
         // A temporary Worker/network failure should not
         // destroy the global active Cell state.
@@ -159,7 +160,7 @@ function startActiveCellPolling() {
         () => {
             void refreshActiveCell()
         },
-        5000,
+        2000,
     )
 }
 

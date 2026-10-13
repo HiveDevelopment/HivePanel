@@ -35,11 +35,12 @@ class CellConsoleController extends CellBaseController
     public function consoleJson(string $id, CellNodeClient $cells)
     {
         $cell = $this->panelCellOrFail($id);
-        if ($response = $this->installationPageIfNeeded($cell)) {
-            return $response;
+        try {
+            return response()->json($cells->console($cell));
+        } catch (\Throwable $exception) {
+            report($exception);
+            return response()->json(['message' => 'Installation logs are temporarily unavailable.'], 502);
         }
-
-        return response()->json($cells->console($cell));
     }
 
     public function command(string $id, Request $request, CellNodeClient $cells, AuditLogger $audit)

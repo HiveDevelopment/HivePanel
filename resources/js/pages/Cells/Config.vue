@@ -30,7 +30,7 @@ type ConfigEntry = {
     type: 'boolean' | 'number' | 'string'
 }
 
-const selectedPath = ref(props.configFiles?.[0]?.path ?? 'server.properties')
+const selectedPath = ref(props.configFiles?.[0]?.path ?? '')
 const content = ref('')
 const originalContent = ref('')
 const loading = ref(false)
@@ -39,6 +39,8 @@ const error = ref('')
 const search = ref('')
 const fileSearch = ref('')
 const toastMessage = ref('')
+
+const structured = computed(() => selectedPath.value.endsWith('.properties'))
 
 const isDirty = computed(() => content.value !== originalContent.value)
 
@@ -167,6 +169,7 @@ function showToast(message: string) {
 }
 
 async function loadConfig(path = selectedPath.value) {
+    if (!path) return
     loading.value = true
     error.value = ''
     selectedPath.value = path
@@ -177,7 +180,7 @@ async function loadConfig(path = selectedPath.value) {
         })
 
         if (!response.ok) {
-            error.value = await response.text()
+            error.value = response.status === 404 ? 'This configuration file has not been created yet. Check the Cell files or run the game once.' : 'Unable to access this configuration file.'
             return
         }
 
@@ -185,6 +188,8 @@ async function loadConfig(path = selectedPath.value) {
 
         content.value = data.content ?? ''
         originalContent.value = data.content ?? ''
+    } catch {
+        error.value = 'Unable to fetch configuration. Check the node connection and try again.'
     } finally {
         loading.value = false
     }
@@ -213,7 +218,7 @@ async function saveConfig() {
         })
 
         if (!response.ok) {
-            error.value = await response.text()
+            error.value = response.status === 404 ? 'This configuration file has not been created yet. Check the Cell files or run the game once.' : 'Unable to access this configuration file.'
             return
         }
 
@@ -353,7 +358,7 @@ onMounted(() => {
                                 <input
                                     v-model="search"
                                     class="w-full bg-transparent text-sm text-zinc-300 outline-none placeholder:text-zinc-600"
-                                    placeholder="Search properties..."
+                                    placeholder="Search settings..."
                                 />
                             </div>
                         </div>
@@ -366,6 +371,8 @@ onMounted(() => {
                             {{ error }}
                         </div>
 
+                        <div v-else-if="!selectedPath" class="p-6 text-sm text-zinc-400">No configuration files were found. Your Comb can declare config_files for nested game settings, or you can use the File Manager.</div>
+                        <div v-else-if="!structured" class="p-4 sm:p-5"><textarea v-model="content" aria-label="Configuration file content" spellcheck="false" class="min-h-[55vh] w-full rounded-button border border-zinc-800 bg-surface-dark p-4 font-mono text-xs leading-6 text-zinc-200" /><p class="mt-3 text-xs text-zinc-500">Edit this file in its original format. Save changes, then restart the Cell if required by the game.</p></div>
                         <div v-else class="space-y-3 p-4 sm:p-5">
                             <div
                                 v-for="line in entries"

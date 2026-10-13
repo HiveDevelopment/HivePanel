@@ -9,10 +9,11 @@ type Cell = {
     id: string;
     name: string;
     comb: string;
+    comb_data?: { game?: string; name?: string };
     status?: CellStatus;
     allocation?: { ip: string; port: number };
     limits?: { memory_mb: number; cpu_percent: number; disk_mb?: number };
-    stats?: { cpu?: number; memory_mb?: number; disk_bytes?: number };
+    stats?: { cpu?: number; memory_mb?: number; disk_bytes?: number; disk_ready?: boolean };
 };
 type Comb = { id: string; name: string; game: string; variables?: Record<string, string> };
 
@@ -20,7 +21,7 @@ const props = withDefaults(defineProps<{ cells?: Cell[]; combs?: Comb[] }>(), {
     cells: () => [],
     combs: () => [],
 });
-usePoll(5000, { only: ['cells'], preserveScroll: true });
+usePoll(2000, { only: ['cells'], preserveScroll: true });
 
 const search = ref('');
 const statusFilter = ref<'all' | CellStatus>('all');
@@ -34,7 +35,7 @@ const filteredCells = computed(() => {
     const q = search.value.trim().toLowerCase();
     const results = props.cells.filter(
         (cell) =>
-            (!q || [cell.name, cell.id, cell.comb].some((value) => value.toLowerCase().includes(q))) &&
+            (!q || [cell.name, cell.id, cell.comb].some((value) => String(value ?? '').toLowerCase().includes(q))) &&
             (statusFilter.value === 'all' || normaliseStatus(cell.status) === statusFilter.value),
     );
     if (sort.value === 'name') results.sort((a, b) => a.name.localeCompare(b.name));
@@ -80,7 +81,7 @@ function allocation(cell: Cell) {
 }
 function cellGame(cell: Cell) {
     const comb = (props.combs ?? []).find((c) => c.id === cell.comb);
-    return comb?.game || comb?.name || (cell.comb || 'Unknown game').replace(/[-_]/g, ' ');
+    return cell.comb_data?.name || cell.comb_data?.game || comb?.game || comb?.name || (cell.comb || 'Unknown game').replace(/[-_]/g, ' ');
 }
 function power(id: string, action: 'start' | 'stop') {
     if (pending.value[id]) return;
@@ -231,7 +232,7 @@ function power(id: string, action: 'start' | 'stop') {
                                 <div class="grid flex-1 grid-cols-3 gap-3 sm:gap-5 xl:max-w-[570px]">
                                     <div class="min-w-0">
                                         <div class="metric-label">CPU</div>
-                                        <div class="metric-value">{{ cpu(cell).toFixed(1) }}<span class="text-xs text-zinc-500">%</span></div>
+                                        <div class="metric-value">{{ cell.stats ? cpu(cell).toFixed(1) : '—' }}<span class="text-xs text-zinc-500">%</span></div>
                                         <div class="meter">
                                             <div
                                                 class="h-full rounded-full bg-amber-400 transition-all"
@@ -242,7 +243,7 @@ function power(id: string, action: 'start' | 'stop') {
                                     <div class="min-w-0">
                                         <div class="metric-label">Memory</div>
                                         <div class="metric-value truncate">
-                                            {{ formatMemory(memoryUsed(cell)) }}
+                                            {{ cell.stats ? formatMemory(memoryUsed(cell)) : '—' }}
                                             <span class="text-[11px] font-normal text-zinc-500"
                                                 >/ {{ memoryLimit(cell) ? formatMemory(memoryLimit(cell)) : '—' }}</span
                                             >
@@ -257,7 +258,7 @@ function power(id: string, action: 'start' | 'stop') {
                                     <div class="min-w-0">
                                         <div class="metric-label">Storage</div>
                                         <div class="metric-value truncate">
-                                            {{ formatDisk(diskUsed(cell)) }}
+                                            {{ !cell.stats ? '—' : cell.stats.disk_ready === false ? 'Measuring…' : formatDisk(diskUsed(cell)) }}
                                             <span class="text-[11px] font-normal text-zinc-500"
                                                 >/ {{ diskLimit(cell) ? formatDisk(diskLimit(cell)) : '—' }}</span
                                             >

@@ -51,7 +51,7 @@ class CellFileController extends CellBaseController
         return Inertia::render('Cells/Files', [
             'cell' => $workerCell,
             'mode' => 'live',
-            'initialPath' => '',
+            'initialPath' => (string) request()->query('path', ''),
 
             'mount' => null,
             'backup' => null,

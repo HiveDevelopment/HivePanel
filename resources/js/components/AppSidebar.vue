@@ -95,7 +95,7 @@ const navigation = computed<NavEntry[]>(() => {
     const cell = props.activeCell;
     const comb = cell?.comb_data ?? cell?.combData ?? cell?.comb?.data ?? {};
     const game = String(comb?.game ?? cell?.game ?? cell?.comb?.game ?? '').toLowerCase();
-    return integrate(serverNavigation(cell.id, game, installed.value, installStatus(cell) === 'failed'));
+    return integrate(serverNavigation(cell.id, { ...comb, game }, installed.value, installStatus(cell) === 'failed'));
 });
 </script>
 

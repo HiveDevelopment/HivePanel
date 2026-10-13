@@ -11,7 +11,7 @@ use Inertia\Inertia;
 
 class CellConfigController extends CellBaseController
 {
-    public function index(string $id, CellNodeClient $cells)
+    public function index(string $id, CellNodeClient $cells, FileNodeClient $files)
     {
         $cell = $this->panelCellOrFail($id);
         if ($response = $this->installationPageIfNeeded($cell)) {
@@ -21,7 +21,7 @@ class CellConfigController extends CellBaseController
 
         return Inertia::render('Cells/Config', [
             'cell' => $workerCell,
-            'configFiles' => $this->configFiles(),
+            'configFiles' => $this->configFiles($cell, $files),
         ]);
     }
 
@@ -32,9 +32,10 @@ class CellConfigController extends CellBaseController
             return $response;
         }
 
-        return response()->json(
-            $files->readFile($cell, $request->query('path', 'server.properties'))
-        );
+        $paths = array_column($this->configFiles($cell, $files), 'path');
+        $path = $request->query('path', $paths[0] ?? '');
+        abort_unless(in_array($path, $paths, true), 422, 'Choose a configuration file declared by the Comb or found in the Cell.');
+        return response()->json($files->readFile($cell, $path));
     }
 
     public function update(
@@ -56,6 +57,8 @@ class CellConfigController extends CellBaseController
             'content' => ['present', 'string'],
         ]);
 
+        abort_unless(in_array($data['path'], array_column($this->configFiles($cell, $files), 'path'), true), 422, 'Unknown configuration file.');
+
         $result = $files->writeFile(
             $cell,
             $data['path'],
@@ -74,39 +77,12 @@ class CellConfigController extends CellBaseController
         return response()->json($result);
     }
 
-    private function configFiles(): array
+    private function configFiles(\App\Models\Cell $cell, FileNodeClient $files): array
     {
-        return [
-            [
-                'id' => 'server.properties',
-                'title' => 'Server Properties',
-                'path' => 'server.properties',
-                'description' => 'Main Minecraft server settings.',
-            ],
-            [
-                'id' => 'spigot.yml',
-                'title' => 'Spigot Configuration',
-                'path' => 'spigot.yml',
-                'description' => 'Performance and gameplay settings.',
-            ],
-            [
-                'id' => 'bukkit.yml',
-                'title' => 'Bukkit Configuration',
-                'path' => 'bukkit.yml',
-                'description' => 'Plugin and world settings.',
-            ],
-            [
-                'id' => 'paper-global.yml',
-                'title' => 'Paper Global Settings',
-                'path' => 'config/paper-global.yml',
-                'description' => 'Global Paper server settings.',
-            ],
-            [
-                'id' => 'paper-world-defaults.yml',
-                'title' => 'Paper World Defaults',
-                'path' => 'config/paper-world-defaults.yml',
-                'description' => 'Default world settings for Paper.',
-            ],
-        ];
+        $manifest = (array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', []));
+        $catalog = app(\App\Services\Cells\CellConfigFiles::class);
+        $declared = $catalog->declared($manifest);
+        if ($declared || array_key_exists('config_files', $manifest)) return $declared;
+        return $catalog->discovered($files->files($cell)['files'] ?? []);
     }
 }

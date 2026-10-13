@@ -37,7 +37,7 @@ export const dashboardNavigation: NavEntry[] = [
     item('Servers', '', Home),
 ]
 
-export function serverNavigation(cellId: string | number, game: string, installed: boolean, failed: boolean): NavEntry[] {
+export function serverNavigation(cellId: string | number, game: string | Record<string, any>, installed: boolean, failed: boolean): NavEntry[] {
     const url = (path = '') => `/cells/${cellId}${path}`
 
     if (!installed) {
@@ -67,30 +67,26 @@ export function serverNavigation(cellId: string | number, game: string, installe
         ]),
     ]
 
-    const gameEntries: Record<string, NavEntry> = {
-        minecraft: group('Minecraft', [
-            item('Players', url('/players'), Users),
-            item('Worlds', url('/worlds'), FolderOpen),
-            item('Plugins', url('/plugins'), Boxes),
-            item('Modpacks', url('/mods'), Boxes),
-            item('Instances', url('/instances'), Boxes),
-            item('JARs', url('/jars'), Boxes),
-        ]),
-        discord: group('Discord Bot', [
-            item('Bot Preinstalls', url('/bot-preinstalls'), Boxes),
-            item('Environment', url('/environment'), SlidersHorizontal),
-            item('Packages', url('/packages'), Archive),
-            item('Logs', url('/logs'), Glasses),
-        ]),
-        steam: group('Steam', [
-            item('SteamCMD', url('/steamcmd'), DownloadCloud),
-            item('Workshop', url('/workshop'), Boxes),
-            item('Updates', url('/updates'), Rocket),
-        ]),
+    const manifest = typeof game === 'object' ? game as Record<string, any> : { game };
+    const normalizedGame = String(manifest.game || manifest.group || '').toLowerCase();
+    const gameItems: NavItem[] = [];
+    let gameTitle = String(manifest.name ?? (normalizedGame || 'Application'));
+    if (normalizedGame === 'minecraft') {
+        gameTitle = 'Minecraft';
+        gameItems.push(item('Players', url('/players'), Users), item('Plugins', url('/files?path=plugins'), Boxes), item('Mods', url('/files?path=mods'), Boxes));
+    } else if (['discord', 'discord-bot', 'discord_bot'].includes(normalizedGame)) {
+        gameTitle = 'Discord Bot';
+        gameItems.push(item('Environment', url('/startup'), SlidersHorizontal), item('Application Files', url('/files'), FolderOpen));
+    } else {
+        gameItems.push(item('Game Configuration', url('/config'), SlidersHorizontal), item('Game Files', url('/files'), FolderOpen));
     }
-
-    const normalizedGame = ['discord-bot', 'discord_bot'].includes(game) ? 'discord' : game
-    if (gameEntries[normalizedGame]) entries.push(gameEntries[normalizedGame])
+    // Optional Comb shortcuts point to scoped panel pages, never arbitrary URLs.
+    for (const shortcut of Array.isArray(manifest.sidebar) ? manifest.sidebar.slice(0, 12) : []) {
+        if (typeof shortcut?.title !== 'string') continue;
+        if (shortcut.type === 'files' && typeof shortcut.path === 'string' && !shortcut.path.includes('..') && !shortcut.path.startsWith('/')) gameItems.push(item(shortcut.title, url('/files?path=' + encodeURIComponent(shortcut.path)), FolderOpen));
+        if (shortcut.type === 'config') gameItems.push(item(shortcut.title, url('/config'), SlidersHorizontal));
+    }
+    if (gameItems.length) entries.push({ type: 'group', id: 'game', title: gameTitle, items: gameItems });
 
     return entries
 }

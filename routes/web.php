@@ -223,6 +223,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/start', [CellPowerController::class, 'start'])->name('start')->middleware('cell.permission:' . CellPermissions::CONSOLE_POWER);
         Route::post('/{id}/stop', [CellPowerController::class, 'stop'])->name('stop')->middleware('cell.permission:' . CellPermissions::CONSOLE_POWER);
 
+        Route::get('/{id}/startup', [\App\Http\Controllers\Cells\CellStartupController::class, 'index'])->name('startup.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
+        Route::patch('/{id}/startup', [\App\Http\Controllers\Cells\CellStartupController::class, 'update'])->name('startup.update')->middleware('cell.permission:' . CellPermissions::STARTUP_UPDATE);
+        Route::get('/{id}/network', [\App\Http\Controllers\Cells\CellNetworkController::class, 'index'])->name('network.index')->middleware('cell.permission:' . CellPermissions::VIEW);
+        Route::patch('/{id}/network', [\App\Http\Controllers\Cells\CellNetworkController::class, 'update'])->name('network.update')->middleware('cell.permission:' . CellPermissions::NETWORK_UPDATE);
+
         Route::get('/{id}/stats-json', [CellConsoleController::class, 'statsJson'])->name('stats-json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
         Route::get('/{id}/console-json', [CellConsoleController::class, 'consoleJson'])->name('console-json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
         Route::post('/{id}/command', [CellConsoleController::class, 'command'])->name('command')->middleware('cell.permission:' . CellPermissions::CONSOLE_SEND);

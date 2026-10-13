@@ -24,7 +24,23 @@ class CellDashboardService
             $query->latest();
         }
 
-        return $query->get()->map(fn (Cell $cell) => $this->frontendCell($cell, $this->cells))->values();
+        $visible = $query->get();
+        $nodes = $visible->pluck('node')->filter()->unique('id');
+        $responses = \Illuminate\Support\Facades\Http::pool(function ($pool) use ($nodes, $visible) {
+            return $nodes->map(fn ($node) => $pool->as((string) $node->id)->withToken($node->api_token)->timeout(8)->get($node->baseUrl().'/cells/overview', ['ids' => $visible->where('node_id', $node->id)->pluck('daemon_id')->implode(',')]))->all();
+        }, 8);
+        $snapshots = [];
+        foreach ($nodes as $node) {
+            $response = $responses[(string) $node->id] ?? null;
+            if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                $snapshots[(string) $node->id] = collect($response->json('cells', []))->keyBy('id');
+            }
+        }
+        return $visible->map(function (Cell $cell) use ($snapshots) {
+            $snapshot = $snapshots[(string) $cell->node_id][$cell->daemon_id] ?? null;
+            if (!is_array($snapshot)) return $this->mergePanelCell($cell, ['status' => 'unknown', 'stats' => null, 'error' => true]);
+            return $this->mergePanelCell($cell, $snapshot);
+        })->values();
     }
 
     public function frontendCell(

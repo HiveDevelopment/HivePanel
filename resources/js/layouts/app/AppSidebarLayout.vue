@@ -29,9 +29,7 @@ const {
 watch(
     () => props.activeCell,
     (cell) => {
-        if (cell) {
-            setActiveCell(cell, props.activeCellStatus)
-        }
+        setActiveCell(props.context === 'server' ? cell : null, props.activeCellStatus)
     },
     { immediate: true },
 )

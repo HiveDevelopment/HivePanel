@@ -250,8 +250,8 @@ const currentStatus = computed<CellStatus>(() => {
         return 'offline';
     }
 
-    if (liveStats.value?.running === true) {
-        return 'running';
+    if (typeof liveStats.value?.running === 'boolean') {
+        return liveStats.value.running ? 'running' : 'offline';
     }
 
     if (props.cell?.status) {
@@ -641,7 +641,7 @@ onMounted(async () => {
         if (!wasRunning && isRunning) {
             startConsolePolling();
         }
-    }, 5000);
+    }, 2000);
 });
 
 onUnmounted(() => {
@@ -706,7 +706,8 @@ function formatMemoryLimit() {
 }
 
 function formatDiskUsed() {
-    const usedMb = liveStats.value?.disk_mb ?? liveStats.value?.disk_usage_mb ?? 0;
+    if (liveStats.value?.disk_ready === false) return 'Measuring…';
+    const usedMb = liveStats.value?.disk_mb ?? liveStats.value?.disk_usage_mb ?? (liveStats.value?.disk_bytes ?? 0) / 1048576;
 
     if (usedMb >= 1024) {
         return `${(usedMb / 1024).toFixed(2)} GB`;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InstallationLogs from '@/components/cells/InstallationLogs.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import {
@@ -514,6 +515,7 @@ onUnmounted(() => {
                             </div>
                         </div>
                     </section>
+                    <InstallationLogs :cell-id="cell.id" />
                 </div>
             </main>
         </div>
