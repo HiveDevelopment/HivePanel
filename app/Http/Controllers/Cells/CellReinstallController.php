@@ -10,7 +10,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use RuntimeException;
 use Throwable;
 
 class CellReinstallController extends CellBaseController
@@ -79,9 +78,8 @@ class CellReinstallController extends CellBaseController
                 'array',
             ],
 
-            'variables.*' => [
-                'nullable',
-            ],
+            'variables.*' => ['nullable', 'string', 'max:4096'],
+            'image' => ['nullable', 'string', 'max:251'],
 
             'start_on_completion' => [
                 'sometimes',
@@ -100,8 +98,7 @@ class CellReinstallController extends CellBaseController
         ) {
             return back()
                 ->withErrors([
-                    'confirmation' =>
-                        'The confirmation does not match the cell name.',
+                    'confirmation' => 'The confirmation does not match the cell name.',
                 ])
                 ->withInput();
         }
@@ -116,6 +113,7 @@ class CellReinstallController extends CellBaseController
                 cell: $cell,
                 comb: $comb,
                 variables: $validated['variables'] ?? [],
+                image: $validated['image'] ?? null,
                 startAfterInstall: (bool) (
                     $validated['start_on_completion']
                     ?? false
@@ -151,8 +149,7 @@ class CellReinstallController extends CellBaseController
             !== CellInstallStatus::FAILED
         ) {
             return back()->withErrors([
-                'retry' =>
-                    'Only failed installations can be retried.',
+                'retry' => 'Only failed installations can be retried.',
             ]);
         }
 
@@ -167,8 +164,7 @@ class CellReinstallController extends CellBaseController
 
         if ($this->workerCellIsRunning($workerCell)) {
             return back()->withErrors([
-                'retry' =>
-                    'Stop the cell before retrying installation.',
+                'retry' => 'Stop the cell before retrying installation.',
             ]);
         }
 
@@ -213,11 +209,9 @@ class CellReinstallController extends CellBaseController
             'install_status_label' => $cell->install_status?->label()
                 ?? ucfirst((string) $cell->install_status),
 
-            'install_failure_reason' =>
-                $cell->install_failure_reason,
+            'install_failure_reason' => $cell->install_failure_reason,
 
-            'installed_at' =>
-                $cell->installed_at?->toIso8601String(),
+            'installed_at' => $cell->installed_at?->toIso8601String(),
         ]);
     }
 

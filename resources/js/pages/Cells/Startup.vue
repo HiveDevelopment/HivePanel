@@ -3,11 +3,19 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { Box, Check, Copy, Eye, EyeOff, Rocket, RotateCcw, Save, Search, SlidersHorizontal, Terminal } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-const props = defineProps<{ cell: any; schema: Array<any>; variables: Record<string, string>; canEdit: boolean }>();
+const props = defineProps<{
+    cell: any;
+    schema: Array<any>;
+    variables: Record<string, string>;
+    canEdit: boolean;
+    images: Array<{ label: string; image: string }>;
+    selectedImage: string;
+}>();
 const editable = computed(() =>
     props.schema.filter((variable) => variable.name && !['server_ip', 'server_port'].includes(variable.name) && variable.user_editable !== false),
 );
 const form = useForm({
+    image: props.selectedImage,
     variables: Object.fromEntries(
         editable.value.map((variable) => [variable.name, String(props.variables[variable.name] ?? variable.default ?? '')]),
     ),
@@ -37,7 +45,7 @@ const command = computed(() => {
     const startup = props.cell.startup?.command ?? props.cell.comb_data?.startup;
     return typeof startup === 'string' ? startup : (startup?.command ?? '');
 });
-const image = computed(() => props.cell.docker?.image || props.cell.comb_data?.image || 'Defined by the Comb');
+const image = computed(() => form.image || props.cell.comb_data?.image || 'Defined by the Comb');
 const segments = computed(() =>
     command.value
         .split(/(\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\})/g)
@@ -129,6 +137,16 @@ async function copyCommand() {
                     <div class="p-5">
                         <span class="rounded border border-hive/15 bg-hive/5 px-2 py-1 text-[10px] font-semibold text-hive">Comb managed</span>
                         <p class="mt-4 break-all font-mono text-xs leading-6 text-zinc-300">{{ image }}</p>
+                        <label v-if="images.length > 1" class="mt-4 block text-xs text-zinc-400"
+                            >Runtime version<select
+                                v-model="form.image"
+                                :disabled="!canEdit || form.processing"
+                                class="mt-2 w-full rounded-button border border-white/[0.08] bg-surface-dark p-3 text-xs text-zinc-200"
+                            >
+                                <option v-for="option in images" :key="option.image" :value="option.image">{{ option.label }}</option>
+                            </select></label
+                        >
+                        <p v-if="form.errors.image" class="mt-2 text-xs text-status-danger">{{ form.errors.image }}</p>
                         <p class="mt-3 text-[11px] leading-5 text-zinc-500">The container image is selected by the Cell’s Comb and administrator.</p>
                     </div>
                 </section>

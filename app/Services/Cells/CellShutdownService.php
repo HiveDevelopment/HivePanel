@@ -2,6 +2,8 @@
 
 namespace App\Services\Cells;
 
+use Illuminate\Validation\ValidationException;
+
 class CellShutdownService
 {
     public function variableSchema(array $combData): array
@@ -10,6 +12,16 @@ class CellShutdownService
         if (! array_is_list($schema)) {
             $schema = collect($schema)->map(fn ($variable, $name) => is_array($variable) ? ['name' => $name, ...$variable] : ['name' => $name, 'default' => $variable])->values()->all();
         }
+        $schema = array_map(function ($variable) {
+            if (! is_array($variable)) {
+                return [];
+            }
+            $variable['name'] = $variable['name'] ?? $variable['key'] ?? $variable['env_variable'] ?? '';
+            $variable['default'] = $variable['default'] ?? $variable['default_value'] ?? '';
+            $variable['user_editable'] = empty($variable['hidden']) && empty($variable['internal']) && ($variable['user_editable'] ?? $variable['editable'] ?? true);
+
+            return $variable;
+        }, $schema);
         $schema = array_values(array_filter($schema, fn ($variable) => is_array($variable) && ($variable['name'] ?? '') !== 'shutdown_command'));
         $schema[] = [
             'name' => 'shutdown_command',
@@ -28,7 +40,7 @@ class CellShutdownService
         $command = trim((string) ($variables['shutdown_command'] ?? ''));
         if ($command !== '') {
             if (strlen($command) > 1000 || str_contains($command, "\n") || str_contains($command, "\r") || str_contains($command, "\0")) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['variables.shutdown_command' => 'Enter a single shutdown command of at most 1000 bytes.']);
+                throw ValidationException::withMessages(['variables.shutdown_command' => 'Enter a single shutdown command of at most 1000 bytes.']);
             }
             $combData['stop'] = array_replace(['timeout' => 30, 'signal' => 'SIGTERM'], $combData['stop'] ?? [], ['command' => $command]);
         }

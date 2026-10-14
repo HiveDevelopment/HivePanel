@@ -80,7 +80,7 @@ export function serverNavigation(cellId: string | number, game: string | Record<
     } else {
         gameItems.push(item('Game Configuration', url('/config'), SlidersHorizontal), item('Game Files', url('/files'), FolderOpen));
     }
-    if (Array.isArray(manifest.preinstalls) && manifest.preinstalls.length) gameItems.push(item('Preinstalls', url('/preinstalls'), DownloadCloud));
+    if ((Array.isArray(manifest.preinstalls) && manifest.preinstalls.length) || (Array.isArray(manifest.preinstall_recipes) && manifest.preinstall_recipes.length)) gameItems.push(item('Preinstalls', url('/preinstalls'), DownloadCloud));
     // Optional Comb shortcuts point to scoped panel pages, never arbitrary URLs.
     for (const shortcut of Array.isArray(manifest.sidebar) ? manifest.sidebar.slice(0, 12) : []) {
         if (typeof shortcut?.title !== 'string') continue;

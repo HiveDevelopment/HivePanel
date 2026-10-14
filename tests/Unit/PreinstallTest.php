@@ -141,4 +141,20 @@ class PreinstallTest extends TestCase
         $service->status($cell);
         $this->assertSame('manual command', $cell->metadata['startup']['command']);
     }
+
+    public function test_install_variables_are_bound_to_preview_and_private_values_are_rejected(): void
+    {
+        [$controller, $client, $user] = $this->fixture();
+        $registry = Mockery::mock(PreinstallRegistryService::class);
+        $registry->shouldReceive('json')->with('post', '/resolve', ['preset' => 'discord-tickets', 'version' => '4.0'])->twice()->andReturn(['kind' => 'preinstall', 'preset' => 'discord-tickets', 'runtime' => ['variables_schema' => [['name' => 'SOURCE_REF', 'install' => true], ['name' => 'DISCORD_TOKEN', 'install' => true, 'secret' => true]]]]);
+        $response = $controller->preview('cell', $this->request(['preset' => 'discord-tickets', 'version' => '4.0', 'variables' => ['SOURCE_REF' => 'v4.0.52']], $user), $registry);
+        $plan = $response->getData(true)['plan'];
+        $this->assertSame(['SOURCE_REF' => 'v4.0.52'], $plan['runtime']['parameters']);
+        try {
+            $controller->preview('cell', $this->request(['preset' => 'discord-tickets', 'version' => '4.0', 'variables' => ['DISCORD_TOKEN' => 'private']], $user), $registry);
+            $this->fail('Private variable accepted as a public build parameter');
+        } catch (HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+    }
 }

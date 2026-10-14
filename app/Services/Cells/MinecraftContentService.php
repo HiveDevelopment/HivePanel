@@ -32,6 +32,9 @@ class MinecraftContentService
                 foreach ($runtime['variables_schema'] as $variable) {
                     $metadata['variables'][$variable['name']] ??= (string) ($variable['default'] ?? '');
                 }
+                foreach ($runtime['parameters'] ?? [] as $name => $value) {
+                    $metadata['variables'][$name] = $value;
+                }
                 $metadata['content_install'] = ['job_id' => $job['id'], 'preset' => $job['plan']['preset'], 'version' => $job['plan']['version'], 'name' => $job['plan']['name'], 'runtime' => $runtime];
                 $current->forceFill(['metadata' => $metadata])->save();
                 $cell->metadata = $metadata;

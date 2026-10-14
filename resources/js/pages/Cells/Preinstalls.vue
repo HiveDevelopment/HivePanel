@@ -10,6 +10,7 @@ const props = defineProps<{ cell: any; canInstall: boolean }>();
 const base = `/cells/${props.cell.id}/preinstalls`;
 const presets = ref<any[]>([]);
 const versions = ref<Record<string, string>>({});
+const parameters = ref<Record<string, Record<string, string>>>({});
 const query = ref('');
 const busy = ref(false);
 const error = ref('');
@@ -60,6 +61,12 @@ async function load() {
     const result = await api('/catalogue');
     presets.value = result.presets;
     for (const preset of presets.value) versions.value[preset.id] ??= preset.versions[0].id;
+    for (const preset of presets.value)
+        parameters.value[preset.id] = Object.fromEntries(
+            (preset.variables ?? [])
+                .filter((variable: any) => variable.install && !variable.secret)
+                .map((variable: any) => [variable.name, String(props.cell.variables?.[variable.name] ?? variable.default ?? '')]),
+        );
 }
 async function poll() {
     try {
@@ -75,7 +82,11 @@ async function review(preset: any) {
     busy.value = true;
     error.value = '';
     try {
-        preview.value = await api('/preview', { preset: preset.id, version: versions.value[preset.id] });
+        preview.value = await api('/preview', {
+            preset: preset.id,
+            version: versions.value[preset.id],
+            variables: parameters.value[preset.id] ?? {},
+        });
         confirm.value = true;
     } catch (exception: any) {
         if (!disposed) error.value = exception.message;
@@ -190,6 +201,16 @@ onBeforeUnmount(() => {
                         >
                             <option v-for="version in preset.versions" :key="version.id" :value="version.id">{{ version.id }}</option>
                         </select>
+                        <label
+                            v-for="variable in (preset.variables ?? []).filter((entry: any) => entry.install && !entry.secret)"
+                            :key="variable.name"
+                            class="mt-4 block text-xs text-zinc-400"
+                            >{{ variable.name
+                            }}<input
+                                v-model="parameters[preset.id][variable.name]"
+                                class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-dark p-3 text-xs text-zinc-200"
+                            /><span class="mt-1 block text-[11px] text-zinc-500">{{ variable.description }}</span></label
+                        >
                         <ul class="my-4 space-y-2 text-[11px] leading-5 text-zinc-500">
                             <li v-for="warning in preset.warnings" :key="warning">{{ warning }}</li>
                         </ul>

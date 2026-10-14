@@ -98,7 +98,7 @@ async function copy(allocation: Allocation) {
                 v-if="cell.configuration_pending"
                 class="rounded-button border border-status-warning/20 bg-status-warning/5 px-4 py-3 text-xs text-status-warning"
             >
-                Saved configuration changes are waiting for the Cell’s next start.
+                Port changes are saved. Stop and start the Cell to recreate its Docker container with the new TCP and UDP bindings.
             </p>
             <form class="space-y-4" @submit.prevent="form.patch(`/cells/${cell.id}/network`, { preserveScroll: true })">
                 <section

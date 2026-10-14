@@ -15,9 +15,14 @@ use Inertia\Inertia;
 
 class CellPreinstallController extends CellBaseController
 {
+    private function recipes(Cell $cell): array
+    {
+        return array_values(array_filter((array) data_get(app(CellNodeClient::class)->definitionPayload($cell), 'comb_data.preinstall_recipes', []), fn ($recipe) => is_array($recipe) && is_string($recipe['id'] ?? null)));
+    }
+
     private function offered(Cell $cell): array
     {
-        return array_values(array_filter((array) data_get(app(CellNodeClient::class)->definitionPayload($cell), 'comb_data.preinstalls', []), fn ($id) => is_string($id) && preg_match('/^[a-z0-9-]{1,80}$/', $id)));
+        return array_values(array_filter(array_merge(array_column($this->recipes($cell), 'id'), (array) data_get(app(CellNodeClient::class)->definitionPayload($cell), 'comb_data.preinstalls', [])), fn ($id) => is_string($id) && preg_match('/^[a-z0-9-]{1,80}$/', $id)));
     }
 
     private function available(string $id): Cell
@@ -48,9 +53,18 @@ class CellPreinstallController extends CellBaseController
 
     public function catalogue(string $id, PreinstallRegistryService $registry)
     {
-        $allowed = $this->offered($this->available($id));
+        $cell = $this->available($id);
+        $allowed = $this->offered($cell);
+        $inline = $this->recipes($cell);
+        $published = array_diff($allowed, array_column($inline, 'id')) ? ($registry->json('get', '/')['presets'] ?? []) : [];
+        $offered = array_values(array_filter($published, fn ($preset) => in_array($preset['id'], $allowed, true)));
+        foreach ($inline as $recipe) {
+            $recipe['variables'] = $recipe['runtime']['variables_schema'] ?? [];
+            unset($recipe['runtime'], $recipe['files'], $recipe['steps']);
+            $offered[] = $recipe;
+        }
 
-        return response()->json(['presets' => array_values(array_filter($registry->json('get', '/')['presets'] ?? [], fn ($preset) => in_array($preset['id'], $allowed, true)))]);
+        return response()->json(['presets' => $offered]);
     }
 
     public function preview(string $id, Request $request, PreinstallRegistryService $registry)
@@ -58,9 +72,21 @@ class CellPreinstallController extends CellBaseController
         $cell = $this->available($id);
         $this->abortUnlessInstalled($cell);
         $this->requireInstallPermissions($cell, $request);
-        $data = $request->validate(['preset' => 'required|string|regex:/^[a-z0-9-]{1,80}$/', 'version' => 'required|string|regex:/^[A-Za-z0-9_.-]{1,80}$/']);
+        $data = $request->validate(['preset' => 'required|string|regex:/^[a-z0-9-]{1,80}$/', 'version' => 'required|string|regex:/^[A-Za-z0-9_.-]{1,80}$/', 'variables' => 'nullable|array|max:50', 'variables.*' => 'nullable|string|max:4096']);
         abort_unless(in_array($data['preset'], $this->offered($cell), true), 403);
-        $plan = $registry->json('post', '/resolve', $data);
+        $inline = collect($this->recipes($cell))->firstWhere('id', $data['preset']);
+        $selection = ['preset' => $data['preset'], 'version' => $data['version']];
+        if ($inline) {
+            $selection['recipe'] = $inline;
+        }
+        $plan = $registry->json('post', '/resolve', $selection);
+        $parameters = [];
+        $allowed = collect($plan['runtime']['variables_schema'] ?? [])->filter(fn ($variable) => ! empty($variable['install']) && empty($variable['secret']))->pluck('name')->all();
+        foreach ($data['variables'] ?? [] as $name => $value) {
+            abort_unless(in_array($name, $allowed, true), 422, 'Only declared installation variables may be customized.');
+            $parameters[$name] = (string) ($value ?? '');
+        }
+        $plan['runtime']['parameters'] = $parameters;
         abort_unless(($plan['kind'] ?? '') === 'preinstall' && ($plan['preset'] ?? '') === $data['preset'], 422, 'Registry returned an invalid preinstall.');
         $ticket = (string) Str::uuid();
         Cache::put('preinstall-preview:'.$ticket, ['user' => auth()->id(), 'cell' => $id, 'plan' => $plan], now()->addMinutes(10));

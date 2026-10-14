@@ -8,6 +8,9 @@ use App\Models\Cell;
 use App\Models\Comb;
 use App\Services\Node\CellNodeClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -15,7 +18,7 @@ class CellReinstallService
 {
     public function __construct(private readonly CellNodeClient $cells) {}
 
-    public function reinstall(Cell $cell, Comb $comb, array $variables, bool $startAfterInstall = false): Cell
+    public function reinstall(Cell $cell, Comb $comb, array $variables, bool $startAfterInstall = false, ?string $image = null): Cell
     {
         $cell->loadMissing([
             'node',
@@ -53,6 +56,7 @@ class CellReinstallService
             $metadata['content_install'] = $acknowledgement ? ['job_id' => $acknowledgement] : [];
         }
 
+        $variables = $this->variablesForReinstall($cell, $comb, $variables);
         $variables = [
             ...$variables,
             'memory' => (string) data_get($metadata, 'limits.memory_mb', 1024),
@@ -62,11 +66,7 @@ class CellReinstallService
 
         $combData = (array) ($comb->data ?? []);
 
-        $dockerImage = data_get(
-            $combData,
-            'docker.image',
-            data_get($combData, 'image')
-        );
+        $dockerImage = app(CombImageService::class)->choose($combData, $image, $cell->comb === $comb->external_id ? data_get($metadata, 'docker.image') : null);
 
         $startupCommand = data_get(
             $combData,
@@ -135,6 +135,41 @@ class CellReinstallService
 
             throw $exception;
         }
+    }
+
+    public function variablesForReinstall(Cell $cell, Comb $comb, array $provided): array
+    {
+        $schema = app(CellShutdownService::class)->variableSchema((array) $comb->data);
+        $existing = $cell->comb === $comb->external_id ? (array) data_get($cell->metadata, 'variables', []) : [];
+        $result = [];
+        $editable = [];
+        $rules = [];
+        foreach ($schema as $variable) {
+            $name = (string) ($variable['name'] ?? '');
+            if (! preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name) || in_array($name, ['memory', 'server_ip', 'server_port'], true)) {
+                continue;
+            }
+            $result[$name] = (string) ($existing[$name] ?? $variable['default'] ?? '');
+            if (($variable['user_editable'] ?? true) !== false && empty($variable['hidden']) && empty($variable['internal'])) {
+                $editable[] = $name;
+                if (array_key_exists($name, $provided)) {
+                    $result[$name] = (string) ($provided[$name] ?? '');
+                }
+            }
+            $rules[$name] = [! empty($variable['required']) ? 'required' : 'nullable', 'string', 'max:4096'];
+            if (in_array($variable['type'] ?? '', ['number', 'integer'], true)) {
+                $rules[$name][] = 'numeric';
+            }
+            if (($variable['type'] ?? '') === 'boolean') {
+                $rules[$name][] = Rule::in(['true', 'false', '0', '1']);
+            }
+        }
+        if (array_diff(array_keys($provided), $editable)) {
+            throw ValidationException::withMessages(['variables' => 'Only editable Comb variables may be changed.']);
+        }
+        Validator::make($result, $rules)->validate();
+
+        return $result;
     }
 
     public function retry(Cell $cell, bool $startAfterInstall = false): Cell
