@@ -35,10 +35,10 @@ class CellReinstallService
             throw new RuntimeException('This cell does not have a primary allocation.');
         }
 
-        if (data_get($cell->metadata, 'minecraft_content')) {
+        if (data_get($cell->metadata, 'minecraft_content') || data_get($cell->metadata, 'content_install')) {
             $job = app(MinecraftContentService::class)->status($cell);
             if (($job['state'] ?? '') === 'installing') {
-                throw new RuntimeException('Wait for the Minecraft content installation to finish before reinstalling.');
+                throw new RuntimeException('Wait for the content installation to finish before reinstalling.');
             }
         }
         $metadata = (array) $cell->metadata;
@@ -46,6 +46,11 @@ class CellReinstallService
         if (isset($metadata['minecraft_content'])) {
             $acknowledgement = data_get($metadata, 'minecraft_content.job_id');
             $metadata['minecraft_content'] = $acknowledgement ? ['job_id' => $acknowledgement] : [];
+        }
+
+        if (isset($metadata['content_install'])) {
+            $acknowledgement = data_get($metadata, 'content_install.job_id');
+            $metadata['content_install'] = $acknowledgement ? ['job_id' => $acknowledgement] : [];
         }
 
         $variables = [

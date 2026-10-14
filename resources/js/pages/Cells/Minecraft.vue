@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import InstallJobProgress from '@/components/InstallJobProgress.vue';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { Boxes, Check, Download, LoaderCircle, Package, Plus, Save, Search, ShieldCheck, Trash2, X } from 'lucide-vue-next';
+import { Boxes, Download, LoaderCircle, Package, Plus, Save, Search, ShieldCheck, Trash2, X } from 'lucide-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 type Selection = { provider: string; project: string; version: string; name?: string; number?: string };
 const props = defineProps<{
@@ -376,27 +377,7 @@ onBeforeUnmount(() => {
             <p v-if="notice" role="status" class="rounded-panel border border-status-success/20 bg-status-success/5 p-4 text-xs text-status-success">
                 {{ notice }}
             </p>
-            <section v-if="installView" ref="jobElement" class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
-                <div class="flex items-center gap-2 border-b border-white/[0.06] px-5 py-4 text-xs font-semibold text-zinc-200">
-                    <LoaderCircle v-if="installing" class="size-4 animate-spin text-hive" /><Check
-                        v-else-if="job.state === 'complete'"
-                        class="size-4 text-status-success"
-                    /><span>{{
-                        installing ? 'Installation in progress' : job.state === 'complete' ? 'Installation complete' : 'Installation failed'
-                    }}</span>
-                </div>
-                <div class="p-5">
-                    <p class="break-all text-xs leading-5 text-zinc-400">{{ job.message }}</p>
-                    <details class="mt-3" :open="installView">
-                        <summary class="cursor-pointer text-xs text-hive">View installation logs</summary>
-                        <pre
-                            aria-live="off"
-                            class="mt-3 max-h-[60vh] min-h-48 overflow-auto whitespace-pre-wrap break-all rounded-button bg-surface-dark p-4 font-mono text-[11px] leading-5 text-zinc-400"
-                            >{{ job.logs?.join('\n') || 'Waiting for output…' }}</pre
-                        >
-                    </details>
-                </div>
-            </section>
+            <div v-if="installView" ref="jobElement"><InstallJobProgress :job="job" /></div>
             <div v-if="installView && !installing" class="flex items-center gap-4">
                 <button class="rounded-button bg-hive px-5 py-3 text-xs font-bold text-black" @click="backToCatalogue">Back to catalogue</button
                 ><Link :href="`/cells/${cell.id}`" class="text-xs text-zinc-400">Open console</Link>

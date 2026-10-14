@@ -32,6 +32,7 @@ use App\Http\Controllers\Cells\CellNetworkController;
 use App\Http\Controllers\Cells\CellPasteController;
 use App\Http\Controllers\Cells\CellPlayerController;
 use App\Http\Controllers\Cells\CellPowerController;
+use App\Http\Controllers\Cells\CellPreinstallController;
 use App\Http\Controllers\Cells\CellReinstallController;
 use App\Http\Controllers\Cells\CellScheduleController;
 use App\Http\Controllers\Cells\CellSettingsController;
@@ -225,6 +226,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/{id}/start', [CellPowerController::class, 'start'])->name('start')->middleware('cell.permission:'.CellPermissions::CONSOLE_POWER);
         Route::post('/{id}/stop', [CellPowerController::class, 'stop'])->name('stop')->middleware('cell.permission:'.CellPermissions::CONSOLE_POWER);
+
+        Route::get('/{id}/preinstalls', [CellPreinstallController::class, 'index'])->name('preinstalls.index')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::get('/{id}/preinstalls/catalogue', [CellPreinstallController::class, 'catalogue'])->name('preinstalls.catalogue')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::get('/{id}/preinstalls/status', [CellPreinstallController::class, 'status'])->name('preinstalls.status')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::post('/{id}/preinstalls/preview', [CellPreinstallController::class, 'preview'])->name('preinstalls.preview')->middleware(['cell.permission:'.CellPermissions::FILES_UPLOAD, 'throttle:20,1']);
+        Route::post('/{id}/preinstalls/install', [CellPreinstallController::class, 'install'])->name('preinstalls.install')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
 
         Route::get('/{id}/minecraft/catalogue', [CellMinecraftController::class, 'catalogue'])->name('minecraft.catalogue')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
         Route::get('/{id}/minecraft/status', [CellMinecraftController::class, 'status'])->name('minecraft.status')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);

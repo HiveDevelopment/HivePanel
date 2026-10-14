@@ -4,15 +4,16 @@ namespace App\Services\Cells;
 
 use App\Enums\CellInstallStatus;
 use App\Models\Cell;
+use App\Models\Comb;
 use App\Models\User;
 use App\Services\Node\CellNodeClient;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 
 class CellDashboardService
 {
-    public function __construct(private CellNodeClient $cells)
-    {
-    }
+    public function __construct(private CellNodeClient $cells) {}
 
     public function visibleCells(User $user, bool $orderByName = false): Collection
     {
@@ -26,19 +27,23 @@ class CellDashboardService
 
         $visible = $query->get();
         $nodes = $visible->pluck('node')->filter()->unique('id');
-        $responses = \Illuminate\Support\Facades\Http::pool(function ($pool) use ($nodes, $visible) {
+        $responses = Http::pool(function ($pool) use ($nodes, $visible) {
             return $nodes->map(fn ($node) => $pool->as((string) $node->id)->withToken($node->api_token)->timeout(8)->get($node->baseUrl().'/cells/overview', ['ids' => $visible->where('node_id', $node->id)->pluck('daemon_id')->implode(',')]))->all();
         }, 8);
         $snapshots = [];
         foreach ($nodes as $node) {
             $response = $responses[(string) $node->id] ?? null;
-            if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+            if ($response instanceof Response && $response->successful()) {
                 $snapshots[(string) $node->id] = collect($response->json('cells', []))->keyBy('id');
             }
         }
+
         return $visible->map(function (Cell $cell) use ($snapshots) {
             $snapshot = $snapshots[(string) $cell->node_id][$cell->daemon_id] ?? null;
-            if (!is_array($snapshot)) return $this->mergePanelCell($cell, ['status' => 'unknown', 'stats' => null, 'error' => true]);
+            if (! is_array($snapshot)) {
+                return $this->mergePanelCell($cell, ['status' => 'unknown', 'stats' => null, 'error' => true]);
+            }
+
             return $this->mergePanelCell($cell, $snapshot);
         })->values();
     }
@@ -86,7 +91,7 @@ class CellDashboardService
             'name' => $workerCell['name']
                 ?? $cell->name,
 
-            'comb_data' => (array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? $workerCell['comb_data'] ?? data_get($cell->metadata, 'comb_data', [])),
+            'comb_data' => app(MinecraftContentService::class)->manifest($cell, (array) (Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? $workerCell['comb_data'] ?? data_get($cell->metadata, 'comb_data', []))),
 
             'comb' => $workerCell['comb']
                 ?? $cell->comb,
@@ -113,5 +118,4 @@ class CellDashboardService
             ],
         ];
     }
-
 }

@@ -151,7 +151,7 @@ class CellNodeClient
 
     public function updateCellDefinition(Cell $cell): array
     {
-        if (str_contains(strtolower($cell->comb ?? ''), 'minecraft') || data_get($cell->metadata, 'minecraft_content')) {
+        if (str_contains(strtolower($cell->comb ?? ''), 'minecraft') || data_get($cell->metadata, 'minecraft_content') || data_get($cell->metadata, 'content_install')) {
             try {
                 app(MinecraftContentService::class)->status($cell);
             } catch (RequestException $e) {
@@ -241,6 +241,7 @@ class CellNodeClient
         $docker = (array) data_get($metadata, 'docker', []);
         $startup = (array) data_get($metadata, 'startup', []);
         $combData = (array) (Comb::find(data_get($metadata, 'comb_id'))?->data ?? data_get($metadata, 'comb_data', []));
+        $combData = app(MinecraftContentService::class)->manifest($cell, $combData);
         $variables = (array) data_get($metadata, 'variables', []);
         $combData = app(CellShutdownService::class)->combForCell($combData, $variables);
 
@@ -248,7 +249,7 @@ class CellNodeClient
             'name' => $cell->name,
             'comb' => $cell->comb,
             'comb_data' => $combData,
-            'content_job_id' => data_get($metadata, 'minecraft_content.job_id'),
+            'content_job_id' => data_get($metadata, 'content_install.job_id') ?? data_get($metadata, 'minecraft_content.job_id'),
             'variables' => $variables,
 
             'allocation' => $cell->allocation ? [
