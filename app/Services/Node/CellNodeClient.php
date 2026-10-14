@@ -3,14 +3,16 @@
 namespace App\Services\Node;
 
 use App\Models\Cell;
+use App\Models\Comb;
 use App\Models\Node;
+use App\Services\Cells\CellShutdownService;
+use App\Services\Cells\MinecraftContentService;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 
 class CellNodeClient
 {
-    public function __construct(private NodeClient $nodeClient)
-    {
-    }
+    public function __construct(private NodeClient $nodeClient) {}
 
     public function cells(Node $node): array
     {
@@ -21,7 +23,7 @@ class CellNodeClient
     {
         try {
             return $this->nodeClient->client($cell->node)
-                ->get('/cells/' . rawurlencode($cell->daemon_id))
+                ->get('/cells/'.rawurlencode($cell->daemon_id))
                 ->throw()
                 ->json();
         } catch (ConnectionException) {
@@ -40,8 +42,9 @@ class CellNodeClient
     public function startCell(Cell $cell): array
     {
         $this->updateCellDefinition($cell);
+
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/start')
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/start')
             ->throw()
             ->json();
     }
@@ -49,8 +52,8 @@ class CellNodeClient
     public function stopCell(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/stop', [
-                'stop' => app(\App\Services\Cells\CellShutdownService::class)->combForCell((array) (\App\Models\Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', [])), (array) data_get($cell->metadata, 'variables', []))['stop'] ?? null,
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/stop', [
+                'stop' => app(CellShutdownService::class)->combForCell((array) (Comb::find(data_get($cell->metadata, 'comb_id'))?->data ?? data_get($cell->metadata, 'comb_data', [])), (array) data_get($cell->metadata, 'variables', []))['stop'] ?? null,
             ])
             ->throw()
             ->json();
@@ -59,7 +62,7 @@ class CellNodeClient
     public function deleteCell(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->delete('/cells/' . rawurlencode($cell->daemon_id))
+            ->delete('/cells/'.rawurlencode($cell->daemon_id))
             ->throw()
             ->json();
     }
@@ -67,7 +70,7 @@ class CellNodeClient
     public function stats(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->get('/cells/' . rawurlencode($cell->daemon_id) . '/stats')
+            ->get('/cells/'.rawurlencode($cell->daemon_id).'/stats')
             ->throw()
             ->json();
     }
@@ -75,7 +78,7 @@ class CellNodeClient
     public function console(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->get('/cells/' . rawurlencode($cell->daemon_id) . '/console')
+            ->get('/cells/'.rawurlencode($cell->daemon_id).'/console')
             ->throw()
             ->json();
     }
@@ -83,7 +86,7 @@ class CellNodeClient
     public function createConsoleSession(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/console-session')
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/console-session')
             ->throw()
             ->json();
     }
@@ -91,7 +94,7 @@ class CellNodeClient
     public function sendCommand(Cell $cell, string $command): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/command', [
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/command', [
                 'command' => $command,
             ])
             ->throw()
@@ -101,7 +104,7 @@ class CellNodeClient
     public function updateCellSettings(Cell $cell, array $data): array
     {
         return $this->nodeClient->client($cell->node)
-            ->patch('/cells/' . rawurlencode($cell->daemon_id) . '/settings', $data)
+            ->patch('/cells/'.rawurlencode($cell->daemon_id).'/settings', $data)
             ->throw()
             ->json();
     }
@@ -109,7 +112,7 @@ class CellNodeClient
     public function runUtility(Cell $cell, string $utility): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/utilities/' . rawurlencode($utility))
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/utilities/'.rawurlencode($utility))
             ->throw()
             ->json();
     }
@@ -117,7 +120,7 @@ class CellNodeClient
     public function installCell(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/install')
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/install')
             ->throw()
             ->json();
     }
@@ -125,7 +128,7 @@ class CellNodeClient
     public function installStatus(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->get('/cells/' . rawurlencode($cell->daemon_id) . '/install/status')
+            ->get('/cells/'.rawurlencode($cell->daemon_id).'/install/status')
             ->throw()
             ->json();
     }
@@ -133,7 +136,7 @@ class CellNodeClient
     public function startCellByDaemonId(Node $node, string $daemonId): array
     {
         return $this->nodeClient->client($node)
-            ->post('/cells/' . rawurlencode($daemonId) . '/start')
+            ->post('/cells/'.rawurlencode($daemonId).'/start')
             ->throw()
             ->json();
     }
@@ -141,15 +144,25 @@ class CellNodeClient
     public function prepareReinstall(Cell $cell): array
     {
         return $this->nodeClient->client($cell->node)
-            ->post('/cells/' . rawurlencode($cell->daemon_id) . '/reinstall')
+            ->post('/cells/'.rawurlencode($cell->daemon_id).'/reinstall')
             ->throw()
             ->json();
     }
 
     public function updateCellDefinition(Cell $cell): array
     {
+        if (str_contains(strtolower($cell->comb ?? ''), 'minecraft') || data_get($cell->metadata, 'minecraft_content')) {
+            try {
+                app(MinecraftContentService::class)->status($cell);
+            } catch (RequestException $e) {
+                if ($e->response->status() !== 404) {
+                    throw $e;
+                }
+            }
+        }
+
         return $this->nodeClient->client($cell->node)
-            ->patch('/cells/' . rawurlencode($cell->daemon_id) . '/definition', $this->definitionPayload($cell))
+            ->patch('/cells/'.rawurlencode($cell->daemon_id).'/definition', $this->definitionPayload($cell))
             ->throw()
             ->json();
     }
@@ -158,7 +171,7 @@ class CellNodeClient
     {
         try {
             $response = $this->nodeClient->client($cell->node)
-                ->get('/cells/' . rawurlencode($cell->daemon_id));
+                ->get('/cells/'.rawurlencode($cell->daemon_id));
 
             if ($response->status() === 404) {
                 return [
@@ -217,7 +230,7 @@ class CellNodeClient
                 'ip' => $allocation->ip,
                 'port' => $allocation->port,
             ])
-            ->sortBy(fn (array $allocation) => $allocation['ip'] . ':' . str_pad((string) $allocation['port'], 5, '0', STR_PAD_LEFT))
+            ->sortBy(fn (array $allocation) => $allocation['ip'].':'.str_pad((string) $allocation['port'], 5, '0', STR_PAD_LEFT))
             ->values()
             ->all();
 
@@ -227,14 +240,15 @@ class CellNodeClient
         $featureLimits = (array) data_get($metadata, 'feature_limits', []);
         $docker = (array) data_get($metadata, 'docker', []);
         $startup = (array) data_get($metadata, 'startup', []);
-        $combData = (array) (\App\Models\Comb::find(data_get($metadata, 'comb_id'))?->data ?? data_get($metadata, 'comb_data', []));
+        $combData = (array) (Comb::find(data_get($metadata, 'comb_id'))?->data ?? data_get($metadata, 'comb_data', []));
         $variables = (array) data_get($metadata, 'variables', []);
-        $combData = app(\App\Services\Cells\CellShutdownService::class)->combForCell($combData, $variables);
+        $combData = app(CellShutdownService::class)->combForCell($combData, $variables);
 
         return [
             'name' => $cell->name,
             'comb' => $cell->comb,
             'comb_data' => $combData,
+            'content_job_id' => data_get($metadata, 'minecraft_content.job_id'),
             'variables' => $variables,
 
             'allocation' => $cell->allocation ? [

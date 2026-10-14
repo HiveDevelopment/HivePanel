@@ -52,12 +52,11 @@ class RegistryService
             return null;
         }
 
-        $url = $this->baseUrl . $path;
+        $url = $this->baseUrl.$path;
 
         try {
             $response = Http::timeout(5)
                 ->retry(2, 200)
-                ->withoutVerifying() // TEMP FIX REMOVE FROM PROD
                 ->acceptJson()
                 ->get($url);
 
@@ -83,6 +82,6 @@ class RegistryService
 
     private function cacheKey(string $path): string
     {
-        return 'hive_registry:' . md5($this->baseUrl . $path);
+        return 'hive_registry:'.md5($this->baseUrl.$path);
     }
 }

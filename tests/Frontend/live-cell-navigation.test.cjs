@@ -34,9 +34,9 @@ test('game menus point to implemented pages and accept scoped Comb shortcuts', (
     const links = manifest => serverNavigation('cell', manifest, true, false).flatMap(group => group.items ?? [group]);
     const minecraft = links('minecraft');
     assert.ok(minecraft.some(link => link.href === '/cells/cell/players'));
-    assert.ok(minecraft.some(link => link.href === '/cells/cell/files?path=plugins'));
+    assert.ok(minecraft.some(link => link.href === '/cells/cell/minecraft/plugins'));
     const other = links({ game: 'dragonwilds', name: 'Dragonwilds', sidebar: [{ title: 'Saved settings', type: 'files', path: 'Game/Saved' }, { title: 'Unsafe', type: 'files', path: '../secret' }] });
     assert.ok(!other.some(link => link.title === 'Players' || link.title === 'Plugins' || link.title === 'Unsafe'));
     assert.ok(other.some(link => link.href === '/cells/cell/files?path=Game%2FSaved'));
-    for (const link of [...minecraft, ...other]) assert.match(link.href, /^\/cells\/cell(?:$|\/(activity|users|files|databases|network|backups|schedules|importer|startup|config|settings|players)(?:\?|$))/);
+    for (const link of [...minecraft, ...other]) assert.match(link.href, /^\/cells\/cell(?:$|\/(activity|users|files|databases|network|backups|schedules|importer|startup|config|settings|players|minecraft\/(?:mods|plugins|jars|modpacks|builder))(?:\?|$))/);
 });

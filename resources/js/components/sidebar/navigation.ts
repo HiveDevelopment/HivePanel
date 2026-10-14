@@ -73,7 +73,7 @@ export function serverNavigation(cellId: string | number, game: string | Record<
     let gameTitle = String(manifest.name ?? (normalizedGame || 'Application'));
     if (normalizedGame === 'minecraft') {
         gameTitle = 'Minecraft';
-        gameItems.push(item('Players', url('/players'), Users), item('Plugins', url('/files?path=plugins'), Boxes), item('Mods', url('/files?path=mods'), Boxes));
+        gameItems.push(item('Players', url('/players'), Users), item('Server JAR', url('/minecraft/jars'), Boxes), item('Plugins', url('/minecraft/plugins'), Puzzle), item('Mods', url('/minecraft/mods'), Boxes), item('Modpacks', url('/minecraft/modpacks'), DownloadCloud), item('Pack Builder', url('/minecraft/builder'), SlidersHorizontal));
     } else if (['discord', 'discord-bot', 'discord_bot'].includes(normalizedGame)) {
         gameTitle = 'Discord Bot';
         gameItems.push(item('Environment', url('/startup'), SlidersHorizontal), item('Application Files', url('/files'), FolderOpen));

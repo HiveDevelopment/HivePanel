@@ -1,30 +1,238 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import { Rocket, Save } from 'lucide-vue-next';
+import { Box, Check, Copy, Eye, EyeOff, Rocket, RotateCcw, Save, Search, SlidersHorizontal, Terminal } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 const props = defineProps<{ cell: any; schema: Array<any>; variables: Record<string, string>; canEdit: boolean }>();
-const editable = computed(() => props.schema.filter(variable => variable.name && !['server_ip', 'server_port'].includes(variable.name) && variable.user_editable !== false));
-const form = useForm({ variables: Object.fromEntries(editable.value.map(variable => [variable.name, String(props.variables[variable.name] ?? variable.default ?? '')])) });
+const editable = computed(() =>
+    props.schema.filter((variable) => variable.name && !['server_ip', 'server_port'].includes(variable.name) && variable.user_editable !== false),
+);
+const form = useForm({
+    variables: Object.fromEntries(
+        editable.value.map((variable) => [variable.name, String(props.variables[variable.name] ?? variable.default ?? '')]),
+    ),
+});
+const search = ref('');
+const revealed = ref<Record<string, boolean>>({});
+const templateMode = ref(false);
+const copied = ref(false);
+const copyError = ref('');
+function label(variable: any) {
+    return (
+        variable.label ||
+        String(variable.name)
+            .replace(/[_-]+/g, ' ')
+            .replace(/\b\w/g, (value: string) => value.toUpperCase())
+    );
+}
+function secret(variable: any) {
+    return variable.type === 'password' || Boolean(variable.secret);
+}
+const filtered = computed(() =>
+    editable.value.filter((variable) =>
+        [label(variable), variable.name, variable.description ?? ''].join(' ').toLowerCase().includes(search.value.toLowerCase()),
+    ),
+);
+const command = computed(() => {
+    const startup = props.cell.startup?.command ?? props.cell.comb_data?.startup;
+    return typeof startup === 'string' ? startup : (startup?.command ?? '');
+});
+const image = computed(() => props.cell.docker?.image || props.cell.comb_data?.image || 'Defined by the Comb');
+const segments = computed(() =>
+    command.value
+        .split(/(\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\})/g)
+        .filter(Boolean)
+        .map((text: string) => {
+            const match = text.match(/^\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}$/);
+            if (!match) return { text, key: '' };
+            const key = match[1];
+            const definition = props.schema.find((variable) => variable.name === key);
+            const value = form.variables[key] ?? props.variables[key];
+            return { key, text: templateMode.value || value === undefined ? text : definition && secret(definition) ? '••••••••' : String(value) };
+        }),
+);
+async function copyCommand() {
+    try {
+        await navigator.clipboard.writeText(segments.value.map((segment) => segment.text).join(''));
+        copied.value = true;
+        copyError.value = '';
+    } catch {
+        copyError.value = 'Select the command and copy it manually.';
+    }
+}
 </script>
 
 <template>
     <AppLayout context="server" :active-cell="cell">
         <Head :title="`${cell.name} - Startup`" />
-        <main class="space-y-5 p-5 sm:p-8">
-            <section class="rounded-panel border border-white/[0.08] bg-surface p-5"><div class="flex items-center gap-3"><Rocket class="size-5 text-hive" /><div><h1 class="text-xl font-bold">Startup</h1><p class="mt-1 text-xs text-zinc-500">Manage the variables declared by this Cell’s Comb. Changes apply on the next start.</p></div></div></section>
-            <section class="rounded-panel border border-white/[0.08] bg-surface p-5"><h2 class="text-sm font-semibold text-zinc-200">Startup command</h2><pre class="mt-3 overflow-auto whitespace-pre-wrap rounded-button bg-surface-dark p-4 font-mono text-xs text-zinc-400">{{ cell.startup?.command || cell.comb_data?.startup?.command || 'Defined by the Comb' }}</pre></section>
+        <main class="space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+            <section class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-white/[0.08] bg-surface px-5 py-5 sm:px-6">
+                <div class="flex items-center gap-4">
+                    <div class="flex size-11 items-center justify-center rounded-xl border border-hive/20 bg-hive/[0.06]">
+                        <Rocket class="size-5 text-hive" />
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">Startup</h1>
+                        <p class="mt-1 text-xs text-zinc-500">Configure how your Cell launches and review its startup command.</p>
+                    </div>
+                </div>
+                <span class="rounded-full border border-white/[0.08] px-3 py-1.5 text-[11px] text-zinc-400"
+                    >{{ editable.length }} editable variables</span
+                >
+            </section>
+            <div class="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <section class="min-w-0 overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
+                        <h2 class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+                            <Terminal class="size-4 text-hive" /> Startup command
+                        </h2>
+                        <div class="flex items-center gap-3">
+                            <button
+                                type="button"
+                                class="text-[11px] text-zinc-500 hover:text-zinc-200"
+                                @click="
+                                    templateMode = !templateMode;
+                                    copied = false;
+                                "
+                            >
+                                {{ templateMode ? 'Show preview' : 'Show template' }}</button
+                            ><button
+                                type="button"
+                                :disabled="!command"
+                                class="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-hive disabled:opacity-40"
+                                @click="copyCommand"
+                            >
+                                <Check v-if="copied" class="size-3" /><Copy v-else class="size-3" />{{ copied ? 'Copied' : 'Copy' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="rounded-button border border-white/[0.04] bg-surface-dark p-4">
+                            <pre
+                                class="whitespace-pre-wrap break-all font-mono text-xs leading-7 text-zinc-300"
+                            ><span class="mr-2 select-none text-zinc-600">$</span><template v-for="(segment, index) in segments" :key="index"><span :title="segment.key ? `Variable: ${segment.key}` : undefined" :class="segment.key ? 'rounded bg-hive/10 px-1 py-0.5 text-hive' : ''">{{ segment.text }}</span></template><span v-if="!command" class="text-zinc-500">Startup is defined by the Comb.</span></pre>
+                        </div>
+                        <p class="mt-3 text-[11px] leading-5 text-zinc-500">
+                            {{
+                                templateMode
+                                    ? 'Highlighted placeholders are filled by the Worker when the Cell starts.'
+                                    : 'Preview uses the values below. Secrets stay masked; the Worker performs the final substitution.'
+                            }}
+                        </p>
+                        <p v-if="copyError" role="status" class="mt-2 text-[11px] text-status-warning">{{ copyError }}</p>
+                    </div>
+                </section>
+                <section class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
+                    <h2 class="flex items-center gap-2 border-b border-white/[0.06] px-5 py-4 text-xs font-semibold text-zinc-200">
+                        <Box class="size-4 text-zinc-500" /> Runtime image
+                    </h2>
+                    <div class="p-5">
+                        <span class="rounded border border-hive/15 bg-hive/5 px-2 py-1 text-[10px] font-semibold text-hive">Comb managed</span>
+                        <p class="mt-4 break-all font-mono text-xs leading-6 text-zinc-300">{{ image }}</p>
+                        <p class="mt-3 text-[11px] leading-5 text-zinc-500">The container image is selected by the Cell’s Comb and administrator.</p>
+                    </div>
+                </section>
+            </div>
+            <p
+                v-if="cell.configuration_pending"
+                class="rounded-button border border-status-warning/20 bg-status-warning/5 px-4 py-3 text-xs text-status-warning"
+            >
+                Saved configuration changes are waiting for the Cell’s next start.
+            </p>
             <form class="space-y-5" @submit.prevent="form.patch(`/cells/${cell.id}/startup`, { preserveScroll: true })">
-                <fieldset :disabled="!canEdit || form.processing" class="grid gap-4 md:grid-cols-2">
-                    <section v-for="variable in editable" :key="variable.name" class="rounded-panel border border-white/[0.08] bg-surface p-5">
-                        <label :for="`variable-${variable.name}`" class="block text-sm font-semibold text-zinc-200">{{ variable.label || variable.name }}</label><p class="mt-1 min-h-5 text-xs leading-5 text-zinc-500">{{ variable.description }}</p>
-                        <input :id="`variable-${variable.name}`" v-model="form.variables[variable.name]" :type="variable.type === 'password' || variable.secret ? 'password' : 'text'" :required="Boolean(variable.required)" maxlength="4096" autocomplete="off" class="mt-4 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 py-2.5 text-sm text-zinc-200 outline-none focus:border-hive/50 disabled:opacity-60" />
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <h2 class="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                            <SlidersHorizontal class="size-4 text-zinc-500" /> Startup variables
+                        </h2>
+                        <p class="mt-1 text-[11px] text-zinc-500">Changes are saved for the next start.</p>
+                    </div>
+                    <div class="flex w-full items-center gap-2 rounded-button border border-white/[0.08] bg-surface px-3 py-2.5 sm:w-64">
+                        <Search class="size-3.5 text-zinc-600" /><input
+                            v-model="search"
+                            aria-label="Search startup variables"
+                            placeholder="Search variables…"
+                            class="w-full min-w-0 bg-transparent text-xs text-zinc-300 outline-none placeholder:text-zinc-600"
+                        />
+                    </div>
+                </div>
+                <fieldset :disabled="!canEdit || form.processing" class="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <section
+                        v-for="variable in filtered"
+                        :key="variable.name"
+                        class="flex flex-col overflow-hidden rounded-panel border border-white/[0.08] bg-surface"
+                    >
+                        <div class="flex items-center justify-between gap-2 border-b border-white/[0.06] px-5 py-3">
+                            <label :for="`variable-${variable.name}`" class="text-xs font-semibold text-zinc-200">{{ label(variable) }}</label
+                            ><span class="rounded bg-white/[0.035] px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-500">{{
+                                variable.required ? 'Required' : 'Optional'
+                            }}</span>
+                        </div>
+                        <div class="flex flex-1 flex-col p-5">
+                            <div class="relative">
+                                <input
+                                    :id="`variable-${variable.name}`"
+                                    v-model="form.variables[variable.name]"
+                                    :type="secret(variable) && !revealed[variable.name] ? 'password' : 'text'"
+                                    :inputmode="['number', 'integer'].includes(variable.type) ? 'decimal' : 'text'"
+                                    :required="Boolean(variable.required)"
+                                    maxlength="4096"
+                                    autocomplete="off"
+                                    :placeholder="String(variable.default ?? '')"
+                                    class="h-11 w-full rounded-button border border-white/[0.08] bg-surface-dark pl-3 pr-10 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-hive/40 disabled:opacity-60"
+                                /><button
+                                    v-if="secret(variable)"
+                                    type="button"
+                                    :aria-label="revealed[variable.name] ? 'Hide value' : 'Show value'"
+                                    class="absolute right-3 top-3.5 text-zinc-500"
+                                    @click="revealed[variable.name] = !revealed[variable.name]"
+                                >
+                                    <EyeOff v-if="revealed[variable.name]" class="size-4" /><Eye v-else class="size-4" />
+                                </button>
+                            </div>
+                            <p v-if="variable.description" class="mt-3 text-[11px] leading-5 text-zinc-500">{{ variable.description }}</p>
+                            <p v-if="form.errors[`variables.${variable.name}`]" role="alert" class="mt-2 text-[11px] text-status-danger">
+                                {{ form.errors[`variables.${variable.name}`] }}
+                            </p>
+                            <div class="mt-auto flex items-center justify-between gap-2 pt-4">
+                                <code class="truncate text-[10px] text-zinc-600">{{ variable.name }}</code
+                                ><button
+                                    v-if="canEdit"
+                                    type="button"
+                                    class="flex shrink-0 items-center gap-1 text-[10px] text-zinc-500 hover:text-hive"
+                                    @click="form.variables[variable.name] = String(variable.default ?? '')"
+                                >
+                                    <RotateCcw class="size-3" /> Default
+                                </button>
+                            </div>
+                        </div>
                     </section>
                 </fieldset>
-                <div v-if="Object.keys(form.errors).length" role="alert" class="rounded-button border border-status-danger/20 p-4 text-xs text-status-danger"><p v-for="(message, key) in form.errors" :key="key">{{ message }}</p></div>
-                <p v-if="cell.configuration_pending" class="text-xs text-status-warning">The running container is using its previous startup settings. Restart to apply the saved changes.</p>
-                <button v-if="canEdit" type="submit" :disabled="form.processing" class="flex items-center gap-2 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-50"><Save class="size-4" />{{ form.processing ? 'Saving…' : 'Save variables' }}</button>
-                <p v-if="form.recentlySuccessful" role="status" class="text-xs text-status-success">Variables saved.</p>
+                <p v-if="!filtered.length" class="rounded-panel border border-white/[0.08] bg-surface p-8 text-center text-xs text-zinc-500">
+                    No variables match your search.
+                </p>
+                <div
+                    v-if="Object.keys(form.errors).length"
+                    role="alert"
+                    class="rounded-panel border border-status-danger/20 bg-status-danger/5 p-4 text-xs text-status-danger"
+                >
+                    <p v-for="(message, key) in form.errors" :key="key">{{ message }}</p>
+                </div>
+                <footer class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-white/[0.08] bg-surface px-5 py-4">
+                    <div>
+                        <p class="text-xs font-medium text-zinc-300">{{ form.isDirty ? 'Unsaved startup changes' : 'Startup settings' }}</p>
+                        <p class="mt-1 text-[11px] text-zinc-500">Restart the Cell after saving to apply the new values.</p>
+                    </div>
+                    <button
+                        v-if="canEdit"
+                        type="submit"
+                        :disabled="form.processing"
+                        class="flex items-center gap-2 rounded-button bg-hive px-5 py-2.5 text-xs font-bold text-black disabled:opacity-50"
+                    >
+                        <Save class="size-4" />{{ form.processing ? 'Saving…' : 'Save changes' }}</button
+                    ><span v-else class="text-xs text-zinc-500">View only</span>
+                    <p v-if="form.recentlySuccessful" role="status" class="w-full text-xs text-status-success">Startup variables saved.</p>
+                </footer>
             </form>
         </main>
     </AppLayout>

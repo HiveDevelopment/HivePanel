@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminAISettingsController;
 use App\Http\Controllers\Admin\AdminCellController;
 use App\Http\Controllers\Admin\AdminCellDatabaseLimitController;
 use App\Http\Controllers\Admin\AdminCellReinstallController;
@@ -9,15 +10,14 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDatabaseHostController;
 use App\Http\Controllers\Admin\AdminMigrationController;
 use App\Http\Controllers\Admin\AdminNodeAllocationController;
-use App\Http\Controllers\Admin\AdminNodeDatabaseHostController;
 use App\Http\Controllers\Admin\AdminNodeController;
-use App\Http\Controllers\Admin\AdminAISettingsController;
-use App\Http\Controllers\Admin\AdminSettingsController;
-use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\AdminUpdateController;
-use App\Http\Controllers\Admin\AdminWorkerUpdateController;
+use App\Http\Controllers\Admin\AdminNodeDatabaseHostController;
 use App\Http\Controllers\Admin\AdminRoleController;
+use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminThemeController;
+use App\Http\Controllers\Admin\AdminUpdateController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminWorkerUpdateController;
 use App\Http\Controllers\Cells\CellActivityController;
 use App\Http\Controllers\Cells\CellBackupController;
 use App\Http\Controllers\Cells\CellBackupMountController;
@@ -26,19 +26,22 @@ use App\Http\Controllers\Cells\CellConsoleController;
 use App\Http\Controllers\Cells\CellController;
 use App\Http\Controllers\Cells\CellDatabaseController;
 use App\Http\Controllers\Cells\CellFileController;
-use App\Http\Controllers\Cells\CellPasteController;
 use App\Http\Controllers\Cells\CellImporterController;
+use App\Http\Controllers\Cells\CellMinecraftController;
+use App\Http\Controllers\Cells\CellNetworkController;
+use App\Http\Controllers\Cells\CellPasteController;
 use App\Http\Controllers\Cells\CellPlayerController;
 use App\Http\Controllers\Cells\CellPowerController;
 use App\Http\Controllers\Cells\CellReinstallController;
 use App\Http\Controllers\Cells\CellScheduleController;
 use App\Http\Controllers\Cells\CellSettingsController;
 use App\Http\Controllers\Cells\CellSftpCredentialController;
+use App\Http\Controllers\Cells\CellStartupController;
 use App\Http\Controllers\Cells\CellSubUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Install\WorkerInstallScriptController;
-use App\Support\CellPermissions;
 use App\Support\AdminPermissions;
+use App\Support\CellPermissions;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/schedule-actions', [CellScheduleController::class, 'actionDefinitions'])->name('schedule-actions');
@@ -123,13 +126,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Updates
         Route::prefix('updates')->name('updates.')->group(function () {
-            Route::get('/', [AdminUpdateController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
-            Route::get('/status', [AdminUpdateController::class, 'status'])->name('status')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
-            Route::post('/install', [AdminUpdateController::class, 'install'])->name('install')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
-            Route::get('/workers/status', [AdminWorkerUpdateController::class, 'status'])->name('workers.status')->middleware('admin.permission:' . AdminPermissions::UPDATES_VIEW);
-            Route::post('/workers-selected', [AdminWorkerUpdateController::class, 'updateSelected'])->name('workers.selected')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
-            Route::post('/workers-outdated', [AdminWorkerUpdateController::class, 'updateOutdated'])->name('workers.outdated')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
-            Route::post('/workers/{node}', [AdminWorkerUpdateController::class, 'update'])->name('workers.update')->middleware('admin.permission:' . AdminPermissions::UPDATES_INSTALL);
+            Route::get('/', [AdminUpdateController::class, 'index'])->name('index')->middleware('admin.permission:'.AdminPermissions::UPDATES_VIEW);
+            Route::get('/status', [AdminUpdateController::class, 'status'])->name('status')->middleware('admin.permission:'.AdminPermissions::UPDATES_VIEW);
+            Route::post('/install', [AdminUpdateController::class, 'install'])->name('install')->middleware('admin.permission:'.AdminPermissions::UPDATES_INSTALL);
+            Route::get('/workers/status', [AdminWorkerUpdateController::class, 'status'])->name('workers.status')->middleware('admin.permission:'.AdminPermissions::UPDATES_VIEW);
+            Route::post('/workers-selected', [AdminWorkerUpdateController::class, 'updateSelected'])->name('workers.selected')->middleware('admin.permission:'.AdminPermissions::UPDATES_INSTALL);
+            Route::post('/workers-outdated', [AdminWorkerUpdateController::class, 'updateOutdated'])->name('workers.outdated')->middleware('admin.permission:'.AdminPermissions::UPDATES_INSTALL);
+            Route::post('/workers/{node}', [AdminWorkerUpdateController::class, 'update'])->name('workers.update')->middleware('admin.permission:'.AdminPermissions::UPDATES_INSTALL);
         });
 
         Route::get('themes', [AdminThemeController::class, 'index'])->name('themes.index');
@@ -191,22 +194,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Roles
         Route::prefix('roles')->name('roles.')->group(function () {
-            Route::get('/', [AdminRoleController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::ROLES_VIEW);
-            Route::get('/create', [AdminRoleController::class, 'create'])->name('create')->middleware('admin.permission:' . AdminPermissions::ROLES_CREATE);
-            Route::post('/', [AdminRoleController::class, 'store'])->name('store')->middleware('admin.permission:' . AdminPermissions::ROLES_CREATE);
-            Route::get('/{role}/edit', [AdminRoleController::class, 'edit'])->name('edit')->middleware('admin.permission:' . AdminPermissions::ROLES_UPDATE);
-            Route::patch('/{role}', [AdminRoleController::class, 'update'])->name('update')->middleware('admin.permission:' . AdminPermissions::ROLES_UPDATE);
-            Route::delete('/{role}', [AdminRoleController::class, 'destroy'])->name('destroy')->middleware('admin.permission:' . AdminPermissions::ROLES_DELETE);
+            Route::get('/', [AdminRoleController::class, 'index'])->name('index')->middleware('admin.permission:'.AdminPermissions::ROLES_VIEW);
+            Route::get('/create', [AdminRoleController::class, 'create'])->name('create')->middleware('admin.permission:'.AdminPermissions::ROLES_CREATE);
+            Route::post('/', [AdminRoleController::class, 'store'])->name('store')->middleware('admin.permission:'.AdminPermissions::ROLES_CREATE);
+            Route::get('/{role}/edit', [AdminRoleController::class, 'edit'])->name('edit')->middleware('admin.permission:'.AdminPermissions::ROLES_UPDATE);
+            Route::patch('/{role}', [AdminRoleController::class, 'update'])->name('update')->middleware('admin.permission:'.AdminPermissions::ROLES_UPDATE);
+            Route::delete('/{role}', [AdminRoleController::class, 'destroy'])->name('destroy')->middleware('admin.permission:'.AdminPermissions::ROLES_DELETE);
         });
 
         // Users
         Route::prefix('users')->name('users.')->group(function () {
-            Route::get('/', [AdminUserController::class, 'index'])->name('index')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
-            Route::get('/create', [AdminUserController::class, 'create'])->name('create')->middleware('admin.permission:' . AdminPermissions::USERS_CREATE);
-            Route::post('/', [AdminUserController::class, 'store'])->name('store')->middleware('admin.permission:' . AdminPermissions::USERS_CREATE);
-            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show')->middleware('admin.permission:' . AdminPermissions::USERS_VIEW);
-            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);
-            Route::patch('/{user}', [AdminUserController::class, 'update'])->name('update')->middleware('admin.permission:' . AdminPermissions::USERS_UPDATE);
+            Route::get('/', [AdminUserController::class, 'index'])->name('index')->middleware('admin.permission:'.AdminPermissions::USERS_VIEW);
+            Route::get('/create', [AdminUserController::class, 'create'])->name('create')->middleware('admin.permission:'.AdminPermissions::USERS_CREATE);
+            Route::post('/', [AdminUserController::class, 'store'])->name('store')->middleware('admin.permission:'.AdminPermissions::USERS_CREATE);
+            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show')->middleware('admin.permission:'.AdminPermissions::USERS_VIEW);
+            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit')->middleware('admin.permission:'.AdminPermissions::USERS_UPDATE);
+            Route::patch('/{user}', [AdminUserController::class, 'update'])->name('update')->middleware('admin.permission:'.AdminPermissions::USERS_UPDATE);
         });
     });
 
@@ -218,107 +221,117 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('cells')->name('cells.')->group(function () {
         Route::get('/', [CellController::class, 'index'])->name('index');
         Route::post('/', [CellController::class, 'store'])->name('store');
-        Route::get('/{id}', [CellController::class, 'show'])->name('show')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
+        Route::get('/{id}', [CellController::class, 'show'])->name('show')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
 
-        Route::post('/{id}/start', [CellPowerController::class, 'start'])->name('start')->middleware('cell.permission:' . CellPermissions::CONSOLE_POWER);
-        Route::post('/{id}/stop', [CellPowerController::class, 'stop'])->name('stop')->middleware('cell.permission:' . CellPermissions::CONSOLE_POWER);
+        Route::post('/{id}/start', [CellPowerController::class, 'start'])->name('start')->middleware('cell.permission:'.CellPermissions::CONSOLE_POWER);
+        Route::post('/{id}/stop', [CellPowerController::class, 'stop'])->name('stop')->middleware('cell.permission:'.CellPermissions::CONSOLE_POWER);
 
-        Route::get('/{id}/startup', [\App\Http\Controllers\Cells\CellStartupController::class, 'index'])->name('startup.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
-        Route::patch('/{id}/startup', [\App\Http\Controllers\Cells\CellStartupController::class, 'update'])->name('startup.update')->middleware('cell.permission:' . CellPermissions::STARTUP_UPDATE);
-        Route::get('/{id}/network', [\App\Http\Controllers\Cells\CellNetworkController::class, 'index'])->name('network.index')->middleware('cell.permission:' . CellPermissions::VIEW);
-        Route::patch('/{id}/network', [\App\Http\Controllers\Cells\CellNetworkController::class, 'update'])->name('network.update')->middleware('cell.permission:' . CellPermissions::NETWORK_UPDATE);
+        Route::get('/{id}/minecraft/catalogue', [CellMinecraftController::class, 'catalogue'])->name('minecraft.catalogue')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::get('/{id}/minecraft/status', [CellMinecraftController::class, 'status'])->name('minecraft.status')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::post('/{id}/minecraft/preview', [CellMinecraftController::class, 'preview'])->name('minecraft.preview')->middleware(['cell.permission:'.CellPermissions::FILES_VIEW, 'throttle:20,1']);
+        Route::post('/{id}/minecraft/install', [CellMinecraftController::class, 'install'])->name('minecraft.install')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/minecraft/packs', [CellMinecraftController::class, 'savePack'])->name('minecraft.packs.save')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::delete('/{id}/minecraft/packs/{pack}', [CellMinecraftController::class, 'deletePack'])->name('minecraft.packs.delete')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::post('/{id}/minecraft/export/{format}', [CellMinecraftController::class, 'export'])->name('minecraft.export')->middleware(['cell.permission:'.CellPermissions::FILES_VIEW, 'throttle:10,1']);
+        Route::get('/{id}/minecraft/{mode}', [CellMinecraftController::class, 'index'])->whereIn('mode', ['mods', 'plugins', 'jars', 'modpacks', 'builder'])->name('minecraft.index')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
 
-        Route::get('/{id}/stats-json', [CellConsoleController::class, 'statsJson'])->name('stats-json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
-        Route::get('/{id}/console-json', [CellConsoleController::class, 'consoleJson'])->name('console-json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
-        Route::post('/{id}/command', [CellConsoleController::class, 'command'])->name('command')->middleware('cell.permission:' . CellPermissions::CONSOLE_SEND);
-        Route::post('/{id}/console-session', [CellConsoleController::class, 'consoleSession'])->name('console-session')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
-        Route::post('/{id}/console-ai', [CellConsoleController::class, 'explainConsole'])->name('console-ai')->middleware(['cell.permission:' . CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
+        Route::get('/{id}/startup', [CellStartupController::class, 'index'])->name('startup.index')->middleware('cell.permission:'.CellPermissions::SETTINGS_VIEW);
+        Route::patch('/{id}/startup', [CellStartupController::class, 'update'])->name('startup.update')->middleware('cell.permission:'.CellPermissions::STARTUP_UPDATE);
+        Route::get('/{id}/network', [CellNetworkController::class, 'index'])->name('network.index')->middleware('cell.permission:'.CellPermissions::VIEW);
+        Route::patch('/{id}/network/{allocation}/notes', [CellNetworkController::class, 'updateNotes'])->name('network.notes')->middleware('cell.permission:'.CellPermissions::NETWORK_UPDATE);
+        Route::patch('/{id}/network', [CellNetworkController::class, 'update'])->name('network.update')->middleware('cell.permission:'.CellPermissions::NETWORK_UPDATE);
 
-        Route::get('/{id}/activity', [CellActivityController::class, 'index'])->name('activity')->middleware('cell.permission:' . CellPermissions::ACTIVITY_VIEW);
-        Route::get('/{id}/activity-json', [CellActivityController::class, 'json'])->name('activity-json')->middleware('cell.permission:' . CellPermissions::ACTIVITY_VIEW);
+        Route::get('/{id}/stats-json', [CellConsoleController::class, 'statsJson'])->name('stats-json')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
+        Route::get('/{id}/console-json', [CellConsoleController::class, 'consoleJson'])->name('console-json')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
+        Route::post('/{id}/command', [CellConsoleController::class, 'command'])->name('command')->middleware('cell.permission:'.CellPermissions::CONSOLE_SEND);
+        Route::post('/{id}/console-session', [CellConsoleController::class, 'consoleSession'])->name('console-session')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
+        Route::post('/{id}/console-ai', [CellConsoleController::class, 'explainConsole'])->name('console-ai')->middleware(['cell.permission:'.CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
 
-        Route::get('/{id}/files', [CellFileController::class, 'index'])->name('files')->middleware('cell.permission:' . CellPermissions::FILES_VIEW);
-        Route::get('/{id}/files-json', [CellFileController::class, 'json'])->name('files-json')->middleware('cell.permission:' . CellPermissions::FILES_VIEW);
-        Route::post('/{id}/share/file', [CellPasteController::class, 'file'])->name('share.file')->middleware(['cell.permission:' . CellPermissions::FILES_READ, 'throttle:10,1']);
-        Route::post('/{id}/share/console', [CellPasteController::class, 'console'])->name('share.console')->middleware(['cell.permission:' . CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
-        Route::get('/{id}/files/download', [CellFileController::class, 'download'])->name('files.download')->middleware('cell.permission:' . CellPermissions::FILES_READ);
-        Route::get('/{id}/files/edit', [CellFileController::class, 'edit'])->name('files.edit')->middleware('cell.permission:' . CellPermissions::FILES_READ);
-        Route::get('/{id}/files/read', [CellFileController::class, 'read'])->name('files.read')->middleware('cell.permission:' . CellPermissions::FILES_READ);
-        Route::put('/{id}/files/write', [CellFileController::class, 'write'])->name('files.write')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
-        Route::delete('/{id}/files/delete', [CellFileController::class, 'delete'])->name('files.delete')->middleware('cell.permission:' . CellPermissions::FILES_DELETE);
-        Route::post('/{id}/files/restore', [CellFileController::class, 'restore'])->name('files.restore')->middleware('cell.permission:' . CellPermissions::FILES_RESTORE);
-        Route::delete('/{id}/files/permanent', [CellFileController::class, 'permanent'])->name('files.permanent')->middleware('cell.permission:' . CellPermissions::FILES_DELETE);
-        Route::post('/{id}/files/file', [CellFileController::class, 'createFile'])->name('files.create-file')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
-        Route::post('/{id}/files/folder', [CellFileController::class, 'createFolder'])->name('files.create-folder')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
-        Route::post('/{id}/files/upload-url', [CellFileController::class, 'uploadFromUrl'])->name('files.upload-url')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
-        Route::post('/{id}/files/upload', [CellFileController::class, 'upload'])->name('files.upload')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
-        Route::post('/{id}/files/rename', [CellFileController::class, 'rename'])->name('files.rename')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
-        Route::post('/{id}/files/archive', [CellFileController::class, 'createArchive'])->name('files.archive')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
-        Route::post('/{id}/files/extract', [CellFileController::class, 'extractArchive'])->name('files.extract')->middleware('cell.permission:' . CellPermissions::FILES_WRITE);
+        Route::get('/{id}/activity', [CellActivityController::class, 'index'])->name('activity')->middleware('cell.permission:'.CellPermissions::ACTIVITY_VIEW);
+        Route::get('/{id}/activity-json', [CellActivityController::class, 'json'])->name('activity-json')->middleware('cell.permission:'.CellPermissions::ACTIVITY_VIEW);
 
-        Route::get('/{id}/players', [CellPlayerController::class, 'index'])->name('players.index')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
-        Route::get('/{id}/players-json', [CellPlayerController::class, 'json'])->name('players.json')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
-        Route::post('/{id}/players/{action}', [CellPlayerController::class, 'action'])->name('players.action')->middleware('cell.permission:' . CellPermissions::CONSOLE_SEND);
+        Route::get('/{id}/files', [CellFileController::class, 'index'])->name('files')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::get('/{id}/files-json', [CellFileController::class, 'json'])->name('files-json')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+        Route::post('/{id}/share/file', [CellPasteController::class, 'file'])->name('share.file')->middleware(['cell.permission:'.CellPermissions::FILES_READ, 'throttle:10,1']);
+        Route::post('/{id}/share/console', [CellPasteController::class, 'console'])->name('share.console')->middleware(['cell.permission:'.CellPermissions::CONSOLE_VIEW, 'throttle:10,1']);
+        Route::get('/{id}/files/download', [CellFileController::class, 'download'])->name('files.download')->middleware('cell.permission:'.CellPermissions::FILES_READ);
+        Route::get('/{id}/files/edit', [CellFileController::class, 'edit'])->name('files.edit')->middleware('cell.permission:'.CellPermissions::FILES_READ);
+        Route::get('/{id}/files/read', [CellFileController::class, 'read'])->name('files.read')->middleware('cell.permission:'.CellPermissions::FILES_READ);
+        Route::put('/{id}/files/write', [CellFileController::class, 'write'])->name('files.write')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
+        Route::delete('/{id}/files/delete', [CellFileController::class, 'delete'])->name('files.delete')->middleware('cell.permission:'.CellPermissions::FILES_DELETE);
+        Route::post('/{id}/files/restore', [CellFileController::class, 'restore'])->name('files.restore')->middleware('cell.permission:'.CellPermissions::FILES_RESTORE);
+        Route::delete('/{id}/files/permanent', [CellFileController::class, 'permanent'])->name('files.permanent')->middleware('cell.permission:'.CellPermissions::FILES_DELETE);
+        Route::post('/{id}/files/file', [CellFileController::class, 'createFile'])->name('files.create-file')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
+        Route::post('/{id}/files/folder', [CellFileController::class, 'createFolder'])->name('files.create-folder')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
+        Route::post('/{id}/files/upload-url', [CellFileController::class, 'uploadFromUrl'])->name('files.upload-url')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/files/upload', [CellFileController::class, 'upload'])->name('files.upload')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/files/rename', [CellFileController::class, 'rename'])->name('files.rename')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
+        Route::post('/{id}/files/archive', [CellFileController::class, 'createArchive'])->name('files.archive')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
+        Route::post('/{id}/files/extract', [CellFileController::class, 'extractArchive'])->name('files.extract')->middleware('cell.permission:'.CellPermissions::FILES_WRITE);
 
-        Route::get('/{id}/users', [CellSubUserController::class, 'index'])->name('users.index')->middleware('cell.permission:' . CellPermissions::USERS_VIEW);
-        Route::get('/{id}/users/create', [CellSubUserController::class, 'create'])->name('users.create')->middleware('cell.permission:' . CellPermissions::USERS_INVITE);
-        Route::post('/{id}/users', [CellSubUserController::class, 'store'])->name('users.store')->middleware('cell.permission:' . CellPermissions::USERS_INVITE);
-        Route::get('/{id}/users/{user}/edit', [CellSubUserController::class, 'edit'])->name('users.edit')->middleware('cell.permission:' . CellPermissions::USERS_UPDATE);
-        Route::put('/{id}/users/{user}', [CellSubUserController::class, 'update'])->name('users.update')->middleware('cell.permission:' . CellPermissions::USERS_UPDATE);
-        Route::delete('/{id}/users/{user}', [CellSubUserController::class, 'destroy'])->name('users.destroy')->middleware('cell.permission:' . CellPermissions::USERS_REMOVE);
+        Route::get('/{id}/players', [CellPlayerController::class, 'index'])->name('players.index')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
+        Route::get('/{id}/players-json', [CellPlayerController::class, 'json'])->name('players.json')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
+        Route::post('/{id}/players/{action}', [CellPlayerController::class, 'action'])->name('players.action')->middleware('cell.permission:'.CellPermissions::CONSOLE_SEND);
 
-        Route::get('/{id}/settings', [CellSettingsController::class, 'index'])->name('settings.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
-        Route::patch('/{id}/settings', [CellSettingsController::class, 'update'])->name('settings.update')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::patch('/{id}/settings/shutdown', [CellSettingsController::class, 'updateShutdown'])->name('settings.shutdown')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::post('/{id}/utilities/{utility}', [CellSettingsController::class, 'utility'])->name('utilities.run')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
+        Route::get('/{id}/users', [CellSubUserController::class, 'index'])->name('users.index')->middleware('cell.permission:'.CellPermissions::USERS_VIEW);
+        Route::get('/{id}/users/create', [CellSubUserController::class, 'create'])->name('users.create')->middleware('cell.permission:'.CellPermissions::USERS_INVITE);
+        Route::post('/{id}/users', [CellSubUserController::class, 'store'])->name('users.store')->middleware('cell.permission:'.CellPermissions::USERS_INVITE);
+        Route::get('/{id}/users/{user}/edit', [CellSubUserController::class, 'edit'])->name('users.edit')->middleware('cell.permission:'.CellPermissions::USERS_UPDATE);
+        Route::put('/{id}/users/{user}', [CellSubUserController::class, 'update'])->name('users.update')->middleware('cell.permission:'.CellPermissions::USERS_UPDATE);
+        Route::delete('/{id}/users/{user}', [CellSubUserController::class, 'destroy'])->name('users.destroy')->middleware('cell.permission:'.CellPermissions::USERS_REMOVE);
 
-        Route::get('/{id}/reinstall', [CellReinstallController::class, 'show'])->name('reinstall.show')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::post('/{id}/reinstall', [CellReinstallController::class, 'store'])->name('reinstall.store')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::post('/{id}/installation/retry', [CellReinstallController::class, 'retry'])->name('installation.retry')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
-        Route::get('/{id}/installation-status', [CellReinstallController::class, 'installationStatus'])->name('installation-status')->middleware('cell.permission:' . CellPermissions::CONSOLE_VIEW);
+        Route::get('/{id}/settings', [CellSettingsController::class, 'index'])->name('settings.index')->middleware('cell.permission:'.CellPermissions::SETTINGS_VIEW);
+        Route::patch('/{id}/settings', [CellSettingsController::class, 'update'])->name('settings.update')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
+        Route::patch('/{id}/settings/shutdown', [CellSettingsController::class, 'updateShutdown'])->name('settings.shutdown')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
+        Route::post('/{id}/utilities/{utility}', [CellSettingsController::class, 'utility'])->name('utilities.run')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
 
-        Route::get('/{id}/config', [CellConfigController::class, 'index'])->name('config.index')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
-        Route::get('/{id}/config-json', [CellConfigController::class, 'json'])->name('config.json')->middleware('cell.permission:' . CellPermissions::SETTINGS_VIEW);
-        Route::patch('/{id}/config-json', [CellConfigController::class, 'update'])->name('config.update')->middleware('cell.permission:' . CellPermissions::SETTINGS_UPDATE);
+        Route::get('/{id}/reinstall', [CellReinstallController::class, 'show'])->name('reinstall.show')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
+        Route::post('/{id}/reinstall', [CellReinstallController::class, 'store'])->name('reinstall.store')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
+        Route::post('/{id}/installation/retry', [CellReinstallController::class, 'retry'])->name('installation.retry')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
+        Route::get('/{id}/installation-status', [CellReinstallController::class, 'installationStatus'])->name('installation-status')->middleware('cell.permission:'.CellPermissions::CONSOLE_VIEW);
 
-        Route::get('/{id}/databases', [CellDatabaseController::class, 'index'])->name('databases.index')->middleware('cell.permission:' . CellPermissions::DATABASES_VIEW);
-        Route::get('/{id}/databases-json', [CellDatabaseController::class, 'json'])->name('databases.json')->middleware('cell.permission:' . CellPermissions::DATABASES_VIEW);
-        Route::post('/{id}/databases', [CellDatabaseController::class, 'store'])->name('databases.store')->middleware('cell.permission:' . CellPermissions::DATABASES_CREATE);
-        Route::get('/{id}/databases/{database}/credentials', [CellDatabaseController::class, 'credentials'])->name('databases.credentials')->middleware('cell.permission:' . CellPermissions::DATABASES_VIEW);
-        Route::post('/{id}/databases/{database}/reset-password', [CellDatabaseController::class, 'resetPassword'])->name('databases.reset-password')->middleware('cell.permission:' . CellPermissions::DATABASES_UPDATE);
-        Route::delete('/{id}/databases/{database}', [CellDatabaseController::class, 'destroy'])->name('databases.destroy')->middleware('cell.permission:' . CellPermissions::DATABASES_DELETE);
+        Route::get('/{id}/config', [CellConfigController::class, 'index'])->name('config.index')->middleware('cell.permission:'.CellPermissions::SETTINGS_VIEW);
+        Route::get('/{id}/config-json', [CellConfigController::class, 'json'])->name('config.json')->middleware('cell.permission:'.CellPermissions::SETTINGS_VIEW);
+        Route::patch('/{id}/config-json', [CellConfigController::class, 'update'])->name('config.update')->middleware('cell.permission:'.CellPermissions::SETTINGS_UPDATE);
 
-        Route::get('/{id}/backups', [CellBackupController::class, 'index'])->name('backups.index')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::get('/{id}/backups-json', [CellBackupController::class, 'json'])->name('backups.json')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::post('/{id}/backups', [CellBackupController::class, 'create'])->name('backups.create')->middleware('cell.permission:' . CellPermissions::BACKUPS_CREATE);
-        Route::get('/{id}/backups/{backup}/download', [CellBackupController::class, 'download'])->name('backups.download')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::post('/{id}/backups/{backup}/restore', [CellBackupController::class, 'restore'])->name('backups.restore')->middleware('cell.permission:' . CellPermissions::BACKUPS_RESTORE);
-        Route::delete('/{id}/backups/{backup}', [CellBackupController::class, 'delete'])->name('backups.delete')->middleware('cell.permission:' . CellPermissions::BACKUPS_DELETE);
-        Route::post('/{id}/backups/{backup}/lock', [CellBackupController::class, 'lock'])->name('backups.lock')->middleware('cell.permission:' . CellPermissions::BACKUPS_DELETE);
-        Route::delete('/{id}/backups/{backup}/lock', [CellBackupController::class, 'unlock'])->name('backups.unlock')->middleware('cell.permission:' . CellPermissions::BACKUPS_DELETE);
+        Route::get('/{id}/databases', [CellDatabaseController::class, 'index'])->name('databases.index')->middleware('cell.permission:'.CellPermissions::DATABASES_VIEW);
+        Route::get('/{id}/databases-json', [CellDatabaseController::class, 'json'])->name('databases.json')->middleware('cell.permission:'.CellPermissions::DATABASES_VIEW);
+        Route::post('/{id}/databases', [CellDatabaseController::class, 'store'])->name('databases.store')->middleware('cell.permission:'.CellPermissions::DATABASES_CREATE);
+        Route::get('/{id}/databases/{database}/credentials', [CellDatabaseController::class, 'credentials'])->name('databases.credentials')->middleware('cell.permission:'.CellPermissions::DATABASES_VIEW);
+        Route::post('/{id}/databases/{database}/reset-password', [CellDatabaseController::class, 'resetPassword'])->name('databases.reset-password')->middleware('cell.permission:'.CellPermissions::DATABASES_UPDATE);
+        Route::delete('/{id}/databases/{database}', [CellDatabaseController::class, 'destroy'])->name('databases.destroy')->middleware('cell.permission:'.CellPermissions::DATABASES_DELETE);
 
-        Route::post('/{id}/backups/{backup}/mount', [CellBackupMountController::class, 'mount'])->name('backups.mount')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::delete('/{id}/backup-mounts/{mount}', [CellBackupMountController::class, 'unmount'])->name('backup-mounts.unmount')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::get('/{id}/backup-mounts/{mount}/files', [CellBackupMountController::class, 'index'])->name('backup-mounts.files')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::get('/{id}/backup-mounts/{mount}/files-json', [CellBackupMountController::class, 'files'])->name('backup-mounts.files-json')->middleware('cell.permission:' . CellPermissions::BACKUPS_VIEW);
-        Route::post('/{id}/backup-mounts/{mount}/restore', [CellBackupMountController::class, 'restorePath'])->name('backup-mounts.restore')->middleware('cell.permission:' . CellPermissions::BACKUPS_RESTORE);
+        Route::get('/{id}/backups', [CellBackupController::class, 'index'])->name('backups.index')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::get('/{id}/backups-json', [CellBackupController::class, 'json'])->name('backups.json')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::post('/{id}/backups', [CellBackupController::class, 'create'])->name('backups.create')->middleware('cell.permission:'.CellPermissions::BACKUPS_CREATE);
+        Route::get('/{id}/backups/{backup}/download', [CellBackupController::class, 'download'])->name('backups.download')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::post('/{id}/backups/{backup}/restore', [CellBackupController::class, 'restore'])->name('backups.restore')->middleware('cell.permission:'.CellPermissions::BACKUPS_RESTORE);
+        Route::delete('/{id}/backups/{backup}', [CellBackupController::class, 'delete'])->name('backups.delete')->middleware('cell.permission:'.CellPermissions::BACKUPS_DELETE);
+        Route::post('/{id}/backups/{backup}/lock', [CellBackupController::class, 'lock'])->name('backups.lock')->middleware('cell.permission:'.CellPermissions::BACKUPS_DELETE);
+        Route::delete('/{id}/backups/{backup}/lock', [CellBackupController::class, 'unlock'])->name('backups.unlock')->middleware('cell.permission:'.CellPermissions::BACKUPS_DELETE);
 
-        Route::get('/{id}/importer', [CellImporterController::class, 'index'])->name('importer.index')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
-        Route::post('/{id}/importer/test', [CellImporterController::class, 'test'])->name('importer.test')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
-        Route::post('/{id}/importer/start', [CellImporterController::class, 'start'])->name('importer.start')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
-        Route::get('/{id}/importer/status', [CellImporterController::class, 'status'])->name('importer.status')->middleware('cell.permission:' . CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/backups/{backup}/mount', [CellBackupMountController::class, 'mount'])->name('backups.mount')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::delete('/{id}/backup-mounts/{mount}', [CellBackupMountController::class, 'unmount'])->name('backup-mounts.unmount')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::get('/{id}/backup-mounts/{mount}/files', [CellBackupMountController::class, 'index'])->name('backup-mounts.files')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::get('/{id}/backup-mounts/{mount}/files-json', [CellBackupMountController::class, 'files'])->name('backup-mounts.files-json')->middleware('cell.permission:'.CellPermissions::BACKUPS_VIEW);
+        Route::post('/{id}/backup-mounts/{mount}/restore', [CellBackupMountController::class, 'restorePath'])->name('backup-mounts.restore')->middleware('cell.permission:'.CellPermissions::BACKUPS_RESTORE);
 
-        Route::get('/{id}/schedule-templates', [CellScheduleController::class, 'templates'])->name('schedule-templates.index')->middleware('cell.permission:' . CellPermissions::SCHEDULES_VIEW);
-        Route::get('/{id}/schedules', [CellScheduleController::class, 'index'])->name('schedules.index')->middleware('cell.permission:' . CellPermissions::SCHEDULES_VIEW);
-        Route::post('/{id}/schedules', [CellScheduleController::class, 'store'])->name('schedules.store')->middleware('cell.permission:' . CellPermissions::SCHEDULES_CREATE);
-        Route::get('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'show'])->name('schedules.show')->middleware('cell.permission:' . CellPermissions::SCHEDULES_VIEW);
-        Route::put('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'update'])->name('schedules.update')->middleware('cell.permission:' . CellPermissions::SCHEDULES_UPDATE);
-        Route::delete('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'destroy'])->name('schedules.destroy')->middleware('cell.permission:' . CellPermissions::SCHEDULES_DELETE);
-        Route::post('/{id}/schedules/{scheduleId}/run', [CellScheduleController::class, 'run'])->name('schedules.run')->middleware('cell.permission:' . CellPermissions::SCHEDULES_UPDATE);
-        Route::get('/{id}/schedules-json', [CellScheduleController::class, 'json'])->name('schedules-json')->middleware('cell.permission:' . CellPermissions::SCHEDULES_VIEW);
+        Route::get('/{id}/importer', [CellImporterController::class, 'index'])->name('importer.index')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/importer/test', [CellImporterController::class, 'test'])->name('importer.test')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::post('/{id}/importer/start', [CellImporterController::class, 'start'])->name('importer.start')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
+        Route::get('/{id}/importer/status', [CellImporterController::class, 'status'])->name('importer.status')->middleware('cell.permission:'.CellPermissions::FILES_UPLOAD);
 
-        Route::post('/{id}/sftp/reset', [CellSftpCredentialController::class, 'reset'])->name('sftp.reset')->middleware('cell.permission:' . CellPermissions::SFTP_RESET);
-        Route::post('/{id}/sftp/revoke', [CellSftpCredentialController::class, 'revoke'])->name('sftp.revoke')->middleware('cell.permission:' . CellPermissions::SFTP_RESET);
+        Route::get('/{id}/schedule-templates', [CellScheduleController::class, 'templates'])->name('schedule-templates.index')->middleware('cell.permission:'.CellPermissions::SCHEDULES_VIEW);
+        Route::get('/{id}/schedules', [CellScheduleController::class, 'index'])->name('schedules.index')->middleware('cell.permission:'.CellPermissions::SCHEDULES_VIEW);
+        Route::post('/{id}/schedules', [CellScheduleController::class, 'store'])->name('schedules.store')->middleware('cell.permission:'.CellPermissions::SCHEDULES_CREATE);
+        Route::get('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'show'])->name('schedules.show')->middleware('cell.permission:'.CellPermissions::SCHEDULES_VIEW);
+        Route::put('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'update'])->name('schedules.update')->middleware('cell.permission:'.CellPermissions::SCHEDULES_UPDATE);
+        Route::delete('/{id}/schedules/{scheduleId}', [CellScheduleController::class, 'destroy'])->name('schedules.destroy')->middleware('cell.permission:'.CellPermissions::SCHEDULES_DELETE);
+        Route::post('/{id}/schedules/{scheduleId}/run', [CellScheduleController::class, 'run'])->name('schedules.run')->middleware('cell.permission:'.CellPermissions::SCHEDULES_UPDATE);
+        Route::get('/{id}/schedules-json', [CellScheduleController::class, 'json'])->name('schedules-json')->middleware('cell.permission:'.CellPermissions::SCHEDULES_VIEW);
+
+        Route::post('/{id}/sftp/reset', [CellSftpCredentialController::class, 'reset'])->name('sftp.reset')->middleware('cell.permission:'.CellPermissions::SFTP_RESET);
+        Route::post('/{id}/sftp/revoke', [CellSftpCredentialController::class, 'revoke'])->name('sftp.revoke')->middleware('cell.permission:'.CellPermissions::SFTP_RESET);
     });
 });
 

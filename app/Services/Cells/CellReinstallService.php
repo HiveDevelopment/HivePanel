@@ -13,9 +13,7 @@ use Throwable;
 
 class CellReinstallService
 {
-    public function __construct(private readonly CellNodeClient $cells)
-    {
-    }
+    public function __construct(private readonly CellNodeClient $cells) {}
 
     public function reinstall(Cell $cell, Comb $comb, array $variables, bool $startAfterInstall = false): Cell
     {
@@ -37,7 +35,18 @@ class CellReinstallService
             throw new RuntimeException('This cell does not have a primary allocation.');
         }
 
+        if (data_get($cell->metadata, 'minecraft_content')) {
+            $job = app(MinecraftContentService::class)->status($cell);
+            if (($job['state'] ?? '') === 'installing') {
+                throw new RuntimeException('Wait for the Minecraft content installation to finish before reinstalling.');
+            }
+        }
         $metadata = (array) $cell->metadata;
+        // Reinstall chooses a new Comb; retain only the completed-job acknowledgement.
+        if (isset($metadata['minecraft_content'])) {
+            $acknowledgement = data_get($metadata, 'minecraft_content.job_id');
+            $metadata['minecraft_content'] = $acknowledgement ? ['job_id' => $acknowledgement] : [];
+        }
 
         $variables = [
             ...$variables,
