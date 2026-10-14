@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Boxes, Check, Download, LoaderCircle, Package, Plus, Save, Search, ShieldCheck, Trash2, X } from 'lucide-vue-next';
@@ -10,6 +11,7 @@ const props = defineProps<{
     minecraftSettings: Record<string, any>;
     packs: any[];
     canInstall: boolean;
+    canWipe: boolean;
     canChangeRuntime: boolean;
 }>();
 const base = `/cells/${props.cell.id}/minecraft`;
@@ -68,9 +70,11 @@ const busy = ref('');
 const error = ref('');
 const notice = ref('');
 const accepted = ref(false);
+const installConfirmation = ref(false);
+const wipesServer = computed(() => ['builder', 'modpack'].includes(plan.value?.kind));
 const ready = ref(false);
 const installing = computed(() => job.value.state === 'installing');
-const allowed = computed(() => props.canInstall && (!changingRuntime.value || props.canChangeRuntime));
+const allowed = computed(() => props.canInstall && (!changingRuntime.value || props.canChangeRuntime) && (!wipesServer.value || props.canWipe));
 const requestSpec = computed(() => ({
     kind: kind.value,
     minecraft: minecraft.value,
@@ -134,6 +138,7 @@ function invalidate() {
     plan.value = null;
     ticket.value = '';
     accepted.value = false;
+    installConfirmation.value = false;
 }
 watch([selections, name, loaderVersion], invalidate, { deep: true });
 watch([minecraft, loader], async () => {
@@ -226,9 +231,15 @@ async function preview() {
 }
 async function install() {
     await run('Starting installation', async () => {
-        job.value = await request('/install', { ticket: ticket.value });
+        job.value = await request('/install', { ticket: ticket.value, confirm_wipe: wipesServer.value });
+        installConfirmation.value = false;
         await poll();
     });
+    installConfirmation.value = false;
+}
+function requestInstall() {
+    if (!allowed.value || busy.value || installing.value) return;
+    installConfirmation.value = true;
 }
 async function poll() {
     if (stopped) return;
@@ -606,8 +617,8 @@ onBeforeUnmount(() => {
                     <label class="flex items-start gap-2 text-xs leading-5 text-zinc-400"
                         ><input v-model="accepted" type="checkbox" class="mt-1 accent-hive" /><span
                             >{{
-                                plan.replaceMods
-                                    ? 'Replace the existing mods folder and apply this pack’s configuration files.'
+                                wipesServer
+                                    ? 'Wipe the server’s existing worlds, plugins, mods and configuration, then install this modpack.'
                                     : 'Install these files and replace files with the same names.'
                             }}
                             Replaced files are retained in a backup on the Worker. Stop the Cell before installing.</span
@@ -617,18 +628,33 @@ onBeforeUnmount(() => {
                         <button
                             :disabled="!allowed || !accepted || Boolean(busy) || installing"
                             class="flex items-center gap-2 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-40"
-                            @click="install"
+                            @click="requestInstall"
                         >
                             <Download class="size-4" /> Install
                             {{ plan.kind === 'modpack' || plan.kind === 'builder' ? 'modpack' : 'selection' }}</button
                         ><Link :href="`/cells/${cell.id}`" class="text-xs text-zinc-500 hover:text-zinc-200">Open console</Link>
                         <p v-if="!allowed" class="text-xs text-status-warning">
-                            Installing requires file upload/write permissions{{ changingRuntime ? ' and permission to update startup.' : '.' }}
+                            Installing requires file upload/write permissions{{ changingRuntime ? ' and permission to update startup.' : '.'
+                            }}{{ wipesServer ? ' Wiping also requires file deletion permission.' : '' }}
                         </p>
                     </div>
                 </div>
             </section>
         </main>
+        <ConfirmationModal
+            :open="installConfirmation"
+            :title="wipesServer ? 'Wipe server and install modpack?' : 'Install selected files?'"
+            :description="
+                wipesServer
+                    ? 'This replaces all current server files, including worlds, plugins, mods and configuration. The old files are retained in a rollback backup. Downloads and loader preparation must succeed before any live files are removed. Stop the Cell before continuing.'
+                    : 'Install the selected files and required dependencies. Files with matching names will be replaced and retained in a rollback backup. Stop the Cell before continuing.'
+            "
+            :confirm-text="wipesServer ? 'Wipe and install' : 'Install'"
+            :danger="wipesServer"
+            :loading="Boolean(busy) || installing"
+            @cancel="installConfirmation = false"
+            @confirm="install"
+        />
         <dialog
             ref="dialog"
             aria-labelledby="release-title"

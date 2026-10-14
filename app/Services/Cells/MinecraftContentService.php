@@ -34,7 +34,12 @@ class MinecraftContentService
                     $metadata['variables'][$loader.'_version'] = $loader === 'forge' ? Str::after($job['plan']['loaderVersion'], $job['plan']['minecraft'].'-') : $job['plan']['loaderVersion'];
                 }
             }
-            $metadata['minecraft_content'] = ['job_id' => $job['id'], 'minecraft' => $job['plan']['minecraft'], 'loader' => $job['plan']['loader'], 'loader_version' => $job['plan']['loaderVersion'], 'name' => $job['plan']['name']];
+            if (! empty($job['result']['startup'])) {
+                $metadata['minecraft_content'] = ['job_id' => $job['id'], 'minecraft' => $job['plan']['minecraft'], 'loader' => $job['plan']['loader'], 'loader_version' => $job['plan']['loaderVersion'], 'name' => $job['plan']['name']];
+            } else {
+                unset($metadata['minecraft_content']['pending_job']);
+                $metadata['minecraft_content']['job_id'] = $job['id'];
+            }
             $current->forceFill(['metadata' => $metadata])->save();
             $cell->metadata = $metadata;
         });

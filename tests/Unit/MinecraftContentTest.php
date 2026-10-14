@@ -185,6 +185,23 @@ class MinecraftContentTest extends TestCase
         $cell->metadata = $metadata;
         $cell->save();
         $service->status($cell);
-        $this->assertSame('manual change',$cell->metadata['startup']['command']);
+        $this->assertSame('manual change', $cell->metadata['startup']['command']);
+        $addon = ['id' => 'plugin-job', 'state' => 'complete', 'plan' => ['minecraft' => '1.21.1', 'loader' => 'paper', 'loaderVersion' => '', 'name' => 'Plugin'], 'result' => ['startup' => '']];
+        Http::fake(['*' => Http::response($addon)]);
+        $service->status($cell);
+        $this->assertSame('forge', $cell->metadata['minecraft_content']['loader']);
+        $this->assertSame('Pack', $cell->metadata['minecraft_content']['name']);
+
+    }
+
+    public function test_pack_install_requires_explicit_wipe_confirmation(): void
+    {
+        [$controller,$client,$user] = $this->fixture();
+        $ticket = (string) Str::uuid();
+        Cache::put('minecraft-preview:'.$ticket, ['user' => 'owner', 'cell' => 'cell', 'plan' => ['kind' => 'modpack']], 60);
+        $nodes = Mockery::mock(NodeClient::class);
+        $nodes->shouldNotReceive('client');
+        $this->expectException(ValidationException::class);
+        $controller->install('cell',$this->request(['ticket' => $ticket],$user),$client,$nodes);
     }
 }

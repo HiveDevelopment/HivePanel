@@ -32,7 +32,7 @@ class CellMinecraftController extends CellBaseController
             return $response;
         }
 
-        return Inertia::render('Cells/Minecraft', ['cell' => $this->frontendCell($cell, $cells), 'mode' => $mode, 'minecraftSettings' => (array) data_get($cell->metadata, 'minecraft_content', []), 'packs' => MinecraftPack::where('user_id', auth()->id())->latest()->get(['id', 'name', 'spec']), 'canInstall' => $cell->userCan(request()->user(), 'files.upload') && $cell->userCan(request()->user(), 'files.write'), 'canChangeRuntime' => $cell->userCan(request()->user(), 'startup.update')]);
+        return Inertia::render('Cells/Minecraft', ['cell' => $this->frontendCell($cell, $cells), 'mode' => $mode, 'minecraftSettings' => (array) data_get($cell->metadata, 'minecraft_content', []), 'packs' => MinecraftPack::where('user_id', auth()->id())->latest()->get(['id', 'name', 'spec']), 'canInstall' => $cell->userCan(request()->user(), 'files.upload') && $cell->userCan(request()->user(), 'files.write'), 'canWipe' => $cell->userCan(request()->user(), 'files.delete'), 'canChangeRuntime' => $cell->userCan(request()->user(), 'startup.update')]);
     }
 
     public function catalogue(string $id, Request $request, MinecraftRegistryService $registry)
@@ -73,6 +73,12 @@ class CellMinecraftController extends CellBaseController
         $preview = Cache::get('minecraft-preview:'.$ticket);
         abort_unless($preview && $preview['user'] === auth()->id() && $preview['cell'] === $id, 422, 'Installation preview expired. Review the selection again.');
         $plan = $preview['plan'];
+        $wipe = in_array($plan['kind'], ['builder', 'modpack'], true);
+        if ($wipe) {
+            $request->validate(['confirm_wipe' => 'required|accepted']);
+            abort_unless($cell->userCan($request->user(), 'files.delete'), 403);
+        }
+        $plan['wipe'] = $wipe;
         if (in_array($plan['kind'], ['jar', 'builder', 'modpack'], true)) {
             abort_unless($cell->userCan($request->user(), 'startup.update'), 403);
         }
