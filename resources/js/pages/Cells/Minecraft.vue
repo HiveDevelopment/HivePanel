@@ -3,7 +3,7 @@ import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Boxes, Check, Download, LoaderCircle, Package, Plus, Save, Search, ShieldCheck, Trash2, X } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 type Selection = { provider: string; project: string; version: string; name?: string; number?: string };
 const props = defineProps<{
     cell: any;
@@ -69,11 +69,15 @@ const job = ref<any>({ state: 'idle', logs: [] });
 const busy = ref('');
 const error = ref('');
 const notice = ref('');
-const accepted = ref(false);
+const previewElement = ref<HTMLElement | null>(null);
+const errorElement = ref<HTMLElement | null>(null);
+const jobElement = ref<HTMLElement | null>(null);
 const installConfirmation = ref(false);
 const wipesServer = computed(() => ['builder', 'modpack'].includes(plan.value?.kind));
 const ready = ref(false);
 const installing = computed(() => job.value.state === 'installing');
+const showJob = ref(false);
+const installView = computed(() => installing.value || showJob.value);
 const allowed = computed(() => props.canInstall && (!changingRuntime.value || props.canChangeRuntime) && (!wipesServer.value || props.canWipe));
 const requestSpec = computed(() => ({
     kind: kind.value,
@@ -129,7 +133,11 @@ async function run(label: string, action: () => Promise<void>) {
     try {
         await action();
     } catch (e: any) {
-        if (!stopped) error.value = e.message;
+        if (!stopped) {
+            error.value = e.message;
+            await nextTick();
+            errorElement.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     } finally {
         busy.value = '';
     }
@@ -137,7 +145,6 @@ async function run(label: string, action: () => Promise<void>) {
 function invalidate() {
     plan.value = null;
     ticket.value = '';
-    accepted.value = false;
     installConfirmation.value = false;
 }
 watch([selections, name, loaderVersion], invalidate, { deep: true });
@@ -226,13 +233,20 @@ async function preview() {
         const data = await request('/preview', requestSpec.value);
         plan.value = data.plan;
         ticket.value = data.ticket;
-        accepted.value = false;
     });
+    if (plan.value && !error.value) {
+        await nextTick();
+        previewElement.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (['mod', 'plugin', 'modpack'].includes(plan.value.kind) && allowed.value) installConfirmation.value = true;
+    }
 }
 async function install() {
     await run('Starting installation', async () => {
         job.value = await request('/install', { ticket: ticket.value, confirm_wipe: wipesServer.value });
+        showJob.value = true;
         installConfirmation.value = false;
+        await nextTick();
+        jobElement.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         await poll();
     });
     installConfirmation.value = false;
@@ -246,6 +260,7 @@ async function poll() {
     try {
         const previous = job.value.state;
         job.value = await request('/status');
+        if (job.value.state === 'installing') showJob.value = true;
         if (previous === 'installing' && job.value.state === 'complete') {
             notice.value = 'Installation complete. Start the Cell from its console.';
             invalidate();
@@ -293,7 +308,8 @@ async function exportPack(format: string) {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
 }
-onMounted(async () => {
+async function initializeCatalogue() {
+    if (ready.value || stopped) return;
     await run('Loading catalogue', async () => {
         const data = await request('/catalogue?action=versions');
         versions.value = data.versions.filter((v: any) => v.type === 'release');
@@ -303,8 +319,16 @@ onMounted(async () => {
         await loadLoaders();
         await searchCatalogue();
     });
-    ready.value = true;
+    ready.value = !error.value;
+}
+async function backToCatalogue() {
+    showJob.value = false;
+    invalidate();
+    await initializeCatalogue();
+}
+onMounted(async () => {
     await poll();
+    if (!installing.value) await initializeCatalogue();
 });
 onBeforeUnmount(() => {
     stopped = true;
@@ -323,14 +347,16 @@ onBeforeUnmount(() => {
                         <Package class="size-5 text-hive" />
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold text-zinc-100">{{ title }}</h1>
+                        <h1 class="text-xl font-bold text-zinc-100">{{ installView ? 'Installation' : title }}</h1>
                         <p class="mt-1 text-xs text-zinc-500">
                             {{
-                                building
-                                    ? 'Choose your version and loader, then build a pack around them.'
-                                    : mode === 'jars'
-                                      ? 'Install the server software and version you want to run.'
-                                      : 'Discover compatible releases and install them through HiveRegistry.'
+                                installView
+                                    ? 'Follow installation progress and review the Worker output.'
+                                    : building
+                                      ? 'Choose your version and loader, then build a pack around them.'
+                                      : mode === 'jars'
+                                        ? 'Install the server software and version you want to run.'
+                                        : 'Discover compatible releases and install them through HiveRegistry.'
                             }}
                         </p>
                     </div>
@@ -341,6 +367,7 @@ onBeforeUnmount(() => {
             </header>
             <p
                 v-if="error"
+                ref="errorElement"
                 role="alert"
                 class="rounded-panel border border-status-danger/20 bg-status-danger/5 p-4 text-xs leading-5 text-status-danger"
             >
@@ -349,7 +376,7 @@ onBeforeUnmount(() => {
             <p v-if="notice" role="status" class="rounded-panel border border-status-success/20 bg-status-success/5 p-4 text-xs text-status-success">
                 {{ notice }}
             </p>
-            <section v-if="job.state !== 'idle'" class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
+            <section v-if="installView" ref="jobElement" class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
                 <div class="flex items-center gap-2 border-b border-white/[0.06] px-5 py-4 text-xs font-semibold text-zinc-200">
                     <LoaderCircle v-if="installing" class="size-4 animate-spin text-hive" /><Check
                         v-else-if="job.state === 'complete'"
@@ -360,294 +387,307 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="p-5">
                     <p class="break-all text-xs leading-5 text-zinc-400">{{ job.message }}</p>
-                    <details class="mt-3" :open="installing">
+                    <details class="mt-3" :open="installView">
                         <summary class="cursor-pointer text-xs text-hive">View installation logs</summary>
                         <pre
                             aria-live="off"
-                            class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-button bg-surface-dark p-4 font-mono text-[11px] leading-5 text-zinc-400"
+                            class="mt-3 max-h-[60vh] min-h-48 overflow-auto whitespace-pre-wrap break-all rounded-button bg-surface-dark p-4 font-mono text-[11px] leading-5 text-zinc-400"
                             >{{ job.logs?.join('\n') || 'Waiting for output…' }}</pre
                         >
                     </details>
                 </div>
             </section>
-            <fieldset
-                :disabled="Boolean(busy) || installing"
-                class="grid gap-4 rounded-panel border border-white/[0.08] bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4"
-            >
-                <label class="text-xs text-zinc-400"
-                    >Minecraft version<select
-                        v-model="minecraft"
-                        class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
-                    >
-                        <option v-for="version in versions" :key="version.id" :value="version.id">{{ version.id }}</option>
-                    </select></label
+            <div v-if="installView && !installing" class="flex items-center gap-4">
+                <button class="rounded-button bg-hive px-5 py-3 text-xs font-bold text-black" @click="backToCatalogue">Back to catalogue</button
+                ><Link :href="`/cells/${cell.id}`" class="text-xs text-zinc-400">Open console</Link>
+            </div>
+            <template v-if="!installView">
+                <button v-if="job.state !== 'idle'" class="text-xs text-zinc-500 hover:text-hive" @click="showJob = true">
+                    View last installation logs
+                </button>
+                <fieldset
+                    :disabled="Boolean(busy) || installing"
+                    class="grid gap-4 rounded-panel border border-white/[0.08] bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4"
                 >
-                <label class="text-xs text-zinc-400"
-                    >{{ mode === 'jars' ? 'Server software' : 'Mod loader'
-                    }}<select
-                        v-model="loader"
-                        :disabled="mode === 'modpacks'"
-                        class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs capitalize text-zinc-200 disabled:opacity-40"
-                    >
-                        <option v-for="runtime in runtimes" :key="runtime" :value="runtime">{{ runtime }}</option>
-                    </select></label
-                >
-                <label v-if="changingRuntime && mode !== 'modpacks'" class="text-xs text-zinc-400"
-                    >Runtime version<select
-                        v-model="loaderVersion"
-                        class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
-                    >
-                        <option value="">Latest compatible</option>
-                        <option v-for="version in loaderVersions" :key="version" :value="version">{{ version }}</option>
-                    </select></label
-                >
-                <label v-if="mode !== 'jars'" class="text-xs text-zinc-400"
-                    >Catalogue<select
-                        v-model="provider"
-                        class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
-                    >
-                        <option value="modrinth">Modrinth</option>
-                        <option value="curseforge" :disabled="!providers.curseforge">
-                            {{ providers.curseforge ? 'CurseForge' : 'CurseForge · not configured' }}
-                        </option>
-                    </select></label
-                >
-            </fieldset>
-            <p v-if="mode === 'modpacks'" class="text-xs leading-5 text-zinc-500">
-                The pack’s manifest selects its exact Minecraft version, loader, required mods and server overrides automatically.
-            </p>
-            <div class="grid items-start gap-5" :class="building ? 'xl:grid-cols-[minmax(0,1fr)_360px]' : ''">
-                <section v-if="mode !== 'jars'" class="min-w-0 space-y-4">
-                    <form class="flex gap-3" @submit.prevent="run('Searching', searchCatalogue)">
-                        <div class="flex min-w-0 flex-1 items-center gap-2 rounded-button border border-white/[0.08] bg-surface px-3">
-                            <Search class="size-4 text-zinc-500" /><input
-                                v-model="query"
-                                aria-label="Search catalogue"
-                                placeholder="Search projects…"
-                                class="h-11 w-full bg-transparent text-sm text-zinc-200 outline-none"
-                            />
-                        </div>
-                        <button
-                            :disabled="Boolean(busy) || installing"
-                            class="rounded-button border border-white/[0.08] bg-surface px-4 text-xs text-zinc-200 disabled:opacity-40"
+                    <label class="text-xs text-zinc-400"
+                        >Minecraft version<select
+                            v-model="minecraft"
+                            class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
                         >
-                            Search
-                        </button>
-                    </form>
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-xs font-semibold text-zinc-300">
-                            {{ query ? 'Search results' : building ? 'Suggested mods' : 'Popular projects' }}
+                            <option v-for="version in versions" :key="version.id" :value="version.id">{{ version.id }}</option>
+                        </select></label
+                    >
+                    <label class="text-xs text-zinc-400"
+                        >{{ mode === 'jars' ? 'Server software' : 'Mod loader'
+                        }}<select
+                            v-model="loader"
+                            :disabled="mode === 'modpacks'"
+                            class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs capitalize text-zinc-200 disabled:opacity-40"
+                        >
+                            <option v-for="runtime in runtimes" :key="runtime" :value="runtime">{{ runtime }}</option>
+                        </select></label
+                    >
+                    <label v-if="changingRuntime && mode !== 'modpacks'" class="text-xs text-zinc-400"
+                        >Runtime version<select
+                            v-model="loaderVersion"
+                            class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
+                        >
+                            <option value="">Latest compatible</option>
+                            <option v-for="version in loaderVersions" :key="version" :value="version">{{ version }}</option>
+                        </select></label
+                    >
+                    <label v-if="mode !== 'jars'" class="text-xs text-zinc-400"
+                        >Catalogue<select
+                            v-model="provider"
+                            class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-xs text-zinc-200"
+                        >
+                            <option value="modrinth">Modrinth</option>
+                            <option value="curseforge" :disabled="!providers.curseforge">
+                                {{ providers.curseforge ? 'CurseForge' : 'CurseForge · not configured' }}
+                            </option>
+                        </select></label
+                    >
+                </fieldset>
+                <p v-if="mode === 'modpacks'" class="text-xs leading-5 text-zinc-500">
+                    The pack’s manifest selects its exact Minecraft version, loader, required mods and server overrides automatically.
+                </p>
+                <section v-if="plan" ref="previewElement" class="overflow-hidden rounded-panel border border-hive/20 bg-surface">
+                    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
+                        <h2 class="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+                            <ShieldCheck class="size-4 text-hive" /> Installation preview
                         </h2>
-                        <span class="text-[11px] text-zinc-600">{{ total.toLocaleString() }} projects</span>
-                    </div>
-                    <div class="grid gap-3 md:grid-cols-2" :class="building ? '' : '2xl:grid-cols-3'">
-                        <article
-                            v-for="project in hits"
-                            :key="`${project.provider}:${project.project}`"
-                            class="flex flex-col rounded-panel border border-white/[0.08] bg-surface p-5"
+                        <span class="text-[11px] text-zinc-500"
+                            >{{ plan.files.length }} files · {{ size }} MB · {{ plan.minecraft }} / {{ plan.loader }}</span
                         >
-                            <div class="flex items-start gap-3">
-                                <img
-                                    v-if="project.icon?.startsWith('https://')"
-                                    :src="project.icon"
-                                    alt=""
-                                    loading="lazy"
-                                    referrerpolicy="no-referrer"
-                                    class="size-10 shrink-0 rounded-lg object-cover"
-                                /><Boxes v-else class="size-10 shrink-0 rounded-lg bg-white/5 p-2 text-zinc-500" />
-                                <div class="min-w-0">
-                                    <h3 class="break-words text-sm font-semibold text-zinc-200">{{ project.name }}</h3>
-                                    <p class="mt-1 text-[10px] capitalize text-zinc-600">
-                                        {{ project.provider }} · {{ Number(project.downloads || 0).toLocaleString() }} downloads
-                                    </p>
-                                </div>
+                    </header>
+                    <div class="space-y-4 p-5">
+                        <p class="text-xs leading-5 text-zinc-500">
+                            Version and loader checks passed; required dependencies are included. These checks do not guarantee that all mods will
+                            work together at runtime.
+                        </p>
+                        <ul
+                            v-if="plan.warnings.length"
+                            class="space-y-1 rounded-button border border-status-warning/20 bg-status-warning/5 p-3 text-xs leading-5 text-status-warning"
+                        >
+                            <li v-for="warning in plan.warnings" :key="warning">{{ warning }}</li>
+                        </ul>
+                        <details>
+                            <summary class="cursor-pointer text-xs text-zinc-400">View files and dependencies</summary>
+                            <div class="mt-3 max-h-56 overflow-auto rounded-button bg-surface-dark p-3">
+                                <p v-for="file in plan.files" :key="file.path" class="break-all font-mono text-[11px] leading-6 text-zinc-500">
+                                    {{ file.path }}
+                                </p>
                             </div>
-                            <p class="mt-3 line-clamp-3 text-xs leading-5 text-zinc-500">{{ project.summary }}</p>
-                            <button
-                                :disabled="Boolean(busy) || installing"
-                                class="mt-auto flex items-center justify-between gap-2 pt-4 text-xs font-semibold text-hive disabled:opacity-40"
-                                @click="selectProject(project)"
-                            >
-                                <span>{{ building ? 'Choose a version' : 'View versions & install' }}</span
-                                ><Plus class="size-3.5" />
-                            </button>
-                        </article>
-                    </div>
-                    <p
-                        v-if="!hits.length && !busy"
-                        class="rounded-panel border border-white/[0.08] bg-surface p-10 text-center text-xs text-zinc-500"
-                    >
-                        No projects match this version and loader. Try another search or catalogue.
-                    </p>
-                    <button
-                        v-if="hits.length < total"
-                        :disabled="Boolean(busy) || installing"
-                        class="w-full rounded-button border border-white/[0.08] p-3 text-xs text-zinc-400 disabled:opacity-40"
-                        @click="run('Loading more', () => searchCatalogue(true))"
-                    >
-                        Load more projects
-                    </button>
-                </section>
-                <aside v-if="building" class="space-y-4 rounded-panel border border-white/[0.08] bg-surface p-5">
-                    <h2 class="flex items-center gap-2 text-sm font-semibold text-zinc-200"><Package class="size-4 text-hive" /> Your modpack</h2>
-                    <label class="block text-[11px] text-zinc-500"
-                        >Pack name<input
-                            v-model="name"
-                            maxlength="100"
-                            :disabled="installing"
-                            class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-sm text-zinc-200"
-                    /></label>
-                    <div
-                        v-for="(selection, index) in selections"
-                        :key="`${selection.provider}:${selection.project}`"
-                        class="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2"
-                    >
-                        <div class="min-w-0">
-                            <p class="truncate text-xs text-zinc-300">{{ selection.name || selection.project }}</p>
-                            <p class="mt-1 truncate text-[10px] text-zinc-600">
-                                {{ selection.provider }} · {{ selection.number || selection.version }}
-                            </p>
-                        </div>
-                        <button
-                            :disabled="installing"
-                            :aria-label="`Remove ${selection.name || selection.project}`"
-                            class="text-zinc-600 hover:text-status-danger"
-                            @click="selections.splice(index, 1)"
-                        >
-                            <X class="size-3.5" />
-                        </button>
-                    </div>
-                    <p v-if="!selections.length" class="py-4 text-xs leading-5 text-zinc-500">
-                        Add mods from the catalogue. Required dependencies are included when you check the pack.
-                    </p>
-                    <button
-                        :disabled="!selections.length || Boolean(busy) || installing"
-                        class="flex w-full items-center justify-center gap-2 rounded-button bg-hive px-4 py-3 text-xs font-bold text-black disabled:opacity-40"
-                        @click="preview"
-                    >
-                        <ShieldCheck class="size-4" /> Check & review pack
-                    </button>
-                    <button
-                        :disabled="!selections.length || !name || Boolean(busy) || installing"
-                        class="flex w-full items-center justify-center gap-2 rounded-button border border-white/[0.08] px-4 py-2.5 text-xs text-zinc-300 disabled:opacity-40"
-                        @click="savePack"
-                    >
-                        <Save class="size-3.5" /> Save pack
-                    </button>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button
-                            v-for="format in ['modrinth', 'curseforge']"
-                            :key="format"
-                            :disabled="!selections.length || Boolean(busy) || installing"
-                            class="flex items-center justify-center gap-1 rounded-button border border-white/[0.08] px-2 py-2 text-[11px] capitalize text-zinc-400 disabled:opacity-40"
-                            @click="exportPack(format)"
-                        >
-                            <Download class="size-3" />{{ format }}
-                        </button>
-                    </div>
-                    <p class="text-[10px] leading-4 text-zinc-600">
-                        Modrinth exports support mixed sources. CurseForge exports require every project to come from CurseForge.
-                    </p>
-                    <div v-if="packs.length" class="space-y-2 border-t border-white/[0.06] pt-4">
-                        <h3 class="text-xs font-semibold text-zinc-400">Saved packs</h3>
-                        <div v-for="pack in packs" :key="pack.id" class="flex items-center justify-between gap-2">
-                            <button
-                                :disabled="Boolean(busy) || installing"
-                                class="truncate text-xs text-zinc-300 hover:text-hive"
-                                @click="loadPack(pack)"
-                            >
-                                {{ pack.name }}</button
-                            ><button
-                                :disabled="Boolean(busy) || installing"
-                                :aria-label="`Delete ${pack.name}`"
-                                class="text-zinc-600"
-                                @click="removePack(pack)"
-                            >
-                                <Trash2 class="size-3" />
-                            </button>
-                        </div>
-                    </div>
-                </aside>
-                <section v-if="mode === 'jars'" class="rounded-panel border border-white/[0.08] bg-surface p-6">
-                    <h2 class="text-sm font-semibold capitalize text-zinc-200">{{ loader }} · Minecraft {{ minecraft }}</h2>
-                    <p class="mt-2 max-w-2xl text-xs leading-6 text-zinc-500">
-                        HiveRegistry resolves the selected build. Forge and NeoForge installers run inside your Cell’s existing Java image. The
-                        runtime command is updated after installation.
-                    </p>
-                    <button
-                        :disabled="!minecraft || Boolean(busy) || installing"
-                        class="mt-5 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-40"
-                        @click="preview"
-                    >
-                        Review installation
-                    </button>
-                </section>
-            </div>
-            <div v-if="busy" role="status" class="flex items-center gap-2 text-xs text-hive">
-                <LoaderCircle class="size-4 animate-spin" /> {{ busy }}…
-            </div>
-            <section v-if="plan" class="overflow-hidden rounded-panel border border-hive/20 bg-surface">
-                <header class="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
-                    <h2 class="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                        <ShieldCheck class="size-4 text-hive" /> Installation preview
-                    </h2>
-                    <span class="text-[11px] text-zinc-500"
-                        >{{ plan.files.length }} files · {{ size }} MB · {{ plan.minecraft }} / {{ plan.loader }}</span
-                    >
-                </header>
-                <div class="space-y-4 p-5">
-                    <p class="text-xs leading-5 text-zinc-500">
-                        Version and loader checks passed; required dependencies are included. These checks do not guarantee that all mods will work
-                        together at runtime.
-                    </p>
-                    <ul
-                        v-if="plan.warnings.length"
-                        class="space-y-1 rounded-button border border-status-warning/20 bg-status-warning/5 p-3 text-xs leading-5 text-status-warning"
-                    >
-                        <li v-for="warning in plan.warnings" :key="warning">{{ warning }}</li>
-                    </ul>
-                    <details>
-                        <summary class="cursor-pointer text-xs text-zinc-400">View files and dependencies</summary>
-                        <div class="mt-3 max-h-56 overflow-auto rounded-button bg-surface-dark p-3">
-                            <p v-for="file in plan.files" :key="file.path" class="break-all font-mono text-[11px] leading-6 text-zinc-500">
-                                {{ file.path }}
-                            </p>
-                        </div>
-                    </details>
-                    <label class="flex items-start gap-2 text-xs leading-5 text-zinc-400"
-                        ><input v-model="accepted" type="checkbox" class="mt-1 accent-hive" /><span
-                            >{{
+                        </details>
+                        <p class="text-xs leading-5 text-zinc-400">
+                            {{
                                 wipesServer
                                     ? 'Wipe the server’s existing worlds, plugins, mods and configuration, then install this modpack.'
                                     : 'Install these files and replace files with the same names.'
                             }}
-                            Replaced files are retained in a backup on the Worker. Stop the Cell before installing.</span
-                        ></label
-                    >
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button
-                            :disabled="!allowed || !accepted || Boolean(busy) || installing"
-                            class="flex items-center gap-2 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-40"
-                            @click="requestInstall"
-                        >
-                            <Download class="size-4" /> Install
-                            {{ plan.kind === 'modpack' || plan.kind === 'builder' ? 'modpack' : 'selection' }}</button
-                        ><Link :href="`/cells/${cell.id}`" class="text-xs text-zinc-500 hover:text-zinc-200">Open console</Link>
-                        <p v-if="!allowed" class="text-xs text-status-warning">
-                            Installing requires file upload/write permissions{{ changingRuntime ? ' and permission to update startup.' : '.'
-                            }}{{ wipesServer ? ' Wiping also requires file deletion permission.' : '' }}
+                            Replaced files are retained in a backup on the Worker. Stop the Cell before installing.
                         </p>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button
+                                :disabled="!allowed || Boolean(busy) || installing"
+                                class="flex items-center gap-2 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-40"
+                                @click="requestInstall"
+                            >
+                                <Download class="size-4" /> Install
+                                {{ plan.kind === 'modpack' || plan.kind === 'builder' ? 'modpack' : 'selection' }}</button
+                            ><Link :href="`/cells/${cell.id}`" class="text-xs text-zinc-500 hover:text-zinc-200">Open console</Link>
+                            <p v-if="!allowed" class="text-xs text-status-warning">
+                                Installing requires file upload/write permissions{{ changingRuntime ? ' and permission to update startup.' : '.'
+                                }}{{ wipesServer ? ' Wiping also requires file deletion permission.' : '' }}
+                            </p>
+                        </div>
                     </div>
+                </section>
+                <div class="grid items-start gap-5" :class="building ? 'xl:grid-cols-[minmax(0,1fr)_360px]' : ''">
+                    <section v-if="mode !== 'jars'" class="min-w-0 space-y-4">
+                        <form class="flex gap-3" @submit.prevent="run('Searching', searchCatalogue)">
+                            <div class="flex min-w-0 flex-1 items-center gap-2 rounded-button border border-white/[0.08] bg-surface px-3">
+                                <Search class="size-4 text-zinc-500" /><input
+                                    v-model="query"
+                                    aria-label="Search catalogue"
+                                    placeholder="Search projects…"
+                                    class="h-11 w-full bg-transparent text-sm text-zinc-200 outline-none"
+                                />
+                            </div>
+                            <button
+                                :disabled="Boolean(busy) || installing"
+                                class="rounded-button border border-white/[0.08] bg-surface px-4 text-xs text-zinc-200 disabled:opacity-40"
+                            >
+                                Search
+                            </button>
+                        </form>
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xs font-semibold text-zinc-300">
+                                {{ query ? 'Search results' : building ? 'Suggested mods' : 'Popular projects' }}
+                            </h2>
+                            <span class="text-[11px] text-zinc-600">{{ total.toLocaleString() }} projects</span>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-2" :class="building ? '' : '2xl:grid-cols-3'">
+                            <article
+                                v-for="project in hits"
+                                :key="`${project.provider}:${project.project}`"
+                                class="flex flex-col rounded-panel border border-white/[0.08] bg-surface p-5"
+                            >
+                                <div class="flex items-start gap-3">
+                                    <img
+                                        v-if="project.icon?.startsWith('https://')"
+                                        :src="project.icon"
+                                        alt=""
+                                        loading="lazy"
+                                        referrerpolicy="no-referrer"
+                                        class="size-10 shrink-0 rounded-lg object-cover"
+                                    /><Boxes v-else class="size-10 shrink-0 rounded-lg bg-white/5 p-2 text-zinc-500" />
+                                    <div class="min-w-0">
+                                        <h3 class="break-words text-sm font-semibold text-zinc-200">{{ project.name }}</h3>
+                                        <p class="mt-1 text-[10px] capitalize text-zinc-600">
+                                            {{ project.provider }} · {{ Number(project.downloads || 0).toLocaleString() }} downloads
+                                        </p>
+                                    </div>
+                                </div>
+                                <p class="mt-3 line-clamp-3 text-xs leading-5 text-zinc-500">{{ project.summary }}</p>
+                                <button
+                                    :disabled="Boolean(busy) || installing"
+                                    class="mt-auto flex items-center justify-between gap-2 pt-4 text-xs font-semibold text-hive disabled:opacity-40"
+                                    @click="selectProject(project)"
+                                >
+                                    <span>{{ building ? 'Choose a version' : 'View versions & install' }}</span
+                                    ><Plus class="size-3.5" />
+                                </button>
+                            </article>
+                        </div>
+                        <p
+                            v-if="!hits.length && !busy"
+                            class="rounded-panel border border-white/[0.08] bg-surface p-10 text-center text-xs text-zinc-500"
+                        >
+                            No projects match this version and loader. Try another search or catalogue.
+                        </p>
+                        <button
+                            v-if="hits.length < total"
+                            :disabled="Boolean(busy) || installing"
+                            class="w-full rounded-button border border-white/[0.08] p-3 text-xs text-zinc-400 disabled:opacity-40"
+                            @click="run('Loading more', () => searchCatalogue(true))"
+                        >
+                            Load more projects
+                        </button>
+                    </section>
+                    <aside v-if="building" class="space-y-4 rounded-panel border border-white/[0.08] bg-surface p-5">
+                        <h2 class="flex items-center gap-2 text-sm font-semibold text-zinc-200"><Package class="size-4 text-hive" /> Your modpack</h2>
+                        <label class="block text-[11px] text-zinc-500"
+                            >Pack name<input
+                                v-model="name"
+                                maxlength="100"
+                                :disabled="installing"
+                                class="mt-2 h-10 w-full rounded-button border border-white/[0.08] bg-surface-dark px-3 text-sm text-zinc-200"
+                        /></label>
+                        <div
+                            v-for="(selection, index) in selections"
+                            :key="`${selection.provider}:${selection.project}`"
+                            class="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2"
+                        >
+                            <div class="min-w-0">
+                                <p class="truncate text-xs text-zinc-300">{{ selection.name || selection.project }}</p>
+                                <p class="mt-1 truncate text-[10px] text-zinc-600">
+                                    {{ selection.provider }} · {{ selection.number || selection.version }}
+                                </p>
+                            </div>
+                            <button
+                                :disabled="installing"
+                                :aria-label="`Remove ${selection.name || selection.project}`"
+                                class="text-zinc-600 hover:text-status-danger"
+                                @click="selections.splice(index, 1)"
+                            >
+                                <X class="size-3.5" />
+                            </button>
+                        </div>
+                        <p v-if="!selections.length" class="py-4 text-xs leading-5 text-zinc-500">
+                            Add mods from the catalogue. Required dependencies are included when you check the pack.
+                        </p>
+                        <button
+                            :disabled="!selections.length || Boolean(busy) || installing"
+                            class="flex w-full items-center justify-center gap-2 rounded-button bg-hive px-4 py-3 text-xs font-bold text-black disabled:opacity-40"
+                            @click="preview"
+                        >
+                            <ShieldCheck class="size-4" /> Check & review pack
+                        </button>
+                        <button
+                            :disabled="!selections.length || !name || Boolean(busy) || installing"
+                            class="flex w-full items-center justify-center gap-2 rounded-button border border-white/[0.08] px-4 py-2.5 text-xs text-zinc-300 disabled:opacity-40"
+                            @click="savePack"
+                        >
+                            <Save class="size-3.5" /> Save pack
+                        </button>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button
+                                v-for="format in ['modrinth', 'curseforge']"
+                                :key="format"
+                                :disabled="!selections.length || Boolean(busy) || installing"
+                                class="flex items-center justify-center gap-1 rounded-button border border-white/[0.08] px-2 py-2 text-[11px] capitalize text-zinc-400 disabled:opacity-40"
+                                @click="exportPack(format)"
+                            >
+                                <Download class="size-3" />{{ format }}
+                            </button>
+                        </div>
+                        <p class="text-[10px] leading-4 text-zinc-600">
+                            Modrinth exports support mixed sources. CurseForge exports require every project to come from CurseForge.
+                        </p>
+                        <div v-if="packs.length" class="space-y-2 border-t border-white/[0.06] pt-4">
+                            <h3 class="text-xs font-semibold text-zinc-400">Saved packs</h3>
+                            <div v-for="pack in packs" :key="pack.id" class="flex items-center justify-between gap-2">
+                                <button
+                                    :disabled="Boolean(busy) || installing"
+                                    class="truncate text-xs text-zinc-300 hover:text-hive"
+                                    @click="loadPack(pack)"
+                                >
+                                    {{ pack.name }}</button
+                                ><button
+                                    :disabled="Boolean(busy) || installing"
+                                    :aria-label="`Delete ${pack.name}`"
+                                    class="text-zinc-600"
+                                    @click="removePack(pack)"
+                                >
+                                    <Trash2 class="size-3" />
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+                    <section v-if="mode === 'jars'" class="rounded-panel border border-white/[0.08] bg-surface p-6">
+                        <h2 class="text-sm font-semibold capitalize text-zinc-200">{{ loader }} · Minecraft {{ minecraft }}</h2>
+                        <p class="mt-2 max-w-2xl text-xs leading-6 text-zinc-500">
+                            HiveRegistry resolves the selected build. Forge and NeoForge installers run inside your Cell’s existing Java image. The
+                            runtime command is updated after installation.
+                        </p>
+                        <button
+                            :disabled="!minecraft || Boolean(busy) || installing"
+                            class="mt-5 rounded-button bg-hive px-5 py-3 text-xs font-bold text-black disabled:opacity-40"
+                            @click="preview"
+                        >
+                            Review installation
+                        </button>
+                    </section>
                 </div>
-            </section>
+            </template>
+            <div v-if="busy" role="status" class="flex items-center gap-2 text-xs text-hive">
+                <LoaderCircle class="size-4 animate-spin" /> {{ busy }}…
+            </div>
         </main>
         <ConfirmationModal
             :open="installConfirmation"
             :title="wipesServer ? 'Wipe server and install modpack?' : 'Install selected files?'"
             :description="
-                wipesServer
+                (plan ? `${plan.files.length} files for Minecraft ${plan.minecraft} / ${plan.loader}. ` : '') +
+                (wipesServer
                     ? 'This replaces all current server files, including worlds, plugins, mods and configuration. The old files are retained in a rollback backup. Downloads and loader preparation must succeed before any live files are removed. Stop the Cell before continuing.'
-                    : 'Install the selected files and required dependencies. Files with matching names will be replaced and retained in a rollback backup. Stop the Cell before continuing.'
+                    : 'Install the selected files and required dependencies. Files with matching names will be replaced and retained in a rollback backup. Stop the Cell before continuing.') +
+                (plan?.warnings?.length
+                    ? ' Warnings: ' +
+                      plan.warnings.slice(0, 2).join(' ') +
+                      (plan.warnings.length > 2 ? ` Review ${plan.warnings.length - 2} more warnings in the preview.` : '')
+                    : '')
             "
             :confirm-text="wipesServer ? 'Wipe and install' : 'Install'"
             :danger="wipesServer"
