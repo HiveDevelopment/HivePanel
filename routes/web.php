@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AdminMigrationController;
 use App\Http\Controllers\Admin\AdminNodeAllocationController;
 use App\Http\Controllers\Admin\AdminNodeController;
 use App\Http\Controllers\Admin\AdminNodeDatabaseHostController;
+use App\Http\Controllers\Admin\AdminNodeWebProxyController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminThemeController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Cells\CellConfigController;
 use App\Http\Controllers\Cells\CellConsoleController;
 use App\Http\Controllers\Cells\CellController;
 use App\Http\Controllers\Cells\CellDatabaseController;
+use App\Http\Controllers\Cells\CellDomainController;
 use App\Http\Controllers\Cells\CellFileController;
 use App\Http\Controllers\Cells\CellImporterController;
 use App\Http\Controllers\Cells\CellMinecraftController;
@@ -80,6 +82,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{node}/configuration', [AdminNodeController::class, 'configuration'])->name('configuration');
             Route::post('{node}/registration-token', [AdminNodeController::class, 'generateRegistrationToken'])->name('registration-token');
 
+            Route::get('{node}/web-proxy', [AdminNodeWebProxyController::class, 'index'])->name('web-proxy')->middleware('admin.permission:'.AdminPermissions::NODES_VIEW);
+            Route::patch('{node}/web-proxy', [AdminNodeWebProxyController::class, 'update'])->name('web-proxy.update')->middleware('admin.permission:'.AdminPermissions::NODES_UPDATE);
+            Route::delete('{node}/web-proxy/{domain}', [AdminNodeWebProxyController::class, 'destroy'])->name('web-proxy.destroy')->middleware('admin.permission:'.AdminPermissions::NODES_UPDATE);
+            
             // Allocations
             Route::get('{node}/allocations', [AdminNodeAllocationController::class, 'index'])->name('allocations');
             Route::post('{node}/allocations', [AdminNodeAllocationController::class, 'store'])->name('allocations.store');
@@ -241,6 +247,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/{id}/minecraft/packs/{pack}', [CellMinecraftController::class, 'deletePack'])->name('minecraft.packs.delete')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
         Route::post('/{id}/minecraft/export/{format}', [CellMinecraftController::class, 'export'])->name('minecraft.export')->middleware(['cell.permission:'.CellPermissions::FILES_VIEW, 'throttle:10,1']);
         Route::get('/{id}/minecraft/{mode}', [CellMinecraftController::class, 'index'])->whereIn('mode', ['mods', 'plugins', 'jars', 'modpacks', 'builder'])->name('minecraft.index')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+
+        Route::get('/{id}/website', [CellDomainController::class, 'website'])->name('website')->middleware('cell.permission:'.CellPermissions::VIEW);
+        Route::get('/{id}/domains', [CellDomainController::class, 'index'])->name('domains.index')->middleware('cell.permission:'.CellPermissions::DOMAINS_VIEW);
+        Route::get('/{id}/domains/status', [CellDomainController::class, 'status'])->name('domains.status')->middleware('cell.permission:'.CellPermissions::DOMAINS_VIEW);
+        Route::post('/{id}/domains', [CellDomainController::class, 'save'])->name('domains.save')->middleware(['cell.permission:'.CellPermissions::DOMAINS_UPDATE, 'throttle:20,1']);
+        Route::post('/{id}/domains/{domain}/verify', [CellDomainController::class, 'verify'])->name('domains.verify')->middleware(['cell.permission:'.CellPermissions::DOMAINS_UPDATE, 'throttle:10,1']);
+        Route::post('/{id}/domains/{domain}/certificate', [CellDomainController::class, 'certificate'])->name('domains.certificate')->middleware(['cell.permission:'.CellPermissions::DOMAINS_UPDATE, 'throttle:5,1']);
+        Route::delete('/{id}/domains/{domain}', [CellDomainController::class, 'destroy'])->name('domains.destroy')->middleware('cell.permission:'.CellPermissions::DOMAINS_UPDATE);
 
         Route::get('/{id}/startup', [CellStartupController::class, 'index'])->name('startup.index')->middleware('cell.permission:'.CellPermissions::SETTINGS_VIEW);
         Route::patch('/{id}/startup', [CellStartupController::class, 'update'])->name('startup.update')->middleware('cell.permission:'.CellPermissions::STARTUP_UPDATE);

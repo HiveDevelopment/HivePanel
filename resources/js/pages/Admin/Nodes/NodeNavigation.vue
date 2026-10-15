@@ -1,28 +1,16 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3'
-import {
-    Activity,
-    Database,
-    HardDrive,
-    Server,
-    Settings,
-    SlidersHorizontal,
-} from 'lucide-vue-next'
+import { Link } from '@inertiajs/vue3';
+import { Activity, Database, Globe, HardDrive, Server, Settings, SlidersHorizontal } from 'lucide-vue-next';
 
-type Tab =
-    | 'overview'
-    | 'settings'
-    | 'configuration'
-    | 'allocations'
-    | 'database-hosts'
-    | 'cells'
+type Tab = 'overview' | 'settings' | 'configuration' | 'allocations' | 'database-hosts' | 'cells' | 'web-proxy';
 
 defineProps<{
-    nodeId: string
-    active: Tab
-}>()
+    nodeId: string;
+    active: Tab;
+}>();
 
 const tabs = [
+    { key: 'web-proxy', label: 'Web Proxy', path: '/web-proxy', icon: Globe },
     {
         key: 'overview',
         label: 'Overview',
@@ -59,7 +47,7 @@ const tabs = [
         path: '/cells',
         icon: Server,
     },
-] as const
+] as const;
 </script>
 
 <template>
@@ -69,12 +57,8 @@ const tabs = [
                 v-for="tab in tabs"
                 :key="tab.key"
                 :href="`/admin/nodes/${nodeId}${tab.path}`"
-                class="rounded-button px-4 pt-3 pb-2 text-sm transition"
-                :class="
-                    active === tab.key
-                        ? 'bg-hive/10 font-black text-hive'
-                        : 'font-bold text-zinc-400 hover:bg-surface-light hover:text-white'
-                "
+                class="rounded-button px-4 pb-2 pt-3 text-sm transition"
+                :class="active === tab.key ? 'bg-hive/10 font-black text-hive' : 'font-bold text-zinc-400 hover:bg-surface-light hover:text-white'"
             >
                 <span class="inline-flex items-center gap-2">
                     <component :is="tab.icon" class="size-4" />

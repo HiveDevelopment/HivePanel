@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cells;
 
 use App\Enums\AuditEvent;
 use App\Models\Cell;
+use App\Models\CellDomain;
 use App\Models\NodeAllocation;
 use App\Services\AuditLogger;
 use App\Services\Cells\CellSyncService;
@@ -68,6 +69,9 @@ class CellNetworkController extends CellBaseController
             $allocations = NodeAllocation::where('node_id', $current->node_id)->whereIn('id', $data['allocation_ids'])->orderBy('id')->lockForUpdate()->get();
             if ($allocations->count() !== count($data['allocation_ids']) || $allocations->contains(fn ($allocation) => ($allocation->cell_id && $allocation->cell_id !== $current->id) || ($allocation->is_reserved && $allocation->cell_id !== $current->id))) {
                 throw ValidationException::withMessages(['allocation_ids' => 'One or more allocations are unavailable on this node.']);
+            }
+            if (CellDomain::where('cell_id', $current->id)->whereNotIn('allocation_id', $data['allocation_ids'])->exists()) {
+                throw ValidationException::withMessages(['allocation_ids' => 'Remove or retarget domain and proxy routes before releasing their allocation.']);
             }
             foreach ($allocations as $allocation) {
                 $allocation->update(['cell_id' => $current->id]);

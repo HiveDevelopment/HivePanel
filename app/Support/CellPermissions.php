@@ -42,6 +42,10 @@ class CellPermissions
     public const SETTINGS_VIEW = 'settings.view';
     public const SETTINGS_UPDATE = 'settings.update';
     public const STARTUP_UPDATE = 'startup.update';
+
+    public const DOMAINS_VIEW = 'domains.view';
+    public const DOMAINS_UPDATE = 'domains.update';
+
     public const NETWORK_UPDATE = 'network.update';
 
     public const SFTP_RESET = 'sftp.reset';
@@ -91,6 +95,10 @@ class CellPermissions
                 self::USERS_INVITE => 'Invite sub users',
                 self::USERS_UPDATE => 'Edit sub user permissions',
                 self::USERS_REMOVE => 'Remove sub users',
+            ],
+            'Domains & Proxies' => [
+                self::DOMAINS_VIEW => 'View domains and proxy routes', 
+                self::DOMAINS_UPDATE => 'Manage domains and proxy routes'
             ],
             'Settings' => [
                 self::SETTINGS_VIEW => 'View settings',
