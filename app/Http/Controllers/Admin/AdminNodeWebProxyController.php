@@ -22,7 +22,7 @@ class AdminNodeWebProxyController extends Controller
             $error = $e->errors()['domains'][0];
         }
 
-        return Inertia::render('Admin/Nodes/WebProxy', ['node' => ['id' => $node->id, 'name' => $node->name, 'public_fqdn' => $node->public_fqdn ?: $node->fqdn], 'status' => $status, 'connectionError' => $error]);
+        return Inertia::render('Admin/Nodes/WebProxy', ['node' => ['id' => $node->id, 'name' => $node->name, 'location' => $node->location, 'scheme' => $node->scheme, 'fqdn' => $node->fqdn, 'public_fqdn' => $node->public_fqdn ?: $node->fqdn], 'status' => $status, 'connectionError' => $error]);
     }
 
     public function update(Node $node, Request $request, WebProxyNodeClient $proxy)

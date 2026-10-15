@@ -10,7 +10,6 @@ defineProps<{
 }>();
 
 const tabs = [
-    { key: 'web-proxy', label: 'Web Proxy', path: '/web-proxy', icon: Globe },
     {
         key: 'overview',
         label: 'Overview',
@@ -28,6 +27,12 @@ const tabs = [
         label: 'Configuration',
         path: '/configuration',
         icon: SlidersHorizontal,
+    },
+    { 
+        key: 'web-proxy', 
+        label: 'Web Proxy',
+        path: '/web-proxy', 
+        icon: Globe 
     },
     {
         key: 'allocations',

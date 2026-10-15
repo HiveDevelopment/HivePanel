@@ -112,24 +112,17 @@ onMounted(() => (timer = setInterval(refresh, 10000)));
 onUnmounted(() => clearInterval(timer));
 </script>
 <template>
-    <AppLayout
-        context="server"
-        :active-cell="cell"
-        :breadcrumbs="[
-            { title: cell.name, href: `/cells/${cell.id}` },
-            { title: 'Domains & Proxies', href: base },
-        ]"
-    >
-        <Head title="Domains & Proxies" />
-        <div class="mx-auto w-full max-w-6xl space-y-6">
-            <header class="flex flex-wrap items-start justify-between gap-4">
-                <div class="flex gap-3">
-                    <div class="flex size-11 items-center justify-center rounded-panel border border-hive/20 bg-hive/10">
+    <AppLayout context="server" :active-cell="cell">
+        <Head :title="`${cell.name} - Domains & Proxies`" />
+        <main class="space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+            <section class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-white/[0.08] bg-surface px-5 py-5 sm:px-6">
+                <div class="flex items-center gap-4">
+                    <div class="flex size-11 items-center justify-center rounded-xl border border-hive/20 bg-hive/[0.06]">
                         <Globe class="size-5 text-hive" />
                     </div>
                     <div>
-                        <h1 class="text-2xl font-black text-white">Domains & Proxies</h1>
-                        <p class="mt-1 text-sm text-zinc-400">Give your website, web map or service its own address.</p>
+                        <h1 class="text-xl font-bold text-white">Domains & Proxies</h1>
+                        <p class="mt-1 text-xs text-zinc-500">Give your website, web map or service its own address.</p>
                     </div>
                 </div>
                 <button
@@ -139,7 +132,7 @@ onUnmounted(() => clearInterval(timer));
                 >
                     <Plus class="size-4" /> Add domain
                 </button>
-            </header>
+            </section>
             <div
                 v-if="connectionError || errors.length"
                 role="alert"
@@ -149,23 +142,23 @@ onUnmounted(() => clearInterval(timer));
                 <p v-for="error in errors" :key="String(error)">{{ error }}</p>
                 <button class="mt-2 font-bold underline" @click="refresh">Retry connection</button>
             </div>
-            <section v-if="!state?.enabled && !connectionError" class="rounded-panel border border-zinc-800 bg-surface p-8">
+            <section v-if="!state?.enabled && !connectionError" class="rounded-panel border border-white/[0.08] bg-surface p-5 sm:p-6">
                 <Globe class="mb-3 size-8 text-zinc-500" />
                 <h2 class="font-bold text-white">This node has no proxy enabled yet</h2>
-                <p class="mt-2 text-sm text-zinc-400">
+                <p class="mt-2 text-xs leading-5 text-zinc-500">
                     An administrator can enable it under Nodes → Web Proxy. Your Cell and its existing allocations continue to work.
                 </p>
             </section>
             <div v-if="state?.enabled" class="grid gap-3 sm:grid-cols-3">
-                <div class="rounded-panel border border-zinc-800 bg-surface p-4">
+                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
                     <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">DNS target</p>
                     <p class="mt-2 break-all font-mono text-sm text-zinc-200">{{ state.dns_address }}</p>
                 </div>
-                <div class="rounded-panel border border-zinc-800 bg-surface p-4">
+                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
                     <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">Website ports</p>
                     <p class="mt-2 text-sm text-zinc-200">HTTP {{ state.http_port }} · HTTPS {{ state.https_port }}</p>
                 </div>
-                <div class="rounded-panel border border-zinc-800 bg-surface p-4">
+                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
                     <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">Certificate management</p>
                     <p class="mt-2 text-sm text-zinc-200">
                         {{ state.https_available ? 'Automatic issuance & renewal' : 'Ask an administrator to enable HTTPS' }}
@@ -180,11 +173,11 @@ onUnmounted(() => clearInterval(timer));
                     and UDP routes use a dedicated public port.
                 </p>
             </section>
-            <section v-for="route in state?.routes ?? []" :key="route.id" class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
+            <section v-for="route in state?.routes ?? []" :key="route.id" class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-5">
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <h2 class="text-lg font-black text-white">{{ route.domain }}</h2>
+                            <h2 class="text-sm font-semibold text-white">{{ route.domain }}</h2>
                             <span class="rounded-button bg-surface-light px-2 py-1 text-[10px] font-black uppercase text-zinc-400">{{
                                 route.protocol === 'http' ? (route.https ? 'HTTPS' : 'HTTP') : route.protocol
                             }}</span
@@ -294,10 +287,12 @@ onUnmounted(() => clearInterval(timer));
                 The service must listen on its selected Cell port and on 0.0.0.0. HTTPS validation needs public port 80 to reach this node. TCP and
                 UDP hostnames must resolve directly to the node; standard Cloudflare HTTP proxying cannot carry these routes.
             </p>
-            <Link :href="`/cells/${cell.id}/network`" class="inline-flex items-center gap-2 text-sm font-bold text-hive"
+            <Link
+                :href="`/cells/${cell.id}/network`"
+                class="inline-flex items-center gap-2 rounded-button border border-white/[0.08] bg-surface px-4 py-2.5 text-xs font-semibold text-zinc-300 transition hover:border-hive/30 hover:text-hive"
                 >Manage Cell allocations <ArrowUpRight class="size-4"
             /></Link>
-        </div>
+        </main>
         <Teleport to="body"
             ><div
                 v-if="editor"
@@ -309,7 +304,7 @@ onUnmounted(() => clearInterval(timer));
                     @submit.prevent="save"
                 >
                     <header class="flex items-center justify-between border-b border-zinc-800 px-6 py-5">
-                        <h2 class="text-lg font-black text-white">{{ form.id ? 'Edit route' : 'Add domain' }}</h2>
+                        <h2 class="text-sm font-semibold text-white">{{ form.id ? 'Edit route' : 'Add domain' }}</h2>
                         <button type="button" aria-label="Close" :disabled="form.processing" @click="editor = false">
                             <X class="size-5 text-zinc-500" />
                         </button>
