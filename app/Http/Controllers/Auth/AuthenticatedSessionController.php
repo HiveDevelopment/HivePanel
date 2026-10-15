@@ -74,7 +74,99 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return redirect()->to(
+            $this->resolveIntendedRedirect($request)
+        );
+    }
+
+    /**
+     * Resolve a safe post-login destination.
+     *
+     * Only relative application paths or URLs matching the
+     * configured application origin are accepted.
+     */
+    private function resolveIntendedRedirect(Request $request): string
+    {
+        $fallback = route('dashboard', absolute: false);
+
+        $intended = $request->session()->pull('url.intended');
+
+        if (! is_string($intended) || $intended === '') {
+            return $fallback;
+        }
+
+        // Reject protocol-relative URLs, backslashes and
+        // control characters to prevent redirect ambiguity.
+        if (
+            str_starts_with($intended, '//') ||
+            str_contains($intended, '\\') ||
+            preg_match('/[\x00-\x1F\x7F]/', $intended)
+        ) {
+            return $fallback;
+        }
+
+        // Allow local application paths.
+        if (str_starts_with($intended, '/')) {
+            return $intended;
+        }
+
+        $appUrl = config('app.url');
+
+        if (! is_string($appUrl) || $appUrl === '') {
+            return $fallback;
+        }
+
+        $app = parse_url($appUrl);
+        $target = parse_url($intended);
+
+        if ($app === false || $target === false) {
+            return $fallback;
+        }
+
+        $appHost = $app['host'] ?? null;
+        $targetHost = $target['host'] ?? null;
+        $targetScheme = strtolower($target['scheme'] ?? '');
+
+        if (
+            ! $appHost ||
+            ! $targetHost ||
+            ! in_array($targetScheme, ['http', 'https'], true) ||
+            strcasecmp($appHost, $targetHost) !== 0 ||
+            isset($target['user']) ||
+            isset($target['pass'])
+        ) {
+            return $fallback;
+        }
+
+        // Keep redirects on the configured application port.
+        $appPort = $app['port'] ?? null;
+        $targetPort = $target['port'] ?? null;
+
+        if ($appPort !== $targetPort) {
+            return $fallback;
+        }
+
+        // Return a relative URL so the browser preserves
+        // the current HTTPS origin behind reverse proxies.
+        $path = $target['path'] ?? '/';
+
+        if (
+            ! str_starts_with($path, '/') ||
+            str_starts_with($path, '//') ||
+            str_contains($path, '\\')
+        ) {
+            return $fallback;
+        }
+
+        $query = isset($target['query'])
+            ? '?'.$target['query']
+            : '';
+
+        $fragment = isset($target['fragment'])
+            ? '#'.$target['fragment']
+            : '';
+
+        return $path.$query.$fragment;
     }
 
     /**
