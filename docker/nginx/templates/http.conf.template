@@ -1,3 +1,11 @@
+# Preserve HTTPS information from a trusted upstream reverse proxy.
+# Only expose this HTTP listener to trusted reverse proxies.
+map $http_x_forwarded_proto $hivepanel_forwarded_proto {
+    default $scheme;
+    ~*^https$ https;
+    ~*^http$ http;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -26,7 +34,7 @@ server {
         fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
         fastcgi_param SCRIPT_NAME /index.php;
         fastcgi_param HTTP_PROXY "";
-        fastcgi_param X-Forwarded-Proto $scheme;
+        fastcgi_param HTTP_X_FORWARDED_PROTO $hivepanel_forwarded_proto;
         fastcgi_pass $hivepanel_fastcgi;
         fastcgi_read_timeout 120s;
     }
