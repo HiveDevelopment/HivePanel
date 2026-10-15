@@ -5,21 +5,16 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditEvent;
 use App\Http\Controllers\Controller;
 use App\Models\Cell;
-use App\Models\CellDomain;
 use App\Models\Comb;
 use App\Models\Node;
 use App\Models\NodeAllocation;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\Cells\CellProvisioningService;
-use App\Services\Cells\CellShutdownService;
 use App\Services\Cells\CellSyncService;
 use App\Services\Node\CellNodeClient;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Throwable;
 
@@ -70,8 +65,10 @@ class AdminCellController extends Controller
                     'external_id' => $comb->external_id,
                     'name' => $comb->name,
                     'game' => $comb->game,
+                    'category' => $comb->category(),
+                    'group' => $comb->group(),
                     'source' => $comb->source,
-                    'data' => [...(array) $comb->data, 'variables_schema' => app(CellShutdownService::class)->variableSchema((array) $comb->data)],
+                    'data' => [...(array) $comb->data, 'variables_schema' => app(\App\Services\Cells\CellShutdownService::class)->variableSchema((array) $comb->data)],
                 ]),
 
             'users' => User::query()
@@ -94,7 +91,7 @@ class AdminCellController extends Controller
                     'ip' => $allocation->ip,
                     'port' => $allocation->port,
                     'alias' => $allocation->alias,
-                    'label' => "{$allocation->ip}:{$allocation->port}".($allocation->alias ? " ({$allocation->alias})" : ''),
+                    'label' => "{$allocation->ip}:{$allocation->port}" . ($allocation->alias ? " ({$allocation->alias})" : ''),
                 ]),
         ]);
     }
@@ -233,7 +230,7 @@ class AdminCellController extends Controller
         return Inertia::render('Admin/Cells/Edit', [
             'cell' => $this->cellPayload($cell),
             'editState' => $editState,
-            'variableSchema' => collect(app(CellShutdownService::class)->variableSchema((array) (Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data ?? [])))
+            'variableSchema' => collect(app(\App\Services\Cells\CellShutdownService::class)->variableSchema((array) (Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data ?? [])))
                 ->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']))
                 ->values()
                 ->all(),
@@ -254,7 +251,7 @@ class AdminCellController extends Controller
                         'alias' => $allocation->alias,
                         'assigned_to_cell' => (string) $allocation->cell_id === (string) $cell->id,
                         'primary' => (string) $allocation->id === (string) $cell->primary_allocation_id,
-                        'label' => "{$allocation->ip}:{$allocation->port}".($allocation->alias ? " ({$allocation->alias})" : ''),
+                        'label' => "{$allocation->ip}:{$allocation->port}" . ($allocation->alias ? " ({$allocation->alias})" : ''),
                     ])
                     ->values()
                 : [],
@@ -298,9 +295,7 @@ class AdminCellController extends Controller
         $submittedVariables = collect($data['variables'] ?? [])->only($editableNames)->map(fn ($value) => (string) ($value ?? ''))->all();
         foreach ($schema as $variable) {
             $name = $variable['name'];
-            if (! in_array($name, $editableNames, true)) {
-                continue;
-            }
+            if (! in_array($name, $editableNames, true)) continue;
             if (! empty($variable['required']) && trim($submittedVariables[$name] ?? '') === '') {
                 return back()->withErrors(["variables.{$name}" => 'This variable is required.']);
             }
@@ -350,7 +345,7 @@ class AdminCellController extends Controller
         ];
 
         try {
-            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata, $submittedVariables): void {
+            DB::transaction(function () use ($cell, $data, $additionalIds, $oldMetadata, $submittedVariables, $running): void {
                 $lockedCell = Cell::query()->whereKey($cell->getKey())->lockForUpdate()->firstOrFail();
                 $oldMetadata = (array) $lockedCell->metadata;
                 $requestedIds = collect([
@@ -380,9 +375,7 @@ class AdminCellController extends Controller
 
                 abort_unless($primaryAllocation, 422, 'The selected primary allocation is not available.');
 
-                if (CellDomain::where('cell_id', $cell->id)->whereNotIn('allocation_id', $requestedIds)->exists()) {
-                    throw ValidationException::withMessages(['allocation_id' => 'Remove or retarget domain and proxy routes before releasing their allocation.']);
-                }
+                if (\App\Models\CellDomain::where('cell_id',$cell->id)->whereNotIn('allocation_id',$requestedIds)->exists()) throw \Illuminate\Validation\ValidationException::withMessages(['allocation_id'=>'Remove or retarget domain and proxy routes before releasing their allocation.']);
 
                 // Retain previous ownership until the Worker acknowledges the
                 // new definition; a concurrent start can still use those ports.
@@ -542,7 +535,7 @@ class AdminCellController extends Controller
         if ($cell->daemon_id && $cell->node) {
             try {
                 $cells->deleteCell($cell);
-            } catch (RequestException $exception) {
+            } catch (\Illuminate\Http\Client\RequestException $exception) {
                 $message = 'The worker could not delete this Cell. Please try again.';
                 if ($exception->response->status() === 400 && str_contains(strtolower($exception->response->body()), 'cell must be stopped')) {
                     $message = 'Stop the Cell before deleting it.';
@@ -551,7 +544,7 @@ class AdminCellController extends Controller
                 }
 
                 return back()->withErrors(['worker' => $message]);
-            } catch (ConnectionException $exception) {
+            } catch (\Illuminate\Http\Client\ConnectionException $exception) {
                 report($exception);
 
                 return back()->withErrors(['worker' => 'The worker could not be reached. The Cell has not been deleted. Check the node connection and try again.']);

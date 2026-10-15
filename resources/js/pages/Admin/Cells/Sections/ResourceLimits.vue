@@ -105,7 +105,7 @@ function checkedValue(event: Event) {
                         type="number"
                         min="0"
                         max="1000"
-                        step="10"
+                        step="1"
                         class="w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 pr-12 text-sm font-bold text-white outline-none transition focus:border-hive"
                         @input="emit('update:cpuPercent', numberValue($event))"
                     />
@@ -177,7 +177,7 @@ function checkedValue(event: Event) {
                     type="number"
                     min="10"
                     max="1000"
-                    step="10"
+                    step="1"
                     class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive"
                     @input="emit('update:ioWeight', numberValue($event))"
                 />

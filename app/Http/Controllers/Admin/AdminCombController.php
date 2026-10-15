@@ -223,6 +223,14 @@ class AdminCombController extends Controller
         array $data
     ): array {
         $validator = Validator::make($manifest, [
+            'recommended_resources' => ['sometimes', 'array:memory_mb,overhead_memory_mb,swap_mb,disk_mb,cpu_percent,io_weight'],
+            'recommended_resources.memory_mb' => ['sometimes', 'integer', 'min:0'],
+            'recommended_resources.overhead_memory_mb' => ['sometimes', 'integer', 'min:0'],
+            'recommended_resources.swap_mb' => ['sometimes', 'integer', 'min:-1'],
+            'recommended_resources.disk_mb' => ['sometimes', 'integer', 'min:0'],
+            'recommended_resources.cpu_percent' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'recommended_resources.io_weight' => ['sometimes', 'integer', 'min:10', 'max:1000'],
+            'shell' => ['sometimes', Rule::in(['sh', 'bash'])],
             'console_commands' => ['sometimes', 'array', 'max:50'],
             'console_commands.*' => ['string', 'max:200', 'regex:/^[^\r\n]+$/'],
             'stop' => ['sometimes', 'array'],

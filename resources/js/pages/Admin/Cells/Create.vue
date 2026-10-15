@@ -4,6 +4,7 @@ import DeploySummary from './Sections/DeploySummary.vue'
 import NodeSelector from './Sections/NodeSelector.vue'
 import ResourceLimits from './Sections/ResourceLimits.vue'
 import AppLayout from '@/layouts/AppLayout.vue'
+import { combGroupLabel, defaultResources, nextResources, resourceRecommendations } from '@/composables/combCreation'
 import { Head, Link, router, useForm } from '@inertiajs/vue3'
 import {
     ArrowLeft,
@@ -34,6 +35,8 @@ type CombRecord = {
     external_id: string
     name: string
     game: string
+    category?: string
+    group?: string
     source?: string
     data?: any
 }
@@ -67,13 +70,8 @@ const form = useForm({
     version: '',
     skip_install_script: false,
 
-    memory_mb: 2048,
-    overhead_memory_mb: 0,
-    swap_mb: 0,
-    disk_mb: 10240,
-    cpu_percent: 100,
+    ...defaultResources,
     cpu_pinning: '',
-    io_weight: 500,
     oom_killer: true,
     exclude_from_resource_calculation: false,
 
@@ -168,7 +166,7 @@ const filteredUsers = computed(() => {
 
 const groupedCombs = computed(() => {
     return props.combs.reduce<Record<string, CombRecord[]>>((groups, comb) => {
-        const game = comb.game || 'Other'
+        const game = combGroupLabel(comb)
 
         if (!groups[game]) groups[game] = []
 
@@ -177,6 +175,15 @@ const groupedCombs = computed(() => {
         return groups
     }, {})
 })
+
+const recommendedResources = computed(() => resourceRecommendations(selectedComb.value?.data ?? {}))
+const hasResourceRecommendations = computed(() => Object.keys(recommendedResources.value).length > 0)
+let automaticResources = { ...defaultResources }
+function applyResourceRecommendations(force = false) {
+    const next = nextResources(form, automaticResources, recommendedResources.value, force)
+    Object.assign(form, next.values)
+    automaticResources = next.automatic
+}
 
 const canContinue = computed(() => {
     if (currentStep.value === 1) {
@@ -240,6 +247,7 @@ watch(
 )
 
 watch(selectedComb, (comb) => {
+    applyResourceRecommendations()
     const data = comb?.data ?? {};
 
     form.docker_image = String(data.docker?.image ?? data.image ?? '');
@@ -677,18 +685,26 @@ function submit() {
                                 </div>
                             </section>
 
-                            <ResourceLimits
-                                v-if="currentStep === 4"
-                                v-model:memory-mb="form.memory_mb"
-                                v-model:overhead-memory-mb="form.overhead_memory_mb"
-                                v-model:swap-mb="form.swap_mb"
-                                v-model:disk-mb="form.disk_mb"
-                                v-model:cpu-percent="form.cpu_percent"
-                                v-model:cpu-pinning="form.cpu_pinning"
-                                v-model:io-weight="form.io_weight"
-                                v-model:oom-killer="form.oom_killer"
-                                v-model:exclude-from-resource-calculation="form.exclude_from_resource_calculation"
-                            />
+                            <div v-if="currentStep === 4" class="space-y-5">
+                                <section class="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-hive/20 bg-hive/5 p-5">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white">{{ hasResourceRecommendations ? 'Comb resource recommendations' : 'Resource limits' }}</h3>
+                                        <p class="mt-1 text-xs leading-5 text-zinc-400">{{ hasResourceRecommendations ? `${selectedComb?.name} provides starting values. Your manual changes are kept when switching Combs; you can reapply its suggestions below.` : 'This Comb has no resource recommendations. Generic defaults are provided; adjust them for your workload.' }}</p>
+                                    </div>
+                                    <button v-if="hasResourceRecommendations" type="button" class="shrink-0 rounded-button border border-hive/30 bg-hive/10 px-4 py-2 text-xs font-bold text-hive" @click="applyResourceRecommendations(true)">Use Comb recommendations</button>
+                                </section>
+                                <ResourceLimits
+                                    v-model:memory-mb="form.memory_mb"
+                                    v-model:overhead-memory-mb="form.overhead_memory_mb"
+                                    v-model:swap-mb="form.swap_mb"
+                                    v-model:disk-mb="form.disk_mb"
+                                    v-model:cpu-percent="form.cpu_percent"
+                                    v-model:cpu-pinning="form.cpu_pinning"
+                                    v-model:io-weight="form.io_weight"
+                                    v-model:oom-killer="form.oom_killer"
+                                    v-model:exclude-from-resource-calculation="form.exclude_from_resource_calculation"
+                                />
+                            </div>
 
                             <section v-if="currentStep === 5" class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
                                 <div class="mb-5 flex items-center gap-3">
@@ -762,7 +778,7 @@ function submit() {
                             :allocation="selectedAllocation"
                             :additional-allocations="selectedAdditionalAllocations"
                             :name="form.name"
-                            :comb="selectedComb ? `${selectedComb.game} / ${selectedComb.name}` : ''"
+                            :comb="selectedComb ? `${combGroupLabel(selectedComb)} / ${selectedComb.name}` : ''"
                             :version="hasVersion ? form.version : ''"
                             :owner-email="form.owner_email"
                             :memory-mb="form.memory_mb"
