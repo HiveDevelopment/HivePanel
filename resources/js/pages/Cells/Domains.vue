@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import DomainRouteCard from '@/components/DomainRouteCard.vue';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
+import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { ArrowUpRight, Check, Copy, Globe, LoaderCircle, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-vue-next';
+import { ArrowUpRight, Globe, Plus, X } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 const props = defineProps<{ cell: any; proxy: any; connectionError: string; allocations: any[]; canEdit: boolean }>();
 const state = ref(props.proxy);
@@ -20,14 +22,21 @@ const form = useForm({
     protocol: 'http',
     public_port: 0,
     https: false,
-    redirect: true,
+    redirect: true as boolean,
     max_body_mb: 32,
 });
 const pool = computed<number[]>(() => state.value?.[form.protocol === 'udp' ? 'udp_ports' : 'tcp_ports'] ?? []);
 const errors = computed(() => Object.values({ ...page.props.errors, ...form.errors }));
-function create() {
+const webRoutes = computed(() => state.value?.routes?.filter((route: any) => route.protocol === 'http') ?? []);
+const serviceRoutes = computed(() => state.value?.routes?.filter((route: any) => route.protocol !== 'http') ?? []);
+const advanced = ref(false);
+function create(protocol: 'http' | 'tcp' = 'http') {
     form.reset();
     form.clearErrors();
+    form.protocol = protocol;
+    form.https = protocol === 'http' && Boolean(state.value?.https_available);
+    form.allocation_id = props.allocations.find((a) => a.id === props.cell.primary_allocation_id)?.id ?? props.allocations[0]?.id ?? '';
+    advanced.value = false;
     editor.value = true;
 }
 function edit(route: any) {
@@ -42,6 +51,7 @@ function edit(route: any) {
         redirect: route.redirect,
         max_body_mb: route.max_body_mb,
     });
+    advanced.value = false;
     editor.value = true;
 }
 function save() {
@@ -115,182 +125,118 @@ onUnmounted(() => clearInterval(timer));
     <AppLayout context="server" :active-cell="cell">
         <Head :title="`${cell.name} - Domains & Proxies`" />
         <main class="space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-            <section class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-white/[0.08] bg-surface px-5 py-5 sm:px-6">
+            <section
+                class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-foreground/[0.08] bg-surface px-5 py-5 sm:px-6"
+            >
                 <div class="flex items-center gap-4">
                     <div class="flex size-11 items-center justify-center rounded-xl border border-hive/20 bg-hive/[0.06]">
                         <Globe class="size-5 text-hive" />
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold text-white">Domains & Proxies</h1>
-                        <p class="mt-1 text-xs text-zinc-500">Give your website, web map or service its own address.</p>
+                        <h1 class="text-xl font-bold text-foreground">{{ t('ui.domains_proxies') }}</h1>
+                        <p class="mt-1 text-xs text-muted-foreground">{{ t('ui.give_your_website_web_map_or_service_its_own_address') }}</p>
                     </div>
                 </div>
                 <button
                     v-if="canEdit && state?.enabled"
-                    class="inline-flex items-center gap-2 rounded-button bg-hive px-4 py-2.5 text-sm font-bold text-white"
-                    @click="create"
+                    class="inline-flex items-center gap-2 rounded-button bg-hive px-4 py-2.5 text-sm font-bold text-primary-foreground"
+                    @click="create()"
                 >
-                    <Plus class="size-4" /> Add domain
+                    <Plus class="size-4" /> {{ t('ui.add_domain') }}
                 </button>
             </section>
             <div
                 v-if="connectionError || errors.length"
                 role="alert"
-                class="rounded-panel border border-status-danger/30 bg-status-danger/10 p-4 text-sm text-red-200"
+                class="rounded-panel border border-status-danger/30 bg-status-danger/10 p-4 text-sm text-status-danger"
             >
                 <p v-if="connectionError">{{ connectionError }}</p>
                 <p v-for="error in errors" :key="String(error)">{{ error }}</p>
-                <button class="mt-2 font-bold underline" @click="refresh">Retry connection</button>
+                <button class="mt-2 font-bold underline" @click="refresh">{{ t('ui.retry_connection') }}</button>
             </div>
-            <section v-if="!state?.enabled && !connectionError" class="rounded-panel border border-white/[0.08] bg-surface p-5 sm:p-6">
-                <Globe class="mb-3 size-8 text-zinc-500" />
-                <h2 class="font-bold text-white">This node has no proxy enabled yet</h2>
-                <p class="mt-2 text-xs leading-5 text-zinc-500">
-                    An administrator can enable it under Nodes → Web Proxy. Your Cell and its existing allocations continue to work.
+            <section v-if="!state?.enabled && !connectionError" class="rounded-panel border border-foreground/[0.08] bg-surface p-5 sm:p-6">
+                <Globe class="mb-3 size-8 text-muted-foreground" />
+                <h2 class="font-bold text-foreground">{{ t('ui.this_node_has_no_proxy_enabled_yet') }}</h2>
+                <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                    {{ t('ui.an_administrator_can_enable_it_under_nodes_web_proxy_your_cell_an') }}
                 </p>
             </section>
             <div v-if="state?.enabled" class="grid gap-3 sm:grid-cols-3">
-                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
-                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">DNS target</p>
-                    <p class="mt-2 break-all font-mono text-sm text-zinc-200">{{ state.dns_address }}</p>
+                <div class="rounded-panel border border-foreground/[0.08] bg-surface p-5">
+                    <p class="text-xs font-bold uppercase tracking-wider text-muted-foreground">{{ t('ui.dns_target') }}</p>
+                    <p class="mt-2 break-all font-mono text-sm text-foreground">{{ state.dns_address }}</p>
                 </div>
-                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
-                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">Website ports</p>
-                    <p class="mt-2 text-sm text-zinc-200">HTTP {{ state.http_port }} · HTTPS {{ state.https_port }}</p>
+                <div class="rounded-panel border border-foreground/[0.08] bg-surface p-5">
+                    <p class="text-xs font-bold uppercase tracking-wider text-muted-foreground">{{ t('ui.website_ports') }}</p>
+                    <p class="mt-2 text-sm text-foreground">{{ t('ui.http') }} {{ state.http_port }} {{ t('ui.https') }} {{ state.https_port }}</p>
                 </div>
-                <div class="rounded-panel border border-white/[0.08] bg-surface p-5">
-                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">Certificate management</p>
-                    <p class="mt-2 text-sm text-zinc-200">
+                <div class="rounded-panel border border-foreground/[0.08] bg-surface p-5">
+                    <p class="text-xs font-bold uppercase tracking-wider text-muted-foreground">{{ t('ui.certificate_management') }}</p>
+                    <p class="mt-2 text-sm text-foreground">
                         {{ state.https_available ? 'Automatic issuance & renewal' : 'Ask an administrator to enable HTTPS' }}
                     </p>
                 </div>
             </div>
-            <section v-if="state?.enabled && !state.routes.length" class="rounded-panel border border-dashed border-zinc-700 p-10 text-center">
-                <Globe class="mx-auto mb-3 size-8 text-zinc-500" />
-                <h2 class="font-bold text-white">A home for your service</h2>
-                <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
-                    Add a domain, select the Cell port it should reach, then verify your DNS record. HTTP domains share the node’s website ports. TCP
-                    and UDP routes use a dedicated public port.
+            <section v-if="state?.enabled && !webRoutes.length" class="rounded-panel border border-dashed border-border p-10 text-center">
+                <Globe class="mx-auto mb-3 size-8 text-muted-foreground" />
+                <h2 class="font-bold text-foreground">{{ t('ui.a_home_for_your_service') }}</h2>
+                <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+                    {{ t('ui.add_a_domain_select_the_cell_port_it_should_reach_then_verify_you') }}
                 </p>
             </section>
-            <section v-for="route in state?.routes ?? []" :key="route.id" class="overflow-hidden rounded-panel border border-white/[0.08] bg-surface">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 p-5">
-                    <div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h2 class="text-sm font-semibold text-white">{{ route.domain }}</h2>
-                            <span class="rounded-button bg-surface-light px-2 py-1 text-[10px] font-black uppercase text-zinc-400">{{
-                                route.protocol === 'http' ? (route.https ? 'HTTPS' : 'HTTP') : route.protocol
-                            }}</span
-                            ><span class="text-xs" :class="route.verified ? 'text-emerald-400' : 'text-amber-400'">{{
-                                route.verified ? 'Ownership verified' : 'DNS verification needed'
-                            }}</span>
-                        </div>
-                        <p class="mt-1 text-xs text-zinc-500">
-                            Cell port {{ route.port ?? allocations.find((a) => a.id === route.allocation_id)?.port
-                            }}<span v-if="route.protocol !== 'http'"> · Public port {{ route.public_port }}</span>
-                        </p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <a
-                            v-if="route.verified && route.protocol === 'http' && (!route.https || route.certificate_state === 'ready')"
-                            :href="url(route)"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="rounded-button border border-zinc-700 p-2 text-zinc-300"
-                            aria-label="Open website"
-                            ><ArrowUpRight class="size-4" /></a
-                        ><button
-                            v-if="canEdit"
-                            class="rounded-button border border-zinc-700 p-2 text-zinc-400"
-                            aria-label="Edit route"
-                            @click="edit(route)"
-                        >
-                            <Pencil class="size-4" /></button
-                        ><button
-                            v-if="canEdit"
-                            class="rounded-button border border-zinc-700 p-2 text-zinc-400 hover:text-red-400"
-                            aria-label="Remove route"
-                            @click="remove = route"
-                        >
-                            <Trash2 class="size-4" />
-                        </button>
-                    </div>
-                </div>
-                <div class="space-y-4 p-5">
-                    <div v-if="route.error" class="rounded-button bg-status-danger/10 p-3 text-sm text-red-300">{{ route.error }}</div>
-                    <div v-if="!route.verified" class="space-y-3">
-                        <p class="text-sm text-zinc-400">
-                            Point this hostname to <strong class="font-mono text-zinc-200">{{ state.dns_address }}</strong> using an A/AAAA or CNAME
-                            record. Add this TXT record to prove ownership:
-                        </p>
-                        <div class="grid gap-3 rounded-button border border-zinc-800 bg-surface-light p-3 sm:grid-cols-[1fr_1.5fr_auto]">
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-zinc-500">TXT name</p>
-                                <p class="mt-1 break-all font-mono text-xs text-zinc-300">_hivepanel.{{ route.domain }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase text-zinc-500">TXT value</p>
-                                <p class="mt-1 break-all font-mono text-xs text-zinc-300">
-                                    hivepanel-verification={{ route.verification_token || 'Save this route again to generate a token' }}
-                                </p>
-                            </div>
-                            <button
-                                v-if="route.verification_token"
-                                class="self-center text-zinc-400"
-                                aria-label="Copy TXT value"
-                                @click="copy('hivepanel-verification=' + route.verification_token)"
-                            >
-                                <Check v-if="copied === 'hivepanel-verification=' + route.verification_token" class="size-4 text-hive" /><Copy
-                                    v-else
-                                    class="size-4"
-                                />
-                            </button>
-                        </div>
-                        <button
-                            v-if="canEdit && route.verification_token"
-                            :disabled="busy === route.id"
-                            class="inline-flex items-center gap-2 rounded-button bg-hive/10 px-4 py-2 text-sm font-bold text-hive disabled:opacity-50"
-                            @click="action(route, 'verify')"
-                        >
-                            <LoaderCircle v-if="busy === route.id" class="size-4 animate-spin" /><ShieldCheck v-else class="size-4" /> Verify DNS
-                        </button>
-                    </div>
-                    <div v-if="route.verified && route.https" class="flex flex-wrap items-center justify-between gap-3">
-                        <p class="text-sm text-zinc-400">
-                            <ShieldCheck class="mr-1 inline size-4" /> Certificate:
-                            <span class="font-bold text-zinc-200">{{ route.certificate_state }}</span
-                            ><span v-if="route.certificate_expires" class="ml-2 text-xs"
-                                >Expires {{ new Date(route.certificate_expires).toLocaleDateString() }}</span
-                            >
-                        </p>
-                        <button
-                            v-if="canEdit && ['failed', 'none'].includes(route.certificate_state)"
-                            :disabled="busy === route.id"
-                            class="inline-flex items-center gap-2 rounded-button border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-200"
-                            @click="action(route, 'certificate')"
-                        >
-                            <RefreshCw class="size-3" /> Request certificate
-                        </button>
-                    </div>
-                    <p v-if="route.protocol === 'tcp'" class="text-xs leading-5 text-zinc-500">
-                        Connect to {{ route.domain }}:{{ route.public_port }}. For Minecraft Java, an optional SRV record named _minecraft._tcp.{{
-                            route.domain
-                        }}
-                        with value “0 5 {{ route.public_port }} {{ route.domain }}” lets players use the hostname alone.
+            <DomainRouteCard
+                v-for="route in webRoutes"
+                :key="route.id"
+                :route="route"
+                :proxy="state"
+                :allocations="allocations"
+                :can-edit="canEdit"
+                :busy="busy"
+                :copied="copied"
+                @edit="edit"
+                @remove="remove = $event"
+                @action="action"
+                @copy="copy"
+            />
+            <details v-if="state?.enabled" class="rounded-panel border border-border bg-surface p-5">
+                <summary class="cursor-pointer text-sm font-bold text-foreground">
+                    {{ t('ui.advanced_service_proxies') }} <span class="ml-2 text-xs font-normal text-muted-foreground">{{ t('ui.tcp_udp') }}</span>
+                </summary>
+                <div class="mt-4 space-y-4">
+                    <p class="text-xs leading-5 text-muted-foreground">
+                        {{ t('ui.use_these_for_raw_game_or_service_traffic_websites_and_minecraft_') }}
                     </p>
-                    <p v-if="route.protocol === 'udp'" class="text-xs leading-5 text-zinc-500">
-                        This UDP service is available at {{ route.domain }}:{{ route.public_port }}. Set this port in your client.
-                    </p>
+                    <button
+                        v-if="canEdit"
+                        type="button"
+                        class="rounded-button border border-border px-4 py-2 text-xs font-bold text-foreground"
+                        @click="create('tcp')"
+                    >
+                        {{ t('ui.add_service_proxy') }}
+                    </button>
+                    <DomainRouteCard
+                        v-for="route in serviceRoutes"
+                        :key="route.id"
+                        :route="route"
+                        :proxy="state"
+                        :allocations="allocations"
+                        :can-edit="canEdit"
+                        :busy="busy"
+                        :copied="copied"
+                        @edit="edit"
+                        @remove="remove = $event"
+                        @action="action"
+                        @copy="copy"
+                    />
                 </div>
-            </section>
-            <p v-if="state?.enabled" class="text-xs leading-5 text-zinc-500">
-                The service must listen on its selected Cell port and on 0.0.0.0. HTTPS validation needs public port 80 to reach this node. TCP and
-                UDP hostnames must resolve directly to the node; standard Cloudflare HTTP proxying cannot carry these routes.
+            </details>
+            <p v-if="state?.enabled" class="text-xs leading-5 text-muted-foreground">
+                {{ t('ui.the_service_must_listen_on_its_selected_cell_port_and_on_0_0_0_0_') }}
             </p>
             <Link
                 :href="`/cells/${cell.id}/network`"
-                class="inline-flex items-center gap-2 rounded-button border border-white/[0.08] bg-surface px-4 py-2.5 text-xs font-semibold text-zinc-300 transition hover:border-hive/30 hover:text-hive"
-                >Manage Cell allocations <ArrowUpRight class="size-4"
+                class="inline-flex items-center gap-2 rounded-button border border-foreground/[0.08] bg-surface px-4 py-2.5 text-xs font-semibold text-foreground transition hover:border-hive/30 hover:text-hive"
+                >{{ t('ui.manage_cell_allocations') }} <ArrowUpRight class="size-4"
             /></Link>
         </main>
         <Teleport to="body"
@@ -300,83 +246,107 @@ onUnmounted(() => clearInterval(timer));
                 @click.self="!form.processing && (editor = false)"
             >
                 <form
-                    class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-panel border border-zinc-800 bg-surface shadow-2xl"
+                    class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-panel border border-border bg-surface shadow-2xl"
                     @submit.prevent="save"
                 >
-                    <header class="flex items-center justify-between border-b border-zinc-800 px-6 py-5">
-                        <h2 class="text-sm font-semibold text-white">{{ form.id ? 'Edit route' : 'Add domain' }}</h2>
-                        <button type="button" aria-label="Close" :disabled="form.processing" @click="editor = false">
-                            <X class="size-5 text-zinc-500" />
+                    <header class="flex items-center justify-between border-b border-border px-6 py-5">
+                        <h2 class="text-sm font-semibold text-foreground">
+                            {{ form.id ? 'Edit route' : form.protocol === 'http' ? 'Add domain' : 'Add service proxy' }}
+                        </h2>
+                        <button type="button" :aria-label="t('ui.close')" :disabled="form.processing" @click="editor = false">
+                            <X class="size-5 text-muted-foreground" />
                         </button>
                     </header>
                     <div class="space-y-5 p-6">
-                        <div v-if="Object.keys(form.errors).length" class="text-sm text-red-300">
+                        <div v-if="Object.keys(form.errors).length" class="text-sm text-status-danger">
                             <p v-for="error in form.errors" :key="error">{{ error }}</p>
                         </div>
-                        <label class="block text-xs font-bold text-zinc-400"
-                            >Hostname<input
+                        <label class="block text-xs font-bold text-muted-foreground"
+                            >{{ t('ui.hostname')
+                            }}<input
                                 v-model="form.domain"
                                 :readonly="Boolean(form.id)"
-                                placeholder="www.example.com"
+                                :placeholder="t('ui.www_example_com')"
                                 required
-                                class="mt-2 w-full rounded-button border border-zinc-700 bg-surface-light p-3 text-sm text-white"
+                                class="mt-2 w-full rounded-button border border-border bg-surface-light p-3 text-sm text-foreground"
                         /></label>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="block text-xs font-bold text-zinc-400"
-                                >Service<select
+                            <label v-if="form.protocol !== 'http'" class="block text-xs font-bold text-muted-foreground"
+                                >{{ t('ui.protocol')
+                                }}<select
                                     v-model="form.protocol"
-                                    class="mt-2 w-full rounded-button border border-zinc-700 bg-surface-light p-3 text-sm text-white"
+                                    class="mt-2 w-full rounded-button border border-border bg-surface-light p-3 text-sm text-foreground"
                                 >
-                                    <option value="http">Website / HTTP / web map</option>
-                                    <option value="tcp">TCP service / Minecraft Java</option>
-                                    <option value="udp">UDP service / Minecraft Bedrock</option>
+                                    <option value="tcp">{{ t('ui.tcp') }}</option>
+                                    <option value="udp">{{ t('ui.udp') }}</option>
                                 </select></label
-                            ><label class="block text-xs font-bold text-zinc-400"
-                                >Cell allocation<select
+                            ><label class="block text-xs font-bold text-muted-foreground"
+                                >{{ t('ui.cell_allocation')
+                                }}<select
                                     v-model="form.allocation_id"
                                     required
-                                    class="mt-2 w-full rounded-button border border-zinc-700 bg-surface-light p-3 text-sm text-white"
+                                    class="mt-2 w-full rounded-button border border-border bg-surface-light p-3 text-sm text-foreground"
                                 >
                                     <option v-for="allocation in allocations" :key="allocation.id" :value="allocation.id">
-                                        Port {{ allocation.port }} {{ allocation.alias ? `· ${allocation.alias}` : '' }}
+                                        {{ t('ui.port') }} {{ allocation.port }} {{ allocation.alias ? `· ${allocation.alias}` : '' }}
                                     </option>
                                 </select></label
                             >
                         </div>
-                        <label v-if="form.protocol !== 'http'" class="block text-xs font-bold text-zinc-400"
-                            >Dedicated public port<select
+                        <label v-if="form.protocol !== 'http'" class="block text-xs font-bold text-muted-foreground"
+                            >{{ t('ui.dedicated_public_port')
+                            }}<select
                                 v-model.number="form.public_port"
                                 required
-                                class="mt-2 w-full rounded-button border border-zinc-700 bg-surface-light p-3 text-sm text-white"
+                                class="mt-2 w-full rounded-button border border-border bg-surface-light p-3 text-sm text-foreground"
                             >
-                                <option :value="0" disabled>Select a proxy port</option>
+                                <option :value="0" disabled>{{ t('ui.select_a_proxy_port') }}</option>
                                 <option v-for="port in pool" :key="port" :value="port">{{ port }}</option>
                             </select>
-                            <p v-if="!pool.length" class="mt-2 text-amber-400">Ask an administrator to offer ports for this protocol.</p></label
+                            <p v-if="!pool.length" class="mt-2 text-status-warning">
+                                {{ t('ui.ask_an_administrator_to_offer_ports_for_this_protocol') }}
+                            </p></label
                         ><template v-if="form.protocol === 'http'"
-                            ><label class="flex gap-3 text-sm text-zinc-300"
-                                ><input v-model="form.https" type="checkbox" :disabled="!state?.https_available" /> Automatically issue an HTTPS
-                                certificate</label
-                            ><label v-if="form.https" class="flex gap-3 text-sm text-zinc-300"
-                                ><input v-model="form.redirect" type="checkbox" /> Redirect HTTP to HTTPS</label
-                            ><label class="block text-xs font-bold text-zinc-400"
-                                >Maximum upload size (MB)<input
-                                    v-model.number="form.max_body_mb"
-                                    type="number"
-                                    min="1"
-                                    max="128"
-                                    class="mt-2 w-full rounded-button border border-zinc-700 bg-surface-light p-3 text-sm text-white" /></label
-                        ></template>
-                        <p class="text-xs leading-5 text-zinc-500">
-                            You’ll receive DNS instructions after saving. Traffic is routed only once ownership is verified.
+                            ><label class="flex gap-3 text-sm text-foreground"
+                                ><input v-model="form.https" type="checkbox" :disabled="!state?.https_available" />
+                                {{ t('ui.automatically_issue_an_https_certificate') }}</label
+                            >
+                            <p v-if="!state?.https_available" class="text-xs text-muted-foreground">
+                                {{ t('ui.your_administrator_must_configure_certificate_issuance_before_htt') }}
+                            </p>
+                            <details class="rounded-button border border-border p-3">
+                                <summary class="cursor-pointer text-xs font-bold text-muted-foreground">{{ t('ui.advanced_options') }}</summary>
+                                <div class="mt-4 space-y-4">
+                                    <label v-if="form.https" class="flex gap-3 text-sm text-foreground"
+                                        ><input v-model="form.redirect" type="checkbox" /> {{ t('ui.redirect_http_to_https') }}</label
+                                    >
+                                    <label class="block text-xs font-bold text-muted-foreground"
+                                        >{{ t('ui.maximum_upload_size_mb')
+                                        }}<input
+                                            v-model.number="form.max_body_mb"
+                                            type="number"
+                                            min="1"
+                                            max="128"
+                                            class="mt-2 w-full rounded-button border border-border bg-surface-light p-3 text-sm text-foreground"
+                                    /></label>
+                                </div>
+                            </details>
+                        </template>
+                        <p class="text-xs leading-5 text-muted-foreground">
+                            {{ t('ui.you_ll_receive_dns_instructions_after_saving_traffic_is_routed_on') }}
                         </p>
                     </div>
-                    <footer class="flex justify-end gap-3 border-t border-zinc-800 p-5">
-                        <button type="button" :disabled="form.processing" class="px-4 py-2 text-sm font-bold text-zinc-400" @click="editor = false">
-                            Cancel</button
+                    <footer class="flex justify-end gap-3 border-t border-border p-5">
+                        <button
+                            type="button"
+                            :disabled="form.processing"
+                            class="px-4 py-2 text-sm font-bold text-muted-foreground"
+                            @click="editor = false"
+                        >
+                            {{ t('ui.cancel') }}</button
                         ><button
                             :disabled="form.processing || !allocations.length"
-                            class="rounded-button bg-hive px-5 py-2 text-sm font-black text-white disabled:opacity-50"
+                            class="rounded-button bg-hive px-5 py-2 text-sm font-black text-primary-foreground disabled:opacity-50"
                         >
                             {{ form.processing ? 'Saving…' : 'Save route' }}
                         </button>
@@ -386,9 +356,9 @@ onUnmounted(() => clearInterval(timer));
         >
         <ConfirmationModal
             :open="Boolean(remove)"
-            title="Remove this domain?"
+            :title="t('ui.remove_this_domain')"
             :description="`Traffic through ${remove?.domain ?? 'this domain'} will stop. Your Cell files and allocations will be kept.`"
-            confirm-text="Remove domain"
+            :confirm-text="t('ui.remove_domain')"
             danger
             :loading="Boolean(busy)"
             @cancel="remove = null"

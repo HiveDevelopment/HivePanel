@@ -9,46 +9,85 @@ class CellPermissions
     public const ACTIVITY_VIEW = 'activity.view';
 
     public const CONSOLE_VIEW = 'console.view';
+
     public const CONSOLE_SEND = 'console.send';
+
     public const CONSOLE_POWER = 'console.power';
 
     public const FILES_VIEW = 'files.view';
+
     public const FILES_READ = 'files.read';
+
     public const FILES_WRITE = 'files.write';
+
     public const FILES_UPLOAD = 'files.upload';
+
     public const FILES_DELETE = 'files.delete';
+
     public const FILES_RESTORE = 'files.restore';
 
     public const BACKUPS_VIEW = 'backups.view';
+
     public const BACKUPS_CREATE = 'backups.create';
+
     public const BACKUPS_RESTORE = 'backups.restore';
+
     public const BACKUPS_DELETE = 'backups.delete';
 
     public const SCHEDULES_VIEW = 'schedules.view';
+
     public const SCHEDULES_CREATE = 'schedules.create';
+
     public const SCHEDULES_UPDATE = 'schedules.update';
+
     public const SCHEDULES_DELETE = 'schedules.delete';
 
     public const DATABASES_VIEW = 'databases.view';
+
     public const DATABASES_CREATE = 'databases.create';
+
     public const DATABASES_UPDATE = 'databases.update';
+
     public const DATABASES_DELETE = 'databases.delete';
 
     public const USERS_VIEW = 'users.view';
+
     public const USERS_INVITE = 'users.invite';
+
     public const USERS_UPDATE = 'users.update';
+
     public const USERS_REMOVE = 'users.remove';
 
     public const SETTINGS_VIEW = 'settings.view';
+
     public const SETTINGS_UPDATE = 'settings.update';
+
     public const STARTUP_UPDATE = 'startup.update';
 
     public const DOMAINS_VIEW = 'domains.view';
+
     public const DOMAINS_UPDATE = 'domains.update';
 
     public const NETWORK_UPDATE = 'network.update';
 
+    public const FIREWALL_VIEW = 'firewall.view';
+
+    public const FIREWALL_UPDATE = 'firewall.update';
+
+    public const SUBDOMAINS_VIEW = 'subdomains.view';
+
+    public const SUBDOMAINS_UPDATE = 'subdomains.update';
+
+    public const INSTANCES_VIEW = 'instances.view';
+
+    public const INSTANCES_UPDATE = 'instances.update';
+
+    public const SPLITTER_MANAGE = 'splitter.manage';
+
+    public const COMB_SWITCH = 'comb.switch';
+
     public const SFTP_RESET = 'sftp.reset';
+
     public const SFTP_REVOKE = 'sftp.revoke';
 
     public static function groups(): array
@@ -97,9 +136,10 @@ class CellPermissions
                 self::USERS_REMOVE => 'Remove sub users',
             ],
             'Domains & Proxies' => [
-                self::DOMAINS_VIEW => 'View domains and proxy routes', 
-                self::DOMAINS_UPDATE => 'Manage domains and proxy routes'
+                self::DOMAINS_VIEW => 'View domains and proxy routes',
+                self::DOMAINS_UPDATE => 'Manage domains and proxy routes',
             ],
+            'Cell Tools' => [self::FIREWALL_VIEW => 'View firewall rules', self::FIREWALL_UPDATE => 'Manage firewall rules', self::SUBDOMAINS_VIEW => 'View generated subdomains', self::SUBDOMAINS_UPDATE => 'Manage generated subdomains', self::INSTANCES_VIEW => 'View saved instances', self::INSTANCES_UPDATE => 'Save, activate and delete instances', self::SPLITTER_MANAGE => 'Manage splits (owner only)', self::COMB_SWITCH => 'Switch to an offered Comb'],
             'Settings' => [
                 self::SETTINGS_VIEW => 'View settings',
                 self::SETTINGS_UPDATE => 'Edit settings',

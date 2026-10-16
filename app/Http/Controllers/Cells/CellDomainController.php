@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Cells;
 
 use App\Models\Cell;
 use App\Models\CellDomain;
+use App\Models\CellSubdomain;
 use App\Services\Node\CellNodeClient;
 use App\Services\Node\WebProxyNodeClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -51,6 +53,7 @@ class CellDomainController extends CellBaseController
         $routes = collect($state['routes'] ?? [])->keyBy('id');
         $state['routes'] = $records->map(function ($record) use ($routes) {
             $route = $routes->get($record->id);
+            $record->setAttribute('managed', Schema::hasTable('cell_subdomains') && CellSubdomain::where('route_id', $record->id)->exists());
 
             return array_merge($record->toArray(), $route ?? ['verified' => false, 'certificate_state' => 'none', 'verification_token' => '', 'error' => 'This route is missing on the Worker. Save it again to restore it.']);
         })->values()->all();
@@ -70,14 +73,17 @@ class CellDomainController extends CellBaseController
             $allocation = $current->allocations()->whereKey($data['allocation_id'])->firstOrFail();
             $desired = data_get($current->metadata, 'desired_allocation_ids', $current->allocations()->pluck('id')->all());
             if (! in_array($allocation->id, $desired)) {
-                throw ValidationException::withMessages(['allocation_id' => 'Choose an allocation currently assigned to this Cell.']);
+                throw ValidationException::withMessages(['allocation_id' => __('Choose an allocation currently assigned to this Cell.')]);
+            }
+            if (Schema::hasTable('cell_subdomains') && CellSubdomain::where('hostname', $data['domain'])->exists()) {
+                throw ValidationException::withMessages(['domain' => __('Manage this generated hostname from Subdomains.')]);
             }
             $record = empty($data['id']) ? new CellDomain(['id' => (string) Str::uuid(), 'cell_id' => $cell->id, 'node_id' => $cell->node_id]) : CellDomain::where('cell_id', $cell->id)->whereKey($data['id'])->lockForUpdate()->firstOrFail();
             if ($record->exists && $record->domain !== $data['domain']) {
-                throw ValidationException::withMessages(['domain' => 'Remove the old domain and create a new route to change its hostname.']);
+                throw ValidationException::withMessages(['domain' => __('Remove the old domain and create a new route to change its hostname.')]);
             }
             if (! $record->exists && CellDomain::where('cell_id', $cell->id)->count() >= 50) {
-                throw ValidationException::withMessages(['domain' => 'This Cell already has 50 domain routes.']);
+                throw ValidationException::withMessages(['domain' => __('This Cell already has 50 domain routes.')]);
             }
             $data['id'] = $record->id;
             $record->fill($data);
@@ -85,7 +91,7 @@ class CellDomainController extends CellBaseController
             $proxy->request($cell->node, 'POST', '/cells/'.$cell->daemon_id.'/domains', ['id' => $record->id, 'domain' => $record->domain, 'port' => $allocation->port, 'protocol' => $record->protocol, 'public_port' => $record->public_port, 'https' => $record->https, 'redirect' => $record->redirect, 'max_body_mb' => $record->max_body_mb]);
         });
 
-        return back()->with('success', 'Domain route saved. Add its DNS records, then verify ownership.');
+        return back()->with('success', __('Domain route saved. Add its DNS records, then verify ownership.'));
     }
 
     private function record(Cell $cell, string $domain): CellDomain
@@ -99,7 +105,7 @@ class CellDomainController extends CellBaseController
         $record = $this->record($cell, $domain);
         $proxy->request($cell->node, 'POST', '/cells/'.$cell->daemon_id.'/domains/'.$record->id.'/verify');
 
-        return back()->with('success', 'Domain verified. Requested HTTPS certificates are issued in the background.');
+        return back()->with('success', __('Domain verified. Requested HTTPS certificates are issued in the background.'));
     }
 
     public function certificate(string $id, string $domain, WebProxyNodeClient $proxy)
@@ -108,17 +114,20 @@ class CellDomainController extends CellBaseController
         $record = $this->record($cell, $domain);
         $proxy->request($cell->node, 'POST', '/cells/'.$cell->daemon_id.'/domains/'.$record->id.'/certificate');
 
-        return back()->with('success', 'Certificate request started.');
+        return back()->with('success', __('Certificate request started.'));
     }
 
     public function destroy(string $id, string $domain, WebProxyNodeClient $proxy)
     {
         $cell = $this->panelCellOrFail($id);
         $record = $this->record($cell, $domain);
+        if (Schema::hasTable('cell_subdomains') && CellSubdomain::where('route_id', $record->id)->exists()) {
+            throw ValidationException::withMessages(['domain' => __('Remove this generated hostname from Subdomains.')]);
+        }
         $proxy->request($cell->node, 'DELETE', '/cells/'.$cell->daemon_id.'/domains/'.$record->id);
         $record->delete();
 
-        return back()->with('success', 'Domain route removed.');
+        return back()->with('success', __('Domain route removed.'));
     }
 
     public function website(string $id, CellNodeClient $cells)

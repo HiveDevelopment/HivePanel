@@ -28,11 +28,11 @@ const tabs = [
         path: '/configuration',
         icon: SlidersHorizontal,
     },
-    { 
-        key: 'web-proxy', 
+    {
+        key: 'web-proxy',
         label: 'Web Proxy',
-        path: '/web-proxy', 
-        icon: Globe 
+        path: '/web-proxy',
+        icon: Globe,
     },
     {
         key: 'allocations',
@@ -56,14 +56,18 @@ const tabs = [
 </script>
 
 <template>
-    <section class="rounded-panel border border-zinc-800 bg-surface p-1">
+    <section class="rounded-panel border border-border bg-surface p-1">
         <div class="flex flex-wrap gap-1">
             <Link
                 v-for="tab in tabs"
                 :key="tab.key"
                 :href="`/admin/nodes/${nodeId}${tab.path}`"
                 class="rounded-button px-4 pb-2 pt-3 text-sm transition"
-                :class="active === tab.key ? 'bg-hive/10 font-black text-hive' : 'font-bold text-zinc-400 hover:bg-surface-light hover:text-white'"
+                :class="
+                    active === tab.key
+                        ? 'bg-hive/10 font-black text-hive'
+                        : 'font-bold text-muted-foreground hover:bg-surface-light hover:text-primary-foreground'
+                "
             >
                 <span class="inline-flex items-center gap-2">
                     <component :is="tab.icon" class="size-4" />

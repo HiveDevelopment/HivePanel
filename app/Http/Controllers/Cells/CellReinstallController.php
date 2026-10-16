@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Cells;
 use App\Enums\CellInstallStatus;
 use App\Models\Comb;
 use App\Services\Cells\CellReinstallService;
+use App\Services\Cells\CellToolsPolicy;
 use App\Services\Node\CellNodeClient;
+use App\Services\Node\CellToolsNodeClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,11 +29,10 @@ class CellReinstallController extends CellBaseController
 
         return Inertia::render('Cells/Reinstall', [
             'cell' => $workerCell,
+            'switching' => request()->routeIs('cells.switch-comb.*'),
+            'saveInstanceAllowed' => $cell->userCan(request()->user(), 'instances.update'),
 
-            'combs' => Comb::query()
-                ->orderBy('game')
-                ->orderBy('name')
-                ->get()
+            'combs' => app(CellToolsPolicy::class)->offered($cell)
                 ->map(fn (Comb $comb) => [
                     'id' => $comb->id,
                     'external_id' => $comb->external_id,
@@ -63,7 +64,7 @@ class CellReinstallController extends CellBaseController
 
         if ($this->workerCellIsRunning($workerCell)) {
             return back()->withErrors([
-                'reinstall' => 'Stop the cell before reinstalling.',
+                'reinstall' => __('Stop the cell before reinstalling.'),
             ]);
         }
 
@@ -86,6 +87,7 @@ class CellReinstallController extends CellBaseController
                 'boolean',
             ],
 
+            'save_instance' => ['sometimes', 'boolean'],
             'confirmation' => [
                 'required',
                 'string',
@@ -98,7 +100,7 @@ class CellReinstallController extends CellBaseController
         ) {
             return back()
                 ->withErrors([
-                    'confirmation' => 'The confirmation does not match the cell name.',
+                    'confirmation' => __('The confirmation does not match the cell name.'),
                 ])
                 ->withInput();
         }
@@ -108,6 +110,11 @@ class CellReinstallController extends CellBaseController
                 $validated['comb_id'],
             );
 
+        app(CellToolsPolicy::class)->assertComb($cell, $comb, $request->user());
+        if ($request->boolean('save_instance')) {
+            abort_unless($cell->userCan($request->user(), 'instances.update'), 403);
+            app(CellToolsNodeClient::class)->request($cell, 'POST', '/instances?wait=1', ['name' => 'Before switch '.now()->format('Y-m-d H:i:s'), 'empty' => false]);
+        }
         try {
             $reinstall->reinstall(
                 cell: $cell,
@@ -132,7 +139,7 @@ class CellReinstallController extends CellBaseController
 
         return back()->with(
             'success',
-            'The cell reinstall has been queued.',
+            __('The cell reinstall has been queued.'),
         );
     }
 
@@ -149,7 +156,7 @@ class CellReinstallController extends CellBaseController
             !== CellInstallStatus::FAILED
         ) {
             return back()->withErrors([
-                'retry' => 'Only failed installations can be retried.',
+                'retry' => __('Only failed installations can be retried.'),
             ]);
         }
 
@@ -164,7 +171,7 @@ class CellReinstallController extends CellBaseController
 
         if ($this->workerCellIsRunning($workerCell)) {
             return back()->withErrors([
-                'retry' => 'Stop the cell before retrying installation.',
+                'retry' => __('Stop the cell before retrying installation.'),
             ]);
         }
 
@@ -194,7 +201,7 @@ class CellReinstallController extends CellBaseController
 
         return back()->with(
             'success',
-            'Installation has been queued again.',
+            __('Installation has been queued again.'),
         );
     }
 

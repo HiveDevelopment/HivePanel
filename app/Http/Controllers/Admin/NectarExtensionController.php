@@ -7,6 +7,7 @@ use App\Services\Nectar\ExtensionManager;
 use App\Services\Nectar\ExtensionSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,7 +32,7 @@ class NectarExtensionController extends Controller
         $request->validate(['package' => ['required', 'file', 'max:20480']]);
         $file = $request->file('package');
         if (strtolower($file->getClientOriginalExtension()) !== 'nectar') {
-            throw ValidationException::withMessages(['package' => 'Upload a .nectar package.']);
+            throw ValidationException::withMessages(['package' => __('Upload a .nectar package.')]);
         }
         try {
             $manifest = $manager->install($file->getRealPath());
@@ -58,13 +59,14 @@ class NectarExtensionController extends Controller
         $extension = collect($manager->installed())->firstWhere('id', $id);
         abort_unless($extension, 404);
 
-        return Inertia::render('Admin/Extensions/Show', ['extension' => $extension, 'networkAudits' => \Illuminate\Support\Facades\DB::table('nectar_network_audits')->where('extension_id', $id)->orderByDesc('id')->limit(30)->get()]);
+        return Inertia::render('Admin/Extensions/Show', ['extension' => $extension, 'networkAudits' => DB::table('nectar_network_audits')->where('extension_id', $id)->orderByDesc('id')->limit(30)->get()]);
     }
 
     public function settings(string $id, ExtensionSettings $settings, ExtensionManager $manager): Response
     {
         $extension = collect($manager->installed())->firstWhere('id', $id);
         abort_unless($extension, 404);
+
         return Inertia::render('Admin/Extensions/Settings', [
             'extension' => ['id' => $id, 'name' => $extension['name']],
             'schema' => $settings->schema($id),
@@ -76,7 +78,8 @@ class NectarExtensionController extends Controller
     {
         $data = $request->validate(['values' => ['required', 'array']]);
         $settings->save($id, $data['values']);
-        return back()->with('success', 'Extension settings saved.');
+
+        return back()->with('success', __('Extension settings saved.'));
     }
 
     public function update(Request $request, string $id, ExtensionManager $manager): RedirectResponse
@@ -92,12 +95,14 @@ class NectarExtensionController extends Controller
             abort_unless($extension, 404);
             $slugs = array_column($extension['manifest']['frontend']['pages'] ?? [], 'slug');
             foreach (array_keys($data['navigation_overrides']) as $slug) {
-                if (! in_array($slug, $slugs, true)) throw ValidationException::withMessages(['navigation_overrides' => 'Unknown extension page.']);
+                if (! in_array($slug, $slugs, true)) {
+                    throw ValidationException::withMessages(['navigation_overrides' => __('Unknown extension page.')]);
+                }
             }
-            \Illuminate\Support\Facades\DB::table('nectar_extensions')->where('extension_id', $id)->update(['navigation_overrides' => json_encode($data['navigation_overrides'])]);
+            DB::table('nectar_extensions')->where('extension_id', $id)->update(['navigation_overrides' => json_encode($data['navigation_overrides'])]);
         }
         if ($data['enabled'] && ($data['approve_network'] ?? false)) {
-            \Illuminate\Support\Facades\DB::table('nectar_extensions')->where('extension_id', $id)->update(['network_approved' => true]);
+            DB::table('nectar_extensions')->where('extension_id', $id)->update(['network_approved' => true]);
         }
         try {
             $manager->setEnabled($id, $data['enabled']);
@@ -116,6 +121,6 @@ class NectarExtensionController extends Controller
             throw ValidationException::withMessages(['extension' => $e->getMessage()]);
         }
 
-        return redirect()->route('admin.extensions.index')->with('success', 'Extension uninstalled.');
+        return redirect()->route('admin.extensions.index')->with('success', __('Extension uninstalled.'));
     }
 }

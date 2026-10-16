@@ -1,102 +1,110 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue'
-import HivePasteShare from '@/components/cells/HivePasteShare.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
-import { ArrowLeft, Save } from 'lucide-vue-next'
+import HivePasteShare from '@/components/cells/HivePasteShare.vue';
+import { t } from '@/composables/useLanguage';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { VueMonacoEditor } from '@guolao/vue-monaco-editor';
+import { Head, router } from '@inertiajs/vue3';
+import { ArrowLeft, Save } from 'lucide-vue-next';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const props = defineProps<{
-    cell: any
-    path: string
-}>()
+    cell: any;
+    path: string;
+}>();
 
-const pasteOpen = ref(false)
-const pasteBusy = ref(false)
-const pasteError = ref('')
-const pasteUrl = ref('')
+const pasteOpen = ref(false);
+const pasteBusy = ref(false);
+const pasteError = ref('');
+const pasteUrl = ref('');
 async function shareEditorFile() {
-    pasteBusy.value = true
-    pasteError.value = ''
+    pasteBusy.value = true;
+    pasteError.value = '';
     try {
         const response = await fetch(`/cells/${props.cell.id}/share/file`, {
             method: 'POST',
-            headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' },
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+            },
             body: JSON.stringify({ path: props.path }),
-        })
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.message || 'Unable to share file.')
-        pasteUrl.value = result.url
-    } catch (error) { pasteError.value = error instanceof Error ? error.message : 'Unable to share file.' }
-    finally { pasteBusy.value = false }
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Unable to share file.');
+        pasteUrl.value = result.url;
+    } catch (error) {
+        pasteError.value = error instanceof Error ? error.message : 'Unable to share file.';
+    } finally {
+        pasteBusy.value = false;
+    }
 }
-const content = ref('')
-const originalContent = ref('')
-const loading = ref(true)
-const saving = ref(false)
-const error = ref('')
-const savedMessage = ref('')
+const content = ref('');
+const originalContent = ref('');
+const loading = ref(true);
+const saving = ref(false);
+const error = ref('');
+const savedMessage = ref('');
 
-const isDirty = computed(() => content.value !== originalContent.value)
+const isDirty = computed(() => content.value !== originalContent.value);
 
 const language = computed(() => {
-    const file = props.path.toLowerCase()
+    const file = props.path.toLowerCase();
 
-    if (file.endsWith('.yml') || file.endsWith('.yaml')) return 'yaml'
-    if (file.endsWith('.json')) return 'json'
-    if (file.endsWith('.properties')) return 'ini'
-    if (file.endsWith('.toml')) return 'toml'
-    if (file.endsWith('.xml')) return 'xml'
-    if (file.endsWith('.js')) return 'javascript'
-    if (file.endsWith('.ts')) return 'typescript'
-    if (file.endsWith('.php')) return 'php'
-    if (file.endsWith('.java')) return 'java'
-    if (file.endsWith('.html')) return 'html'
-    if (file.endsWith('.css')) return 'css'
-    if (file.endsWith('.md')) return 'markdown'
+    if (file.endsWith('.yml') || file.endsWith('.yaml')) return 'yaml';
+    if (file.endsWith('.json')) return 'json';
+    if (file.endsWith('.properties')) return 'ini';
+    if (file.endsWith('.toml')) return 'toml';
+    if (file.endsWith('.xml')) return 'xml';
+    if (file.endsWith('.js')) return 'javascript';
+    if (file.endsWith('.ts')) return 'typescript';
+    if (file.endsWith('.php')) return 'php';
+    if (file.endsWith('.java')) return 'java';
+    if (file.endsWith('.html')) return 'html';
+    if (file.endsWith('.css')) return 'css';
+    if (file.endsWith('.md')) return 'markdown';
 
-    return 'plaintext'
-})
+    return 'plaintext';
+});
 
 function handleKeyboardSave(event: KeyboardEvent) {
-    const isSaveShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's'
+    const isSaveShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
 
-    if (!isSaveShortcut) return
+    if (!isSaveShortcut) return;
 
-    event.preventDefault()
+    event.preventDefault();
 
     if (!saving.value && isDirty.value) {
-        saveFile()
+        saveFile();
     }
 }
 
 async function loadFile() {
-    loading.value = true
-    error.value = ''
+    loading.value = true;
+    error.value = '';
 
     try {
         const response = await fetch(`/cells/${props.cell.id}/files/read?path=${encodeURIComponent(props.path)}`, {
             headers: { Accept: 'application/json' },
-        })
+        });
 
         if (!response.ok) {
-            error.value = await response.text()
-            return
+            error.value = await response.text();
+            return;
         }
 
-        const data = await response.json()
+        const data = await response.json();
 
-        content.value = data.content ?? ''
-        originalContent.value = data.content ?? ''
+        content.value = data.content ?? '';
+        originalContent.value = data.content ?? '';
     } finally {
-        loading.value = false
+        loading.value = false;
     }
 }
 
 async function saveFile() {
-    saving.value = true
-    savedMessage.value = ''
-    error.value = ''
+    saving.value = true;
+    savedMessage.value = '';
+    error.value = '';
 
     try {
         const response = await fetch(`/cells/${props.cell.id}/files/write`, {
@@ -110,72 +118,89 @@ async function saveFile() {
                 path: props.path,
                 content: content.value,
             }),
-        })
+        });
 
         if (!response.ok) {
-            error.value = await response.text()
-            return
+            error.value = await response.text();
+            return;
         }
 
-        originalContent.value = content.value
-        savedMessage.value = 'Saved'
+        originalContent.value = content.value;
+        savedMessage.value = 'Saved';
     } finally {
-        saving.value = false
+        saving.value = false;
     }
 }
 
 function goBack() {
-    router.visit(`/cells/${props.cell.id}/files?path=${encodeURIComponent(parentPath.value)}`)
+    router.visit(`/cells/${props.cell.id}/files?path=${encodeURIComponent(parentPath.value)}`);
 }
 
 const parentPath = computed(() => {
-    const parts = props.path.split('/').filter(Boolean)
-    parts.pop()
-    return parts.join('/')
-})
+    const parts = props.path.split('/').filter(Boolean);
+    parts.pop();
+    return parts.join('/');
+});
 
 onMounted(() => {
-    loadFile()
-    window.addEventListener('keydown', handleKeyboardSave)
-})
+    loadFile();
+    window.addEventListener('keydown', handleKeyboardSave);
+});
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyboardSave)
-})
+    window.removeEventListener('keydown', handleKeyboardSave);
+});
 </script>
 
 <template>
-    <AppLayout
-        :context="'server'"
-        :active-cell="cell"
-        :active-cell-status="cell.status ?? 'offline'"
-    >
+    <AppLayout :context="'server'" :active-cell="cell" :active-cell-status="cell.status ?? 'offline'">
         <Head :title="`${cell.name} - ${path}`" />
 
-        <HivePasteShare :open="pasteOpen" :busy="pasteBusy" :title="path" :error="pasteError" :url="pasteUrl" description="This uploads the saved version of this file. Anyone with the link can read it. Review it for secrets first." @close="pasteOpen = false" @confirm="shareEditorFile" />
-        <div class="min-h-screen bg-surface-dark text-white">
+        <HivePasteShare
+            :open="pasteOpen"
+            :busy="pasteBusy"
+            :title="path"
+            :error="pasteError"
+            :url="pasteUrl"
+            :description="t('ui.this_uploads_the_saved_version_of_this_file_anyone_with_the_link_')"
+            @close="pasteOpen = false"
+            @confirm="shareEditorFile"
+        />
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-4">
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5">
+                    <section class="rounded-panel border border-border bg-surface p-5">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <h1 class="text-2xl font-black">File Editor</h1>
-                                <p class="mt-1 break-all font-mono text-sm text-zinc-400">{{ path }}</p>
+                                <h1 class="text-2xl font-black">{{ t('ui.file_editor') }}</h1>
+                                <p class="mt-1 break-all font-mono text-sm text-muted-foreground">{{ path }}</p>
                             </div>
 
                             <div class="flex gap-2">
                                 <button
-                                    class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive"
+                                    class="inline-flex items-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive"
                                     @click="goBack"
                                 >
                                     <ArrowLeft class="size-4" />
-                                    Back
+                                    {{ t('ui.back') }}
                                 </button>
 
-                                <button type="button" class="rounded-button border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:border-hive hover:text-hive" :disabled="loading || isDirty" title="Shares the saved file; save changes first" @click="pasteError = ''; pasteUrl = ''; pasteOpen = true">Share via HivePaste</button>
+                                <button
+                                    type="button"
+                                    class="rounded-button border border-border px-4 py-2 text-sm font-bold text-foreground hover:border-hive hover:text-hive"
+                                    :disabled="loading || isDirty"
+                                    :title="t('ui.shares_the_saved_file_save_changes_first')"
+                                    @click="
+                                        pasteError = '';
+                                        pasteUrl = '';
+                                        pasteOpen = true;
+                                    "
+                                >
+                                    {{ t('ui.share_via_hivepaste') }}
+                                </button>
 
                                 <button
-                                    class="inline-flex items-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-white transition hover:bg-hive-light disabled:cursor-not-allowed disabled:opacity-60"
+                                    class="inline-flex items-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-primary-foreground transition hover:bg-hive-light disabled:cursor-not-allowed disabled:opacity-60"
                                     :disabled="saving || !isDirty"
                                     @click="saveFile"
                                 >
@@ -186,21 +211,21 @@ onUnmounted(() => {
                         </div>
                     </section>
 
-                    <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
-                        <div class="flex items-center justify-between border-b border-zinc-800 bg-surface-light px-4 py-3">
-                            <div class="font-mono text-sm text-zinc-400">
+                    <section class="overflow-hidden rounded-panel border border-border bg-surface">
+                        <div class="flex items-center justify-between border-b border-border bg-surface-light px-4 py-3">
+                            <div class="font-mono text-sm text-muted-foreground">
                                 {{ language }}
                             </div>
 
                             <div class="text-sm">
                                 <span v-if="savedMessage" class="font-bold text-status-success">{{ savedMessage }}</span>
-                                <span v-else-if="isDirty" class="font-bold text-status-warning">Unsaved changes</span>
-                                <span v-else class="text-zinc-500">No changes</span>
+                                <span v-else-if="isDirty" class="font-bold text-status-warning">{{ t('ui.unsaved_changes') }}</span>
+                                <span v-else class="text-muted-foreground">{{ t('ui.no_changes') }}</span>
                             </div>
                         </div>
 
-                        <div v-if="loading" class="p-6 text-zinc-500">
-                            Loading file...
+                        <div v-if="loading" class="p-6 text-muted-foreground">
+                            {{ t('ui.loading_file') }}
                         </div>
 
                         <div v-else-if="error" class="p-6 font-bold text-status-danger">

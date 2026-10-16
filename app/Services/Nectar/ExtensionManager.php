@@ -2,6 +2,8 @@
 
 namespace App\Services\Nectar;
 
+use App\Models\Cell;
+use App\Models\Comb;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
@@ -13,7 +15,9 @@ use ZipArchive;
 class ExtensionManager
 {
     private const MAX_ARCHIVE_BYTES = 20 * 1024 * 1024;
+
     private const MAX_UNPACKED_BYTES = 60 * 1024 * 1024;
+
     private const MAX_FILES = 150;
 
     // Keep this in sync with NectarAssetController's supported MIME types.
@@ -47,7 +51,7 @@ class ExtensionManager
     {
         if (isset($manifest['capabilities'])) {
             if (isset($manifest['permissions']) && $manifest['permissions'] !== $manifest['capabilities']) {
-                throw ValidationException::withMessages(['capabilities' => 'Use one matching capability declaration.']);
+                throw ValidationException::withMessages(['capabilities' => __('Use one matching capability declaration.')]);
             }
             $manifest['permissions'] = $manifest['capabilities'];
             unset($manifest['capabilities']);
@@ -108,20 +112,20 @@ class ExtensionManager
 
         foreach (['http', 'tcp'] as $transport) {
             if (in_array("network.{$transport}", $manifest['permissions'] ?? [], true) !== isset($manifest['network'][$transport])) {
-                throw ValidationException::withMessages(['network' => 'Each network capability must have its matching scope declaration.']);
+                throw ValidationException::withMessages(['network' => __('Each network capability must have its matching scope declaration.')]);
             }
         }
 
         if (empty($manifest['frontend']['slots']) && empty($manifest['frontend']['pages'])) {
             throw ValidationException::withMessages([
-                'frontend' => 'Declare at least one widget slot or extension page.',
+                'frontend' => __('Declare at least one widget slot or extension page.'),
             ]);
         }
 
         foreach ($manifest['frontend']['pages'] ?? [] as $page) {
             if ($page['entry'] !== "dist/pages/{$page['slug']}.html") {
                 throw ValidationException::withMessages([
-                    'frontend.pages' => 'Each page entry must match its slug.',
+                    'frontend.pages' => __('Each page entry must match its slug.'),
                 ]);
             }
         }
@@ -147,8 +151,8 @@ class ExtensionManager
                 $valid = match ($type) {
                     'toggle' => is_bool($default),
                     'number' => (is_int($default) || is_float($default))
-                        && (!isset($setting['min']) || $default >= $setting['min'])
-                        && (!isset($setting['max']) || $default <= $setting['max']),
+                        && (! isset($setting['min']) || $default >= $setting['min'])
+                        && (! isset($setting['max']) || $default <= $setting['max']),
                     'select' => is_string($default) && in_array($default, $options, true),
                     default => is_string($default) && mb_strlen($default) <= 2000,
                 };
@@ -388,7 +392,7 @@ class ExtensionManager
             && (! str_starts_with($capability, 'network.') || ($extension->network_approved ?? false));
     }
 
-    public function pages(?\App\Models\Cell $cell = null): array
+    public function pages(?Cell $cell = null): array
     {
         $pages = [];
         foreach ($this->installed() as $extension) {
@@ -398,11 +402,15 @@ class ExtensionManager
 
             foreach ($extension['manifest']['frontend']['pages'] ?? [] as $page) {
                 $context = $page['context'] ?? 'dashboard';
-                if (($context === 'cell') !== ($cell !== null)) continue;
+                if (($context === 'cell') !== ($cell !== null)) {
+                    continue;
+                }
                 if ($cell) {
-                    $comb = \App\Models\Comb::find(data_get($cell->metadata, 'comb_id'));
+                    $comb = Comb::find(data_get($cell->metadata, 'comb_id'));
                     $scopes = $extension['manifest']['frontend']['combs'] ?? [];
-                    if ($scopes && ! in_array((string) ($comb?->external_id ?? $cell->comb), $scopes, true) && ! in_array('game:' . strtolower((string) ($comb?->game ?? data_get($cell->metadata, 'comb_data.game', ''))), $scopes, true)) continue;
+                    if ($scopes && ! in_array((string) ($comb?->external_id ?? $cell->comb), $scopes, true) && ! in_array('game:'.strtolower((string) ($comb?->game ?? data_get($cell->metadata, 'comb_data.game', ''))), $scopes, true)) {
+                        continue;
+                    }
                 }
                 $pages[] = [
                     'extensionId' => $extension['id'],

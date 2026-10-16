@@ -26,7 +26,7 @@ class GenerateCron
 
         if (! is_array($json) || empty($json['cron'])) {
             throw ValidationException::withMessages([
-                'prompt' => 'AI returned an invalid cron expression.',
+                'prompt' => __('AI returned an invalid cron expression.'),
             ]);
         }
 

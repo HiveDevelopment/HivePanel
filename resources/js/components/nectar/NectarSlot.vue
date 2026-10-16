@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import NectarBridgeFrame from './NectarBridgeFrame.vue';
+import { t } from '@/composables/useLanguage';
 import { onMounted, ref, watch } from 'vue';
+import NectarBridgeFrame from './NectarBridgeFrame.vue';
 
 type SlotName = 'dashboard.widgets' | 'server.console.after' | 'server.overview.after';
 
@@ -24,11 +25,14 @@ async function load() {
     loading.value = true;
 
     try {
-        const response = await fetch(`/nectar/slots?slot=${encodeURIComponent(props.name)}${props.cellId ? `&cell=${encodeURIComponent(props.cellId)}` : ''}`, {
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-        });
+        const response = await fetch(
+            `/nectar/slots?slot=${encodeURIComponent(props.name)}${props.cellId ? `&cell=${encodeURIComponent(props.cellId)}` : ''}`,
+            {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+            },
+        );
 
         if (!response.ok) {
             throw new Error(`Unable to load Nectar slot (${response.status})`);
@@ -57,21 +61,15 @@ watch(() => [props.name, props.cellId], load);
 </script>
 
 <template>
-    <section v-if="extensions.length" class="grid gap-4" aria-label="Nectar extension widgets">
-        <article v-for="extension in extensions" :key="extension.id" class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
-            <header class="border-b border-zinc-800 px-5 py-3">
-                <h2 class="text-sm font-black text-white">
+    <section v-if="extensions.length" class="grid gap-4" :aria-label="t('ui.nectar_extension_widgets')">
+        <article v-for="extension in extensions" :key="extension.id" class="overflow-hidden rounded-panel border border-border bg-surface">
+            <header class="border-b border-border px-5 py-3">
+                <h2 class="text-sm font-black text-foreground">
                     {{ extension.name }}
                 </h2>
             </header>
 
-            <NectarBridgeFrame
-                :extension-id="extension.id"
-                :title="extension.name"
-                :src="extension.url"
-                :cell-id="cellId"
-                compact
-            />
+            <NectarBridgeFrame :extension-id="extension.id" :title="extension.name" :src="extension.url" :cell-id="cellId" compact />
         </article>
     </section>
 </template>

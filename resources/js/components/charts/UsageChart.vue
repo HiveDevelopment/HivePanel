@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import VueApexCharts from 'vue3-apexcharts'
-import { computed } from 'vue'
+import { designTokens } from '@/composables/useDesignTokens';
+import { t } from '@/composables/useLanguage';
+import { computed } from 'vue';
+import VueApexCharts from 'vue3-apexcharts';
 
 const props = defineProps<{
-    title: string
-    value: string
-    unit?: string
-    labels: string[]
-    used: number[]
-    max: number[]
-}>()
+    title: string;
+    value: string;
+    unit?: string;
+    labels: string[];
+    used: number[];
+    max: number[];
+}>();
 
 const series = computed(() => [
     {
@@ -20,7 +22,7 @@ const series = computed(() => [
         name: 'Maximum',
         data: props.max,
     },
-])
+]);
 
 const options = computed(() => ({
     chart: {
@@ -38,7 +40,7 @@ const options = computed(() => ({
             speed: 350,
         },
         background: 'transparent',
-        foreColor: '#a1a1aa',
+        foreColor: designTokens.value.muted,
     },
     stroke: {
         curve: 'smooth',
@@ -49,14 +51,14 @@ const options = computed(() => ({
         size: 0,
     },
     grid: {
-        borderColor: 'rgba(63, 63, 70, 0.55)',
+        borderColor: designTokens.value.border,
         strokeDashArray: 4,
     },
     xaxis: {
         categories: props.labels,
         labels: {
             style: {
-                colors: '#71717a',
+                colors: designTokens.value.muted,
                 fontSize: '11px',
             },
             rotate: 0,
@@ -75,11 +77,11 @@ const options = computed(() => ({
         min: 0,
         labels: {
             style: {
-                colors: '#71717a',
+                colors: designTokens.value.muted,
                 fontSize: '11px',
             },
             formatter(value: number) {
-                return `${Math.round(value)}${props.unit ?? ''}`
+                return `${Math.round(value)}${props.unit ?? ''}`;
             },
         },
     },
@@ -88,7 +90,7 @@ const options = computed(() => ({
         position: 'top',
         horizontalAlign: 'right',
         labels: {
-            colors: '#a1a1aa',
+            colors: designTokens.value.muted,
         },
         markers: {
             width: 8,
@@ -100,39 +102,34 @@ const options = computed(() => ({
         theme: 'dark',
         y: {
             formatter(value: number) {
-                return `${value}${props.unit ? ` ${props.unit}` : ''}`
+                return `${value}${props.unit ? ` ${props.unit}` : ''}`;
             },
         },
     },
     dataLabels: {
         enabled: false,
     },
-}))
+}));
 </script>
 
 <template>
-    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+    <div class="rounded-button border border-border bg-surface-dark p-4">
         <div class="mb-4 flex items-center justify-between gap-4">
             <div>
-                <h3 class="font-black text-white">
+                <h3 class="font-black text-foreground">
                     {{ title }}
                 </h3>
 
-                <p class="mt-1 text-xs font-bold text-zinc-500">
-                    Used vs maximum
+                <p class="mt-1 text-xs font-bold text-muted-foreground">
+                    {{ t('ui.used_vs_maximum') }}
                 </p>
             </div>
 
-            <div class="text-right text-sm font-black text-zinc-300">
+            <div class="text-right text-sm font-black text-foreground">
                 {{ value }}
             </div>
         </div>
 
-        <VueApexCharts
-            type="line"
-            height="210"
-            :options="options"
-            :series="series"
-        />
+        <VueApexCharts type="line" height="210" :options="options" :series="series" />
     </div>
 </template>

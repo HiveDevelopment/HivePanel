@@ -7,14 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Cell;
 use App\Models\Role;
 use App\Models\User;
+use App\Notifications\UserInvitation;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules;
-use App\Notifications\UserInvitation;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 
 class AdminUserController extends Controller
@@ -76,7 +76,8 @@ class AdminUserController extends Controller
             });
         } catch (\Throwable $e) {
             report($e);
-            return back()->withErrors(['email' => 'Could not create the user or deliver the invitation. Check the mail configuration and try again.']);
+
+            return back()->withErrors(['email' => __('Could not create the user or deliver the invitation. Check the mail configuration and try again.')]);
         }
 
         return redirect()->route('admin.users.show', $user)->with('success',
@@ -128,7 +129,7 @@ class AdminUserController extends Controller
         ]);
 
         if ($user->is_admin && ! $data['is_admin'] && User::where('is_admin', true)->count() <= 1) {
-            return back()->withErrors(['is_admin' => 'You cannot remove super administrator access from the last super administrator.']);
+            return back()->withErrors(['is_admin' => __('You cannot remove super administrator access from the last super administrator.')]);
         }
 
         $user->update([
@@ -146,7 +147,7 @@ class AdminUserController extends Controller
             ['user_id' => $user->id, 'roles' => $data['roles'] ?? [], 'is_admin' => $data['is_admin']]
         );
 
-        return redirect()->route('admin.users.show', $user)->with('success', 'User updated.');
+        return redirect()->route('admin.users.show', $user)->with('success', __('User updated.'));
     }
 
     private function userPayload(User $user): array

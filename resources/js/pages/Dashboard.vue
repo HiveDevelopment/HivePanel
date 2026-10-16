@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NectarSlot from '@/components/nectar/NectarSlot.vue';
+import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link, router, usePoll } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -35,7 +36,12 @@ const filteredCells = computed(() => {
     const q = search.value.trim().toLowerCase();
     const results = props.cells.filter(
         (cell) =>
-            (!q || [cell.name, cell.id, cell.comb].some((value) => String(value ?? '').toLowerCase().includes(q))) &&
+            (!q ||
+                [cell.name, cell.id, cell.comb].some((value) =>
+                    String(value ?? '')
+                        .toLowerCase()
+                        .includes(q),
+                )) &&
             (statusFilter.value === 'all' || normaliseStatus(cell.status) === statusFilter.value),
     );
     if (sort.value === 'name') results.sort((a, b) => a.name.localeCompare(b.name));
@@ -102,55 +108,56 @@ function power(id: string, action: 'start' | 'stop') {
 
 <template>
     <AppLayout>
-        <Head title="Cells" />
-        <main class="min-h-screen bg-surface-dark px-5 py-8 text-zinc-100 sm:px-8 xl:px-10">
+        <Head :title="t('Cells')" />
+        <main class="min-h-screen bg-surface-dark px-5 py-8 text-foreground sm:px-8 xl:px-10">
             <div class="mx-auto max-w-[1600px] space-y-7">
                 <header class="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold tracking-tight text-white sm:text-[34px]">Your servers</h1>
-                        <p class="mt-2 text-sm text-zinc-500">Monitor and manage your game servers in one place.</p>
+                        <h1 class="text-3xl font-bold tracking-tight text-foreground sm:text-[34px]">{{ t('ui.your_servers') }}</h1>
+                        <p class="mt-2 text-sm text-muted-foreground">{{ t('ui.monitor_and_manage_your_game_servers_in_one_place') }}</p>
                     </div>
-                    <div class="flex items-center gap-2 rounded-panel border border-zinc-800 bg-surface px-3.5 py-2.5 text-xs text-zinc-400">
-                        <span class="h-2 w-2 rounded-full bg-emerald-400" /> {{ counts.online }} online <span class="mx-1 text-zinc-700">/</span>
-                        {{ counts.total }} total
+                    <div class="flex items-center gap-2 rounded-panel border border-border bg-surface px-3.5 py-2.5 text-xs text-muted-foreground">
+                        <span class="h-2 w-2 rounded-full bg-status-success" /> {{ counts.online }} {{ t('ui.online_f6fc84c') }}
+                        <span class="mx-1 text-muted-foreground">/</span> {{ counts.total }} {{ t('ui.total_1123987') }}
                     </div>
                 </header>
 
                 <section class="grid grid-cols-2 gap-3 lg:grid-cols-4">
                     <div class="stat-card">
-                        <div class="stat-label">Total cells</div>
+                        <div class="stat-label">{{ t('ui.total_cells_e616d00') }}</div>
                         <div class="stat-value">{{ counts.total }}</div>
-                        <div class="stat-note">Managed instances</div>
+                        <div class="stat-note">{{ t('ui.managed_instances') }}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label"><span class="status-dot bg-emerald-400" /> Running</div>
+                        <div class="stat-label"><span class="status-dot bg-status-success" /> {{ t('ui.running') }}</div>
                         <div class="stat-value">{{ counts.online }}</div>
-                        <div class="stat-note">Currently online</div>
+                        <div class="stat-note">{{ t('ui.currently_online') }}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label"><span class="status-dot bg-amber-400" /> In progress</div>
+                        <div class="stat-label"><span class="status-dot bg-status-warning" /> {{ t('ui.in_progress') }}</div>
                         <div class="stat-value">{{ counts.transitioning }}</div>
-                        <div class="stat-note">Starting or stopping</div>
+                        <div class="stat-note">{{ t('ui.starting_or_stopping') }}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label"><span class="status-dot bg-zinc-500" /> Offline</div>
+                        <div class="stat-label"><span class="status-dot bg-muted" /> {{ t('ui.offline') }}</div>
                         <div class="stat-value">{{ counts.offline }}</div>
-                        <div class="stat-note">Currently stopped</div>
+                        <div class="stat-note">{{ t('ui.currently_stopped') }}</div>
                     </div>
                 </section>
 
-                <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
-                    <div class="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+                <section class="overflow-hidden rounded-panel border border-border bg-surface">
+                    <div class="flex flex-col gap-4 border-b border-foreground/[0.06] px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                            <h2 class="text-base font-semibold text-white">
-                                All cells <span class="ml-1.5 text-sm font-normal text-zinc-500">{{ filteredCells.length }}</span>
+                            <h2 class="text-base font-semibold text-foreground">
+                                {{ t('ui.all_cells_a6d855a') }}
+                                <span class="ml-1.5 text-sm font-normal text-muted-foreground">{{ filteredCells.length }}</span>
                             </h2>
-                            <p class="mt-1 text-xs text-zinc-500">Select a server to open its console and settings.</p>
+                            <p class="mt-1 text-xs text-muted-foreground">{{ t('ui.select_a_server_to_open_its_console_and_settings') }}</p>
                         </div>
                         <div class="flex flex-col gap-2 sm:flex-row">
                             <div class="relative min-w-0 sm:w-64 xl:w-80">
                                 <svg
-                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                                    class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -162,32 +169,32 @@ function power(id: string, action: 'start' | 'stop') {
                                 <input
                                     v-model="search"
                                     type="search"
-                                    placeholder="Search servers..."
-                                    aria-label="Search servers"
+                                    :placeholder="t('ui.search_servers')"
+                                    :aria-label="t('ui.search_servers_3d7d709')"
                                     class="control w-full pl-10"
                                 />
                             </div>
-                            <select v-model="statusFilter" aria-label="Filter status" class="control sm:w-36">
-                                <option value="all">All statuses</option>
-                                <option value="running">Running</option>
-                                <option value="offline">Offline</option>
-                            <option value="unknown">Unknown</option>
-                                <option value="starting">Starting</option>
-                                <option value="stopping">Stopping</option>
+                            <select v-model="statusFilter" :aria-label="t('ui.filter_status')" class="control sm:w-36">
+                                <option value="all">{{ t('ui.all_statuses_8ee5732') }}</option>
+                                <option value="running">{{ t('ui.running') }}</option>
+                                <option value="offline">{{ t('ui.offline') }}</option>
+                                <option value="unknown">{{ t('ui.unknown') }}</option>
+                                <option value="starting">{{ t('ui.starting') }}</option>
+                                <option value="stopping">{{ t('ui.stopping') }}</option>
                             </select>
-                            <select v-model="sort" aria-label="Sort cells" class="control sm:w-36">
-                                <option value="created">Default order</option>
-                                <option value="name">Name A–Z</option>
+                            <select v-model="sort" :aria-label="t('ui.sort_cells')" class="control sm:w-36">
+                                <option value="created">{{ t('ui.default_order') }}</option>
+                                <option value="name">{{ t('ui.name_a_z') }}</option>
                             </select>
                         </div>
                     </div>
 
-                    <div v-if="filteredCells.length" class="divide-y divide-white/[0.055]">
-                        <article v-for="cell in filteredCells" :key="cell.id" class="group px-5 py-5 transition-colors hover:bg-white/[0.018]">
+                    <div v-if="filteredCells.length" class="divide-y divide-foreground/[0.055]">
+                        <article v-for="cell in filteredCells" :key="cell.id" class="group px-5 py-5 transition-colors hover:bg-foreground/[0.018]">
                             <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                                 <div class="flex min-w-0 items-start gap-3.5 xl:w-[27%]">
                                     <div
-                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/[0.075] text-amber-400"
+                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-status-warning/15 bg-status-warning/[0.075] text-status-warning"
                                     >
                                         <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                             <rect x="4" y="3" width="16" height="8" rx="2" />
@@ -199,52 +206,58 @@ function power(id: string, action: 'start' | 'stop') {
                                         <div class="flex flex-wrap items-center gap-2.5">
                                             <Link
                                                 :href="route('cells.show', cell.id)"
-                                                class="truncate text-[15px] font-semibold text-white transition hover:text-amber-400"
+                                                class="truncate text-[15px] font-semibold text-foreground transition hover:text-status-warning"
                                                 >{{ cell.name }}</Link
                                             >
                                             <span
                                                 class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold"
                                                 :class="{
-                                                    'border-emerald-500/20 bg-emerald-500/10 text-emerald-400':
+                                                    'border-status-success/20 bg-status-success/10 text-status-success':
                                                         normaliseStatus(cell.status) === 'running',
-                                                    'border-amber-500/20 bg-amber-500/10 text-amber-400': ['starting', 'stopping'].includes(
-                                                        normaliseStatus(cell.status),
-                                                    ),
-                                                    'border-white/10 bg-white/[0.035] text-zinc-400': ['offline', 'unknown'].includes(normaliseStatus(cell.status)),
+                                                    'border-status-warning/20 bg-status-warning/10 text-status-warning': [
+                                                        'starting',
+                                                        'stopping',
+                                                    ].includes(normaliseStatus(cell.status)),
+                                                    'border-foreground/10 bg-foreground/[0.035] text-muted-foreground': [
+                                                        'offline',
+                                                        'unknown',
+                                                    ].includes(normaliseStatus(cell.status)),
                                                 }"
                                                 ><span
                                                     class="status-dot"
                                                     :class="
                                                         normaliseStatus(cell.status) === 'running'
-                                                            ? 'bg-emerald-400'
+                                                            ? 'bg-status-success'
                                                             : ['starting', 'stopping'].includes(normaliseStatus(cell.status))
-                                                              ? 'bg-amber-400'
-                                                              : 'bg-zinc-500'
+                                                              ? 'bg-status-warning'
+                                                              : 'bg-muted'
                                                     "
                                                 />{{ statusLabel(cell.status) }}</span
                                             >
                                         </div>
-                                        <p class="mt-1 truncate text-xs capitalize text-zinc-400">{{ cellGame(cell) }}</p>
-                                        <p class="mt-1.5 truncate font-mono text-[10px] text-zinc-600" :title="cell.id">{{ cell.id }}</p>
+                                        <p class="mt-1 truncate text-xs capitalize text-muted-foreground">{{ cellGame(cell) }}</p>
+                                        <p class="mt-1.5 truncate font-mono text-[10px] text-muted-foreground" :title="cell.id">{{ cell.id }}</p>
                                     </div>
                                 </div>
 
                                 <div class="grid flex-1 grid-cols-3 gap-3 sm:gap-5 xl:max-w-[570px]">
                                     <div class="min-w-0">
-                                        <div class="metric-label">CPU</div>
-                                        <div class="metric-value">{{ cell.stats ? cpu(cell).toFixed(1) : '—' }}<span class="text-xs text-zinc-500">%</span></div>
+                                        <div class="metric-label">{{ t('ui.cpu') }}</div>
+                                        <div class="metric-value">
+                                            {{ cell.stats ? cpu(cell).toFixed(1) : '—' }}<span class="text-xs text-muted-foreground">%</span>
+                                        </div>
                                         <div class="meter">
                                             <div
-                                                class="h-full rounded-full bg-amber-400 transition-all"
+                                                class="h-full rounded-full bg-status-warning transition-all"
                                                 :style="{ width: `${Math.min(100, cpu(cell))}%` }"
                                             />
                                         </div>
                                     </div>
                                     <div class="min-w-0">
-                                        <div class="metric-label">Memory</div>
+                                        <div class="metric-label">{{ t('ui.memory') }}</div>
                                         <div class="metric-value truncate">
                                             {{ cell.stats ? formatMemory(memoryUsed(cell)) : '—' }}
-                                            <span class="text-[11px] font-normal text-zinc-500"
+                                            <span class="text-[11px] font-normal text-muted-foreground"
                                                 >/ {{ memoryLimit(cell) ? formatMemory(memoryLimit(cell)) : '—' }}</span
                                             >
                                         </div>
@@ -256,10 +269,10 @@ function power(id: string, action: 'start' | 'stop') {
                                         </div>
                                     </div>
                                     <div class="min-w-0">
-                                        <div class="metric-label">Storage</div>
+                                        <div class="metric-label">{{ t('ui.storage') }}</div>
                                         <div class="metric-value truncate">
                                             {{ !cell.stats ? '—' : cell.stats.disk_ready === false ? 'Measuring…' : formatDisk(diskUsed(cell)) }}
-                                            <span class="text-[11px] font-normal text-zinc-500"
+                                            <span class="text-[11px] font-normal text-muted-foreground"
                                                 >/ {{ diskLimit(cell) ? formatDisk(diskLimit(cell)) : '—' }}</span
                                             >
                                         </div>
@@ -273,31 +286,29 @@ function power(id: string, action: 'start' | 'stop') {
                                 </div>
 
                                 <div class="flex flex-wrap items-center justify-between gap-3 xl:w-[285px] xl:justify-end">
-                                    <div class="min-w-0 font-mono text-[11px] text-zinc-400 xl:mr-auto" :title="allocation(cell)">
+                                    <div class="min-w-0 font-mono text-[11px] text-muted-foreground xl:mr-auto" :title="allocation(cell)">
                                         {{ allocation(cell) }}
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <button
                                             type="button"
-                                            class="action-btn border-amber-500/30 bg-amber-500 text-[#1a1305] hover:bg-amber-400 disabled:border-white/[0.06] disabled:bg-white/[0.04] disabled:text-zinc-600"
-                                            :disabled="
-                                                !!pending[cell.id] || normaliseStatus(cell.status) !== 'offline'
-                                            "
+                                            class="action-btn border-status-warning/30 bg-status-warning text-[#1a1305] hover:bg-status-warning disabled:border-foreground/[0.06] disabled:bg-foreground/[0.04] disabled:text-muted-foreground"
+                                            :disabled="!!pending[cell.id] || normaliseStatus(cell.status) !== 'offline'"
                                             @click="power(cell.id, 'start')"
                                         >
-                                            Start
+                                            {{ t('ui.start') }}
                                         </button>
                                         <button
                                             type="button"
-                                            class="action-btn border-white/10 bg-white/[0.035] text-zinc-300 hover:border-red-500/30 hover:text-red-400 disabled:opacity-35"
+                                            class="action-btn border-foreground/10 bg-foreground/[0.035] text-foreground hover:border-status-danger/30 hover:text-status-danger disabled:opacity-35"
                                             :disabled="!!pending[cell.id] || normaliseStatus(cell.status) !== 'running'"
                                             @click="power(cell.id, 'stop')"
                                         >
-                                            Stop
+                                            {{ t('ui.stop') }}
                                         </button>
                                         <Link
                                             :href="route('cells.show', cell.id)"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.035] text-zinc-400 transition hover:border-amber-500/30 hover:text-amber-400"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/[0.035] text-muted-foreground transition hover:border-status-warning/30 hover:text-status-warning"
                                             :aria-label="`Open ${cell.name}`"
                                             ><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                                 <path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round" /></svg
@@ -309,30 +320,30 @@ function power(id: string, action: 'start' | 'stop') {
                     </div>
                     <div v-else class="flex flex-col items-center px-5 py-16 text-center">
                         <div
-                            class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] text-zinc-500"
+                            class="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-foreground/10 bg-foreground/[0.035] text-muted-foreground"
                         >
                             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <rect x="4" y="3" width="16" height="8" rx="2" />
                                 <rect x="4" y="13" width="16" height="8" rx="2" />
                             </svg>
                         </div>
-                        <p class="font-semibold text-zinc-200">{{ cells.length ? 'No matching cells' : 'No cells yet' }}</p>
-                        <p class="mt-1 text-sm text-zinc-500">
+                        <p class="font-semibold text-foreground">{{ cells.length ? 'No matching cells' : 'No cells yet' }}</p>
+                        <p class="mt-1 text-sm text-muted-foreground">
                             {{ cells.length ? 'Try changing your search or status filter.' : 'Your game servers will appear here once created.' }}
                         </p>
                         <button
                             v-if="cells.length"
-                            class="mt-4 text-sm font-medium text-amber-400 hover:text-amber-300"
+                            class="mt-4 text-sm font-medium text-status-warning hover:text-status-warning"
                             @click="
                                 search = '';
                                 statusFilter = 'all';
                             "
                         >
-                            Clear filters
+                            {{ t('ui.clear_filters') }}
                         </button>
                     </div>
-                    <footer class="border-t border-white/[0.06] px-5 py-3.5 text-xs text-zinc-600">
-                        Showing {{ filteredCells.length }} of {{ cells.length }} cells
+                    <footer class="border-t border-foreground/[0.06] px-5 py-3.5 text-xs text-muted-foreground">
+                        {{ t('ui.showing') }} {{ filteredCells.length }} {{ t('ui.of') }} {{ cells.length }} {{ t('ui.cells_57104c5') }}
                     </footer>
                 </section>
             </div>
@@ -343,31 +354,31 @@ function power(id: string, action: 'start' | 'stop') {
 
 <style scoped>
 .stat-card {
-    @apply rounded-panel border border-zinc-800 bg-surface px-5 py-4;
+    @apply rounded-panel border border-border bg-surface px-5 py-4;
 }
 .stat-label {
-    @apply flex items-center gap-2 text-xs font-medium text-zinc-400;
+    @apply flex items-center gap-2 text-xs font-medium text-muted-foreground;
 }
 .stat-value {
-    @apply mt-3 text-3xl font-bold tracking-tight text-white;
+    @apply mt-3 text-3xl font-bold tracking-tight text-foreground;
 }
 .stat-note {
-    @apply mt-1 text-[11px] text-zinc-600;
+    @apply mt-1 text-[11px] text-muted-foreground;
 }
 .status-dot {
     @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
 }
 .control {
-    @apply h-10 rounded-lg border border-white/10 bg-[#0a0d11] px-3 text-xs text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-amber-500/50;
+    @apply h-10 rounded-lg border border-foreground/10 bg-[#0a0d11] px-3 text-xs text-foreground outline-none transition placeholder:text-muted-foreground focus:border-status-warning/50;
 }
 .metric-label {
-    @apply mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500;
+    @apply mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground;
 }
 .metric-value {
-    @apply text-sm font-semibold text-zinc-200;
+    @apply text-sm font-semibold text-foreground;
 }
 .meter {
-    @apply mt-2.5 h-1 overflow-hidden rounded-full bg-white/[0.075];
+    @apply mt-2.5 h-1 overflow-hidden rounded-full bg-foreground/[0.075];
 }
 .action-btn {
     @apply h-9 rounded-lg border px-3.5 text-xs font-semibold transition disabled:cursor-not-allowed;

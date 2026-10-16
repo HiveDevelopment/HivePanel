@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import InstallJobProgress from '@/components/InstallJobProgress.vue';
 import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
+import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { DownloadCloud, LoaderCircle, Package, Search } from 'lucide-vue-next';
@@ -141,14 +142,14 @@ onBeforeUnmount(() => {
     <AppLayout context="server" :active-cell="cell">
         <Head :title="`${cell.name} - Preinstalls`" />
         <main class="space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
-            <header class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-white/[0.08] bg-surface p-5 sm:p-6">
+            <header class="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-foreground/[0.08] bg-surface p-5 sm:p-6">
                 <div class="flex items-center gap-4">
                     <div class="flex size-11 items-center justify-center rounded-xl border border-hive/20 bg-hive/5">
                         <Package class="size-5 text-hive" />
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold text-zinc-100">{{ showJob ? 'Installation' : 'Preinstalls' }}</h1>
-                        <p class="mt-1 text-xs text-zinc-500">
+                        <h1 class="text-xl font-bold text-foreground">{{ showJob ? 'Installation' : 'Preinstalls' }}</h1>
+                        <p class="mt-1 text-xs text-muted-foreground">
                             {{
                                 showJob
                                     ? 'Follow installation progress in your Cell.'
@@ -157,7 +158,9 @@ onBeforeUnmount(() => {
                         </p>
                     </div>
                 </div>
-                <button v-if="!showJob && job.state !== 'idle'" class="text-xs text-hive" @click="showJob = true">View last installation</button>
+                <button v-if="!showJob && job.state !== 'idle'" class="text-xs text-hive" @click="showJob = true">
+                    {{ t('ui.view_last_installation') }}
+                </button>
             </header>
             <p v-if="error" role="alert" class="rounded-panel border border-status-danger/20 bg-status-danger/5 p-4 text-sm text-status-danger">
                 {{ error }}
@@ -165,53 +168,54 @@ onBeforeUnmount(() => {
             <template v-if="showJob || installing">
                 <InstallJobProgress :job="job" />
                 <div v-if="!installing" class="flex flex-wrap gap-4">
-                    <button class="rounded-button bg-hive px-5 py-3 text-xs font-bold text-black" @click="back">Back to preinstalls</button
-                    ><Link :href="`/cells/${cell.id}/startup`" class="self-center text-sm text-hive">Configure startup variables</Link
-                    ><Link :href="`/cells/${cell.id}`" class="self-center text-xs text-zinc-400">Open console</Link>
+                    <button class="rounded-button bg-hive px-5 py-3 text-xs font-bold text-black" @click="back">
+                        {{ t('ui.back_to_preinstalls') }}</button
+                    ><Link :href="`/cells/${cell.id}/startup`" class="self-center text-sm text-hive">{{ t('ui.configure_startup_variables') }}</Link
+                    ><Link :href="`/cells/${cell.id}`" class="self-center text-xs text-muted-foreground">{{ t('ui.open_console') }}</Link>
                 </div>
             </template>
             <template v-else>
-                <p class="text-xs leading-5 text-zinc-500">
-                    Stop your Cell before installing. Installation replaces its files and keeps the previous files in a Cell installation backup.
+                <p class="text-xs leading-5 text-muted-foreground">
+                    {{ t('ui.stop_your_cell_before_installing_installation_replaces_its_files_') }}
                 </p>
-                <div class="flex max-w-md items-center gap-3 rounded-button border border-white/[0.08] bg-surface px-4 py-3">
-                    <Search class="size-4 text-zinc-500" /><input
+                <div class="flex max-w-md items-center gap-3 rounded-button border border-foreground/[0.08] bg-surface px-4 py-3">
+                    <Search class="size-4 text-muted-foreground" /><input
                         v-model="query"
-                        aria-label="Search preinstalls"
-                        placeholder="Search preinstalls…"
-                        class="w-full bg-transparent text-sm text-zinc-200 outline-none"
+                        :aria-label="t('ui.search_preinstalls')"
+                        :placeholder="t('ui.search_preinstalls_3ca2f45')"
+                        class="w-full bg-transparent text-sm text-foreground outline-none"
                     />
                 </div>
                 <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
                     <article
                         v-for="preset in filtered"
                         :key="preset.id"
-                        class="flex flex-col rounded-panel border border-white/[0.08] bg-surface p-6"
+                        class="flex flex-col rounded-panel border border-foreground/[0.08] bg-surface p-6"
                     >
-                        <h2 class="text-base font-bold text-zinc-100">{{ preset.name }}</h2>
-                        <p class="mt-2 text-xs leading-5 text-zinc-400">{{ preset.description }}</p>
+                        <h2 class="text-base font-bold text-foreground">{{ preset.name }}</h2>
+                        <p class="mt-2 text-xs leading-5 text-muted-foreground">{{ preset.description }}</p>
                         <a :href="preset.source" target="_blank" rel="noopener noreferrer" class="mt-3 text-xs text-hive"
-                            >Project source · {{ preset.license }}</a
+                            >{{ t('ui.project_source') }} {{ preset.license }}</a
                         >
-                        <label :for="`version-${preset.id}`" class="mt-5 text-xs text-zinc-500">Version</label
+                        <label :for="`version-${preset.id}`" class="mt-5 text-xs text-muted-foreground">{{ t('ui.version') }}</label
                         ><select
                             :id="`version-${preset.id}`"
                             v-model="versions[preset.id]"
-                            class="mt-2 rounded-button border border-white/[0.08] bg-surface-dark p-3 text-xs text-zinc-200"
+                            class="mt-2 rounded-button border border-foreground/[0.08] bg-surface-dark p-3 text-xs text-foreground"
                         >
                             <option v-for="version in preset.versions" :key="version.id" :value="version.id">{{ version.id }}</option>
                         </select>
                         <label
                             v-for="variable in (preset.variables ?? []).filter((entry: any) => entry.install && !entry.secret)"
                             :key="variable.name"
-                            class="mt-4 block text-xs text-zinc-400"
+                            class="mt-4 block text-xs text-muted-foreground"
                             >{{ variable.name
                             }}<input
                                 v-model="parameters[preset.id][variable.name]"
-                                class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-dark p-3 text-xs text-zinc-200"
-                            /><span class="mt-1 block text-[11px] text-zinc-500">{{ variable.description }}</span></label
+                                class="mt-2 w-full rounded-button border border-border bg-surface-dark p-3 text-xs text-foreground"
+                            /><span class="mt-1 block text-[11px] text-muted-foreground">{{ variable.description }}</span></label
                         >
-                        <ul class="my-4 space-y-2 text-[11px] leading-5 text-zinc-500">
+                        <ul class="my-4 space-y-2 text-[11px] leading-5 text-muted-foreground">
                             <li v-for="warning in preset.warnings" :key="warning">{{ warning }}</li>
                         </ul>
                         <button
@@ -219,23 +223,25 @@ onBeforeUnmount(() => {
                             class="mt-auto flex items-center justify-center gap-2 rounded-button bg-hive px-4 py-3 text-xs font-bold text-black disabled:opacity-50"
                             @click="review(preset)"
                         >
-                            <LoaderCircle v-if="busy" class="size-4 animate-spin" /><DownloadCloud v-else class="size-4" />Review installation
+                            <LoaderCircle v-if="busy" class="size-4 animate-spin" /><DownloadCloud v-else class="size-4" />{{
+                                t('ui.review_installation')
+                            }}
                         </button>
                     </article>
                 </div>
-                <p v-if="!filtered.length && !error" class="p-6 text-center text-xs text-zinc-500">
-                    No preinstalls are available for this selection.
+                <p v-if="!filtered.length && !error" class="p-6 text-center text-xs text-muted-foreground">
+                    {{ t('ui.no_preinstalls_are_available_for_this_selection') }}
                 </p>
-                <p v-if="!canInstall" class="text-xs text-zinc-500">
-                    Installing requires file upload, write and delete permissions, plus permission to change startup settings.
+                <p v-if="!canInstall" class="text-xs text-muted-foreground">
+                    {{ t('ui.installing_requires_file_upload_write_and_delete_permissions_plus') }}
                 </p>
             </template>
         </main>
         <ConfirmationModal
             :open="confirm"
             :title="`Install ${preview?.plan?.name ?? 'application'}?`"
-            description="This replaces the files in your Cell and changes its runtime and startup command. Previous files are retained in the Cell’s installation backup. Stop your Cell first. Configure private startup variables after installation."
-            confirm-text="Replace files and install"
+            :description="t('ui.this_replaces_the_files_in_your_cell_and_changes_its_runtime_and_')"
+            :confirm-text="t('ui.replace_files_and_install')"
             danger
             :loading="busy"
             @cancel="confirm = false"

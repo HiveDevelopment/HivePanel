@@ -1,28 +1,26 @@
 <script setup lang="ts">
-import { ArrowLeft, CalendarClock, Play, Save } from 'lucide-vue-next'
+import { t } from '@/composables/useLanguage';
+import { ArrowLeft, CalendarClock, Play, Save } from 'lucide-vue-next';
 
 defineProps<{
-    cell: any
-    form: any
-    saving: boolean
-    cronSummary: string
-}>()
+    cell: any;
+    form: any;
+    saving: boolean;
+    cronSummary: string;
+}>();
 
 const emit = defineEmits<{
-    back: []
-    run: []
-    save: []
-}>()
+    back: [];
+    run: [];
+    save: [];
+}>();
 </script>
 
 <template>
-    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-        <button
-            class="mb-4 inline-flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-hive"
-            @click="emit('back')"
-        >
+    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+        <button class="mb-4 inline-flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-hive" @click="emit('back')">
             <ArrowLeft class="size-4" />
-            Back to schedules
+            {{ t('ui.back_to_schedules') }}
         </button>
 
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -32,7 +30,7 @@ const emit = defineEmits<{
                     <h1 class="text-2xl font-black sm:text-3xl">
                         {{ form.name }}
                     </h1>
-                    <p class="mt-1 text-sm text-zinc-400">
+                    <p class="mt-1 text-sm text-muted-foreground">
                         {{ cronSummary }}
                     </p>
                 </div>
@@ -40,15 +38,15 @@ const emit = defineEmits<{
 
             <div class="flex flex-wrap gap-2">
                 <button
-                    class="inline-flex items-center justify-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-black text-zinc-300 transition hover:border-hive hover:text-hive"
+                    class="inline-flex items-center justify-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-black text-foreground transition hover:border-hive hover:text-hive"
                     @click="emit('run')"
                 >
                     <Play class="size-4" />
-                    Run Now
+                    {{ t('ui.run_now') }}
                 </button>
 
                 <button
-                    class="inline-flex items-center justify-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-white transition hover:bg-hive-light disabled:opacity-50"
+                    class="inline-flex items-center justify-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-primary-foreground transition hover:bg-hive-light disabled:opacity-50"
                     :disabled="saving"
                     @click="emit('save')"
                 >

@@ -33,7 +33,7 @@ class AdminNodeWebProxyController extends Controller
         $data['certbot_image'] = 'certbot/certbot:latest';
         $proxy->request($node, 'PATCH', '/configuration/web-proxy', $data, true);
 
-        return back()->with('success', 'Node proxy settings applied.');
+        return back()->with('success', __('Node proxy settings applied.'));
     }
 
     public function destroy(Node $node, string $domain, WebProxyNodeClient $proxy)
@@ -41,6 +41,6 @@ class AdminNodeWebProxyController extends Controller
         $proxy->request($node, 'DELETE', '/configuration/web-proxy/routes/'.$domain);
         CellDomain::where('node_id', $node->id)->whereKey($domain)->delete();
 
-        return back()->with('success', 'Proxy route removed.');
+        return back()->with('success', __('Proxy route removed.'));
     }
 }

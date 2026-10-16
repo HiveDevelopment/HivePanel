@@ -14,6 +14,7 @@ class AdminThemeController extends Controller
     public function index(Request $request)
     {
         abort_unless($request->user()->hasAdminPermission('admin.settings.view'), 403);
+
         return Inertia::render('Admin/Themes/Index', ['catalog' => PanelThemes::catalog(), 'canEdit' => $request->user()->hasAdminPermission('admin.settings.update')]);
     }
 
@@ -27,8 +28,11 @@ class AdminThemeController extends Controller
         }
         $data = $request->validate($rules);
         $offered = array_filter($data['themes'], fn ($theme) => $theme['enabled'] && $theme['id'] === $data['default']);
-        if (!$offered) throw ValidationException::withMessages(['default' => 'Choose an offered theme as the default.']);
+        if (! $offered) {
+            throw ValidationException::withMessages(['default' => __('Choose an offered theme as the default.')]);
+        }
         AppSetting::updateOrCreate(['key' => 'themes'], ['value' => $data]);
-        return back()->with('success', 'Themes saved.');
+
+        return back()->with('success', __('Themes saved.'));
     }
 }

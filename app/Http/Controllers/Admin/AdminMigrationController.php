@@ -12,15 +12,15 @@ use App\Models\Node;
 use App\Models\PlatformMigration;
 use App\Models\PlatformMigrationServer;
 use App\Models\User;
+use App\Services\Migrations\LocalMigrationSourceDetectionService;
 use App\Services\Migrations\MigrationDatabaseTransferConfigurationService;
 use App\Services\Migrations\MigrationDatabaseTransferService;
 use App\Services\Migrations\MigrationDiscoveryService;
 use App\Services\Migrations\MigrationDuplicateDetectionService;
-use App\Services\Migrations\LocalMigrationSourceDetectionService;
+use App\Services\Migrations\MigrationFinalisationService;
 use App\Services\Migrations\MigrationPlanningService;
 use App\Services\Migrations\MigrationPreparationService;
 use App\Services\Migrations\MigrationTransferConfigurationService;
-use App\Services\Migrations\MigrationFinalisationService;
 use App\Services\Migrations\MigrationVerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -43,14 +43,13 @@ class AdminMigrationController extends Controller
 
                 $databasePlans = $selectedServers
                     ->flatMap(
-                        fn (PlatformMigrationServer $server) =>
-                            collect(
-                                $server->database_plan
-                                ?? []
-                            )->where(
-                                'selected',
-                                true
-                            )
+                        fn (PlatformMigrationServer $server) => collect(
+                            $server->database_plan
+                            ?? []
+                        )->where(
+                            'selected',
+                            true
+                        )
                     )
                     ->values();
 
@@ -87,15 +86,14 @@ class AdminMigrationController extends Controller
                         ->count(),
                     'failed_servers_count' => $selectedServers
                         ->filter(
-                            fn (PlatformMigrationServer $server) =>
-                                in_array(
-                                    $server->status,
-                                    [
-                                        'failed',
-                                        'database_failed',
-                                    ],
-                                    true
-                                )
+                            fn (PlatformMigrationServer $server) => in_array(
+                                $server->status,
+                                [
+                                    'failed',
+                                    'database_failed',
+                                ],
+                                true
+                            )
                         )
                         ->count(),
                     'database_count' => $databasePlans->count(),
@@ -110,8 +108,7 @@ class AdminMigrationController extends Controller
                             $verification['verified']
                             ?? false
                         ),
-                        'checked_at' =>
-                            $verification['checked_at']
+                        'checked_at' => $verification['checked_at']
                             ?? null,
                         'failed' => (int) data_get(
                             $verification,
@@ -129,8 +126,7 @@ class AdminMigrationController extends Controller
                             $finalisation['finalised']
                             ?? false
                         ),
-                        'finalised_at' =>
-                            $finalisation['finalised_at']
+                        'finalised_at' => $finalisation['finalised_at']
                             ?? null,
                         'credentials_removed' => (bool) (
                             $finalisation[
@@ -203,7 +199,7 @@ class AdminMigrationController extends Controller
 
         return redirect()
             ->route('admin.migrations.show', $migration)
-            ->with('success', 'Migration created. Source discovery has been queued.');
+            ->with('success', __('Migration created. Source discovery has been queued.'));
     }
 
     public function show(PlatformMigration $migration)
@@ -290,7 +286,7 @@ class AdminMigrationController extends Controller
     public function discover(PlatformMigration $migration)
     {
         if (in_array($migration->status, ['queued', 'discovering'], true)) {
-            return back()->with('error', 'Discovery is already running for this migration.');
+            return back()->with('error', __('Discovery is already running for this migration.'));
         }
 
         $migration->forceFill([
@@ -302,7 +298,7 @@ class AdminMigrationController extends Controller
 
         DiscoverPlatformMigration::dispatch($migration->id);
 
-        return back()->with('success', 'Source discovery has been queued.');
+        return back()->with('success', __('Source discovery has been queued.'));
     }
 
     public function mapping(
@@ -359,20 +355,17 @@ class AdminMigrationController extends Controller
             ->values()
             ->map(function (string $email) use ($migration, $users) {
                 $existing = $migration->servers
-                    ->first(fn (PlatformMigrationServer $server) =>
-                        strcasecmp((string) $server->owner_email, $email) === 0
+                    ->first(fn (PlatformMigrationServer $server) => strcasecmp((string) $server->owner_email, $email) === 0
                         && filled($server->destination_owner_id)
                     );
 
                 $suggested = $existing?->destination_owner_id
                     ?: $users->first(
-                        fn (User $user) =>
-                            strcasecmp((string) $user->email, $email) === 0
+                        fn (User $user) => strcasecmp((string) $user->email, $email) === 0
                     )?->id;
 
                 $sourceServer = $migration->servers
-                    ->first(fn (PlatformMigrationServer $server) =>
-                        strcasecmp((string) $server->owner_email, $email) === 0
+                    ->first(fn (PlatformMigrationServer $server) => strcasecmp((string) $server->owner_email, $email) === 0
                     );
 
                 $sourceUser = (array) data_get(
@@ -417,15 +410,13 @@ class AdminMigrationController extends Controller
             ->values()
             ->map(function (string $name) use ($migration, $nodes) {
                 $existing = $migration->servers
-                    ->first(fn (PlatformMigrationServer $server) =>
-                        strcasecmp((string) $server->source_node_name, $name) === 0
+                    ->first(fn (PlatformMigrationServer $server) => strcasecmp((string) $server->source_node_name, $name) === 0
                         && filled($server->destination_node_id)
                     );
 
                 $suggested = $existing?->destination_node_id
                     ?: $nodes->first(
-                        fn (Node $node) =>
-                            strcasecmp((string) $node->name, $name) === 0
+                        fn (Node $node) => strcasecmp((string) $node->name, $name) === 0
                     )?->id;
 
                 return [
@@ -444,8 +435,7 @@ class AdminMigrationController extends Controller
             ->values()
             ->map(function (string $name) use ($migration, $combs) {
                 $existing = $migration->servers
-                    ->first(fn (PlatformMigrationServer $server) =>
-                        strcasecmp((string) $server->source_egg_name, $name) === 0
+                    ->first(fn (PlatformMigrationServer $server) => strcasecmp((string) $server->source_egg_name, $name) === 0
                         && filled($server->destination_comb)
                     );
 
@@ -458,8 +448,7 @@ class AdminMigrationController extends Controller
                     ?: $automaticMatch['external_id'];
 
                 $sourceServer = $migration->servers
-                    ->first(fn (PlatformMigrationServer $server) =>
-                        strcasecmp((string) $server->source_egg_name, $name) === 0
+                    ->first(fn (PlatformMigrationServer $server) => strcasecmp((string) $server->source_egg_name, $name) === 0
                     );
 
                 $eggMetadata = (array) data_get(
@@ -655,13 +644,13 @@ class AdminMigrationController extends Controller
             $transferOwner = $ownerKey
                 ? (bool) data_get(
                     $data,
-                    'owner_transfer.' . $ownerKey,
+                    'owner_transfer.'.$ownerKey,
                     true,
                 )
                 : false;
 
             $ownerSelection = $ownerKey
-                ? data_get($data, 'owner_map.' . $ownerKey)
+                ? data_get($data, 'owner_map.'.$ownerKey)
                 : null;
 
             $ownerStrategy = $transferOwner
@@ -676,7 +665,7 @@ class AdminMigrationController extends Controller
             $ownerCreateData = $ownerStrategy === 'create' && $ownerKey
                 ? (array) data_get(
                     $data,
-                    'owner_create.' . $ownerKey,
+                    'owner_create.'.$ownerKey,
                     [],
                 )
                 : null;
@@ -684,7 +673,7 @@ class AdminMigrationController extends Controller
             $nodeId = $server->source_node_name
                 ? data_get(
                     $data,
-                    'node_map.' . $this->mappingKey($server->source_node_name)
+                    'node_map.'.$this->mappingKey($server->source_node_name)
                 )
                 : null;
 
@@ -693,7 +682,7 @@ class AdminMigrationController extends Controller
                 : null;
 
             $combSelection = $combKey
-                ? data_get($data, 'comb_map.' . $combKey)
+                ? data_get($data, 'comb_map.'.$combKey)
                 : null;
 
             $combStrategy = $combSelection === '__create__'
@@ -707,7 +696,7 @@ class AdminMigrationController extends Controller
             $combCreateData = $combStrategy === 'create' && $combKey
                 ? (array) data_get(
                     $data,
-                    'comb_create.' . $combKey,
+                    'comb_create.'.$combKey,
                     [],
                 )
                 : null;
@@ -848,7 +837,7 @@ class AdminMigrationController extends Controller
 
         return redirect()
             ->route('admin.migrations.review', $migration)
-            ->with('success', 'Migration mapping saved successfully.');
+            ->with('success', __('Migration mapping saved successfully.'));
     }
 
     public function review(PlatformMigration $migration)
@@ -1240,7 +1229,7 @@ class AdminMigrationController extends Controller
 
         return back()->with(
             'success',
-            'Source transfer access saved successfully.'
+            __('Source transfer access saved successfully.')
         );
     }
 
@@ -1359,7 +1348,7 @@ class AdminMigrationController extends Controller
 
         return back()->with(
             'success',
-            'Database transfer hosts tested and saved successfully.'
+            __('Database transfer hosts tested and saved successfully.')
         );
     }
 
@@ -1370,7 +1359,7 @@ class AdminMigrationController extends Controller
     ) {
         if (in_array($migration->status, ['queued', 'discovering'], true)) {
             return back()->withErrors([
-                'database' => 'Database settings cannot be changed while discovery is running.',
+                'database' => __('Database settings cannot be changed while discovery is running.'),
             ]);
         }
 
@@ -1393,7 +1382,7 @@ class AdminMigrationController extends Controller
 
         if ((bool) $data['enabled'] && blank($password)) {
             return back()->withErrors([
-                'password' => 'A database password is required.',
+                'password' => __('A database password is required.'),
             ]);
         }
 
@@ -1492,10 +1481,10 @@ class AdminMigrationController extends Controller
             ->with(
                 'success',
                 "Prepared {$result['prepared_servers']} server(s), created "
-                . count($result['created_users'])
-                . ' user(s) and '
-                . count($result['created_combs'])
-                . ' Comb(s).'
+                .count($result['created_users'])
+                .' user(s) and '
+                .count($result['created_combs'])
+                .' Comb(s).'
             );
     }
 
@@ -1550,14 +1539,12 @@ class AdminMigrationController extends Controller
                             $server,
                         ),
 
-                        'database_credentials' =>
-                            $this->databaseCredentialsForServer(
-                                $migration,
-                                $server,
-                            ),
+                        'database_credentials' => $this->databaseCredentialsForServer(
+                            $migration,
+                            $server,
+                        ),
 
-                        'destination_cell' =>
-                            $server->destinationCell
+                        'destination_cell' => $server->destinationCell
                                 ? [
                                     'id' => $server
                                         ->destinationCell
@@ -1571,8 +1558,7 @@ class AdminMigrationController extends Controller
                                 ]
                                 : null,
 
-                        'destination_node' =>
-                            $server->destinationNode
+                        'destination_node' => $server->destinationNode
                                 ? [
                                     'id' => $server
                                         ->destinationNode
@@ -1586,8 +1572,7 @@ class AdminMigrationController extends Controller
                                 ]
                                 : null,
 
-                        'destination_owner' =>
-                            $server->destinationOwner
+                        'destination_owner' => $server->destinationOwner
                                 ? [
                                     'id' => $server
                                         ->destinationOwner
@@ -1679,7 +1664,7 @@ class AdminMigrationController extends Controller
             )
             ->with(
                 'success',
-                'Migration execution has been queued.'
+                __('Migration execution has been queued.')
             );
     }
 
@@ -1711,7 +1696,7 @@ class AdminMigrationController extends Controller
 
         return back()->with(
             'success',
-            'Database migration has been queued.'
+            __('Database migration has been queued.')
         );
     }
 
@@ -1763,10 +1748,8 @@ class AdminMigrationController extends Controller
             'at' => now()->toISOString(),
             'server_id' => (string) $server->id,
             'server_name' => $server->name,
-            'destination_cell_id' =>
-                $server->destination_cell_id,
-            'reused_destination_cell' =>
-                $hasDestinationCell,
+            'destination_cell_id' => $server->destination_cell_id,
+            'reused_destination_cell' => $hasDestinationCell,
             'previous_stage' => $previousStage,
             'previous_error' => $previousError,
         ];
@@ -1779,8 +1762,7 @@ class AdminMigrationController extends Controller
         $migration->forceFill([
             'source_config' => $sourceConfig,
             'status' => 'running',
-            'current_stage' =>
-                "Retrying {$server->name}",
+            'current_stage' => "Retrying {$server->name}",
             'progress' => min(
                 99,
                 max(
@@ -1853,8 +1835,7 @@ class AdminMigrationController extends Controller
         $migration->forceFill([
             'source_config' => $sourceConfig,
             'status' => 'database_pending',
-            'current_stage' =>
-                "{$reset} database retry/retries queued",
+            'current_stage' => "{$reset} database retry/retries queued",
             'progress' => min(
                 99,
                 max(
@@ -1881,7 +1862,7 @@ class AdminMigrationController extends Controller
     ) {
         if (in_array($migration->status, ['queued', 'discovering'], true)) {
             return back()->withErrors([
-                'source' => 'Source credentials cannot be changed while discovery is running.',
+                'source' => __('Source credentials cannot be changed while discovery is running.'),
             ]);
         }
 
@@ -1900,7 +1881,7 @@ class AdminMigrationController extends Controller
 
         if (blank($sourceConfig['api_key'] ?? null)) {
             return back()->withErrors([
-                'api_key' => 'An Application API key is required.',
+                'api_key' => __('An Application API key is required.'),
             ]);
         }
 
@@ -1916,7 +1897,7 @@ class AdminMigrationController extends Controller
 
         return back()->with(
             'success',
-            'Source connection updated. Discovery has been queued again.'
+            __('Source connection updated. Discovery has been queued again.')
         );
     }
 
@@ -1926,7 +1907,7 @@ class AdminMigrationController extends Controller
 
         return redirect()
             ->route('admin.migrations.index')
-            ->with('success', 'Migration removed successfully.');
+            ->with('success', __('Migration removed successfully.'));
     }
 
     private function migrationStatusLabel(
@@ -2139,11 +2120,10 @@ class AdminMigrationController extends Controller
         return $migration->servers
             ->map(fn (PlatformMigrationServer $server) => [
                 ...$this->migrationServerPayload($server),
-                'database_credentials' =>
-                    $this->databaseCredentialsForServer(
-                        $migration,
-                        $server,
-                    ),
+                'database_credentials' => $this->databaseCredentialsForServer(
+                    $migration,
+                    $server,
+                ),
             ])
             ->values();
     }
@@ -2228,15 +2208,14 @@ class AdminMigrationController extends Controller
             [],
         );
 
-        $prefix = $server->id . ':';
+        $prefix = $server->id.':';
 
         return collect($credentials)
             ->filter(
-                fn ($value, $key) =>
-                    str_starts_with(
-                        (string) $key,
-                        $prefix,
-                    )
+                fn ($value, $key) => str_starts_with(
+                    (string) $key,
+                    $prefix,
+                )
             )
             ->map(
                 fn ($value) => [
@@ -2290,8 +2269,7 @@ class AdminMigrationController extends Controller
                 ];
             })
             ->filter(
-                fn (array $match) =>
-                    filled($match['external_id'])
+                fn (array $match) => filled($match['external_id'])
                     && $match['score'] > 0
             )
             ->sortByDesc('score')
@@ -2520,18 +2498,16 @@ class AdminMigrationController extends Controller
 
         $tokens = collect($words)
             ->reject(
-                fn (string $word) =>
-                    in_array(
-                        $word,
-                        $ignored,
-                        true
-                    )
+                fn (string $word) => in_array(
+                    $word,
+                    $ignored,
+                    true
+                )
             )
             ->map(
-                fn (string $word) =>
-                    $this->normaliseCombAlias(
-                        $word
-                    )
+                fn (string $word) => $this->normaliseCombAlias(
+                    $word
+                )
             )
             ->filter()
             ->unique()
@@ -2740,7 +2716,7 @@ class AdminMigrationController extends Controller
 
         $user = (array) data_get(
             $migration->source_config,
-            'database_discovery.users.' . $key,
+            'database_discovery.users.'.$key,
             [],
         );
 

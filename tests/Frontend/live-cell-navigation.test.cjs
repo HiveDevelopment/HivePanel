@@ -9,7 +9,12 @@ function load(relative) {
     const loaded = new Module(source, module);
     loaded.filename = source;
     loaded.paths = Module._nodeModulePaths(path.dirname(source));
-    loaded._compile(ts.transpileModule(fs.readFileSync(source, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, source);
+    loaded._compile(
+        ts.transpileModule(fs.readFileSync(source, 'utf8'), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+        }).outputText,
+        source,
+    );
     return loaded.exports;
 }
 test('live stop clears the initial running state and failed polls do not overwrite it', async () => {
@@ -31,12 +36,23 @@ test('live stop clears the initial running state and failed polls do not overwri
 });
 test('game menus point to implemented pages and accept scoped Comb shortcuts', () => {
     const { serverNavigation } = load('components/sidebar/navigation.ts');
-    const links = manifest => serverNavigation('cell', manifest, true, false).flatMap(group => group.items ?? [group]);
+    const links = (manifest) => serverNavigation('cell', manifest, true, false).flatMap((group) => group.items ?? [group]);
     const minecraft = links('minecraft');
-    assert.ok(minecraft.some(link => link.href === '/cells/cell/players'));
-    assert.ok(minecraft.some(link => link.href === '/cells/cell/minecraft/plugins'));
-    const other = links({ game: 'dragonwilds', name: 'Dragonwilds', sidebar: [{ title: 'Saved settings', type: 'files', path: 'Game/Saved' }, { title: 'Unsafe', type: 'files', path: '../secret' }] });
-    assert.ok(!other.some(link => link.title === 'Players' || link.title === 'Plugins' || link.title === 'Unsafe'));
-    assert.ok(other.some(link => link.href === '/cells/cell/files?path=Game%2FSaved'));
-    for (const link of [...minecraft, ...other]) assert.match(link.href, /^\/cells\/cell(?:$|\/(activity|users|files|databases|network|domains|website|backups|schedules|importer|startup|config|settings|players|minecraft\/(?:mods|plugins|jars|modpacks|builder))(?:\?|$))/);
+    assert.ok(minecraft.some((link) => link.href === '/cells/cell/players'));
+    assert.ok(minecraft.some((link) => link.href === '/cells/cell/minecraft/plugins'));
+    const other = links({
+        game: 'dragonwilds',
+        name: 'Dragonwilds',
+        sidebar: [
+            { title: 'Saved settings', type: 'files', path: 'Game/Saved' },
+            { title: 'Unsafe', type: 'files', path: '../secret' },
+        ],
+    });
+    assert.ok(!other.some((link) => link.title === 'Players' || link.title === 'Plugins' || link.title === 'Unsafe'));
+    assert.ok(other.some((link) => link.href === '/cells/cell/files?path=Game%2FSaved'));
+    for (const link of [...minecraft, ...other])
+        assert.match(
+            link.href,
+            /^\/cells\/cell(?:$|\/(activity|users|files|databases|network|domains|subdomains|firewall|splitter|instances|switch-comb|website|backups|schedules|importer|startup|config|settings|players|minecraft\/(?:mods|plugins|jars|modpacks|builder))(?:\?|$))/,
+        );
 });

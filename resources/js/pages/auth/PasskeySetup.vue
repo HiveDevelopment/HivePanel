@@ -1,82 +1,73 @@
 <script setup lang="ts">
-import { Passkeys } from '@laravel/passkeys'
-import { Head, router } from '@inertiajs/vue3'
-import {
-    ArrowRight,
-    CheckCircle2,
-    Fingerprint,
-    KeyRound,
-    LoaderCircle,
-    ShieldCheck,
-} from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { t } from '@/composables/useLanguage';
+import { Head, router } from '@inertiajs/vue3';
+import { Passkeys } from '@laravel/passkeys';
+import { ArrowRight, CheckCircle2, Fingerprint, KeyRound, LoaderCircle, ShieldCheck } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
-const passkeyName = ref('')
-const processing = ref(false)
-const error = ref<string | null>(null)
-const complete = ref(false)
+const passkeyName = ref('');
+const processing = ref(false);
+const error = ref<string | null>(null);
+const complete = ref(false);
 
 const suggestedName = computed(() => {
-    const platform = navigator.platform?.toLowerCase() ?? ''
+    const platform = navigator.platform?.toLowerCase() ?? '';
 
     if (platform.includes('win')) {
-        return 'Windows Hello'
+        return 'Windows Hello';
     }
 
     if (platform.includes('mac')) {
-        return 'Mac'
+        return 'Mac';
     }
 
     if (platform.includes('iphone') || platform.includes('ipad')) {
-        return 'iPhone or iPad'
+        return 'iPhone or iPad';
     }
 
     if (platform.includes('android')) {
-        return 'Android device'
+        return 'Android device';
     }
 
-    return 'My passkey'
-})
+    return 'My passkey';
+});
 
 const createPasskey = async () => {
     if (processing.value) {
-        return
+        return;
     }
 
-    processing.value = true
-    error.value = null
+    processing.value = true;
+    error.value = null;
 
     try {
         await Passkeys.register({
             name: passkeyName.value.trim() || suggestedName.value,
-        })
+        });
 
-        complete.value = true
+        complete.value = true;
     } catch (exception) {
-        if (
-            exception instanceof DOMException
-            && exception.name === 'NotAllowedError'
-        ) {
-            error.value = 'Passkey setup was cancelled.'
+        if (exception instanceof DOMException && exception.name === 'NotAllowedError') {
+            error.value = 'Passkey setup was cancelled.';
         } else if (exception instanceof Error) {
-            error.value = exception.message
+            error.value = exception.message;
         } else {
-            error.value = 'Unable to create your passkey.'
+            error.value = 'Unable to create your passkey.';
         }
     } finally {
-        processing.value = false
+        processing.value = false;
     }
-}
+};
 
 const continueToDashboard = () => {
-    router.visit(route('dashboard'))
-}
+    router.visit(route('dashboard'));
+};
 </script>
 
 <template>
-    <Head title="Secure your account" />
+    <Head :title="t('ui.secure_your_account')" />
 
-    <div class="relative min-h-screen overflow-hidden bg-[#090b0d] text-white">
+    <div class="relative min-h-screen overflow-hidden bg-surface-dark text-foreground">
         <div
             class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,166,0,0.13),transparent_34%),radial-gradient(circle_at_15%_80%,rgba(255,140,0,0.035),transparent_25%),radial-gradient(circle_at_85%_70%,rgba(255,190,70,0.025),transparent_25%)]"
         />
@@ -94,23 +85,21 @@ const continueToDashboard = () => {
                 <div class="mb-8 text-center">
                     <img
                         src="https://hivepanel.dev/assets/imgs/HivePanelLogo.png"
-                        alt="HivePanel"
+                        :alt="t('ui.hivepanel_6123007')"
                         class="mx-auto h-12 w-auto drop-shadow-[0_0_28px_rgba(255,166,0,0.12)]"
                     />
 
                     <template v-if="!complete">
-                        <div
-                            class="mx-auto mt-7 flex size-12 items-center justify-center rounded-2xl border border-hive/20 bg-hive/[0.08]"
-                        >
+                        <div class="mx-auto mt-7 flex size-12 items-center justify-center rounded-2xl border border-hive/20 bg-hive/[0.08]">
                             <Fingerprint class="size-6 text-hive" />
                         </div>
 
-                        <h1 class="mt-5 text-[26px] font-semibold tracking-[-0.025em] text-white">
-                            Secure your account
+                        <h1 class="mt-5 text-[26px] font-semibold tracking-[-0.025em] text-foreground">
+                            {{ t('ui.secure_your_account') }}
                         </h1>
 
-                        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">
-                            Add a passkey for a faster and more secure way to sign in to HivePanel.
+                        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                            {{ t('ui.add_a_passkey_for_a_faster_and_more_secure_way_to_sign_in_to_hive') }}
                         </p>
                     </template>
 
@@ -121,65 +110,53 @@ const continueToDashboard = () => {
                             <CheckCircle2 class="size-6 text-status-success" />
                         </div>
 
-                        <h1 class="mt-5 text-[26px] font-semibold tracking-[-0.025em] text-white">
-                            You're all set
+                        <h1 class="mt-5 text-[26px] font-semibold tracking-[-0.025em] text-foreground">
+                            {{ t('ui.you_re_all_set') }}
                         </h1>
 
-                        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">
-                            Your passkey has been added and is ready to use.
+                        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                            {{ t('ui.your_passkey_has_been_added_and_is_ready_to_use') }}
                         </p>
                     </template>
                 </div>
 
                 <div
-                    class="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#15181c]/95 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+                    class="relative overflow-hidden rounded-2xl border border-foreground/[0.07] bg-surface-light/95 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl"
                 >
                     <div
                         class="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.14] to-transparent"
                     />
 
-                    <div
-                        v-if="!complete"
-                        class="p-6 sm:p-7"
-                    >
+                    <div v-if="!complete" class="p-6 sm:p-7">
                         <div class="mb-6 grid grid-cols-3 gap-2">
-                            <div
-                                class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3 text-center"
-                            >
+                            <div class="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-2 py-3 text-center">
                                 <Fingerprint class="mx-auto size-5 text-hive" />
 
-                                <span class="mt-2 block text-[11px] text-zinc-500">
-                                    Biometrics
+                                <span class="mt-2 block text-[11px] text-muted-foreground">
+                                    {{ t('ui.biometrics') }}
                                 </span>
                             </div>
 
-                            <div
-                                class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3 text-center"
-                            >
+                            <div class="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-2 py-3 text-center">
                                 <KeyRound class="mx-auto size-5 text-hive" />
 
-                                <span class="mt-2 block text-[11px] text-zinc-500">
-                                    Security keys
+                                <span class="mt-2 block text-[11px] text-muted-foreground">
+                                    {{ t('ui.security_keys') }}
                                 </span>
                             </div>
 
-                            <div
-                                class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-2 py-3 text-center"
-                            >
+                            <div class="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-2 py-3 text-center">
                                 <ShieldCheck class="mx-auto size-5 text-hive" />
 
-                                <span class="mt-2 block text-[11px] text-zinc-500">
-                                    Phishing resistant
+                                <span class="mt-2 block text-[11px] text-muted-foreground">
+                                    {{ t('ui.phishing_resistant') }}
                                 </span>
                             </div>
                         </div>
 
                         <div>
-                            <label
-                                for="passkey-name"
-                                class="mb-2 block text-sm font-medium text-zinc-300"
-                            >
-                                Passkey name
+                            <label for="passkey-name" class="mb-2 block text-sm font-medium text-foreground">
+                                {{ t('ui.passkey_name') }}
                             </label>
 
                             <input
@@ -188,12 +165,12 @@ const continueToDashboard = () => {
                                 type="text"
                                 maxlength="100"
                                 :placeholder="suggestedName"
-                                class="block w-full rounded-xl border border-white/[0.07] bg-[#0d1013] px-3.5 py-3 text-sm text-white outline-none transition duration-200 placeholder:text-zinc-700 hover:border-white/[0.11] focus:border-hive/50 focus:bg-[#0f1215] focus:ring-4 focus:ring-hive/[0.06]"
+                                class="block w-full rounded-xl border border-foreground/[0.07] bg-surface-dark px-3.5 py-3 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground hover:border-foreground/[0.11] focus:border-hive/50 focus:bg-surface focus:ring-4 focus:ring-hive/[0.06]"
                                 @keyup.enter="createPasskey"
                             />
 
-                            <p class="mt-2 text-xs leading-5 text-zinc-600">
-                                Give this passkey a name so you can recognise it later.
+                            <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                                {{ t('ui.give_this_passkey_a_name_so_you_can_recognise_it_later') }}
                             </p>
                         </div>
 
@@ -210,50 +187,36 @@ const continueToDashboard = () => {
                             class="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-hive px-4 py-3 text-sm font-semibold text-[#121212] shadow-[0_8px_30px_rgba(255,166,0,0.08)] transition duration-200 hover:bg-hive-light hover:shadow-[0_8px_35px_rgba(255,166,0,0.14)] focus:outline-none focus:ring-4 focus:ring-hive/15 disabled:cursor-wait disabled:opacity-60"
                             @click="createPasskey"
                         >
-                            <LoaderCircle
-                                v-if="processing"
-                                class="size-4 animate-spin"
-                            />
+                            <LoaderCircle v-if="processing" class="size-4 animate-spin" />
 
-                            <Fingerprint
-                                v-else
-                                class="size-4"
-                            />
+                            <Fingerprint v-else class="size-4" />
 
                             <span>
                                 {{ processing ? 'Waiting for your device...' : 'Create passkey' }}
                             </span>
 
-                            <ArrowRight
-                                v-if="!processing"
-                                class="size-4 transition group-hover:translate-x-0.5"
-                            />
+                            <ArrowRight v-if="!processing" class="size-4 transition group-hover:translate-x-0.5" />
                         </button>
 
                         <button
                             type="button"
                             :disabled="processing"
-                            class="mt-3 w-full rounded-xl px-4 py-2.5 text-xs font-medium text-zinc-600 transition hover:bg-white/[0.025] hover:text-zinc-400 disabled:pointer-events-none"
+                            class="mt-3 w-full rounded-xl px-4 py-2.5 text-xs font-medium text-muted-foreground transition hover:bg-foreground/[0.025] hover:text-muted-foreground disabled:pointer-events-none"
                             @click="continueToDashboard"
                         >
-                            I'll do this later
+                            {{ t('ui.i_ll_do_this_later') }}
                         </button>
                     </div>
 
-                    <div
-                        v-else
-                        class="p-6 text-center sm:p-7"
-                    >
-                        <div
-                            class="rounded-xl border border-status-success/15 bg-status-success/[0.05] px-4 py-4"
-                        >
-                            <div class="flex items-center justify-center gap-2 text-sm font-medium text-zinc-300">
+                    <div v-else class="p-6 text-center sm:p-7">
+                        <div class="rounded-xl border border-status-success/15 bg-status-success/[0.05] px-4 py-4">
+                            <div class="flex items-center justify-center gap-2 text-sm font-medium text-foreground">
                                 <CheckCircle2 class="size-4 text-status-success" />
-                                Passkey successfully created
+                                {{ t('ui.passkey_successfully_created') }}
                             </div>
 
-                            <p class="mt-2 text-xs leading-5 text-zinc-600">
-                                You can now use your passkey when signing in to HivePanel.
+                            <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                                {{ t('ui.you_can_now_use_your_passkey_when_signing_in_to_hivepanel') }}
                             </p>
                         </div>
 
@@ -262,24 +225,24 @@ const continueToDashboard = () => {
                             class="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-hive px-4 py-3 text-sm font-semibold text-[#121212] transition duration-200 hover:bg-hive-light focus:outline-none focus:ring-4 focus:ring-hive/15"
                             @click="continueToDashboard"
                         >
-                            Continue to HivePanel
+                            {{ t('ui.continue_to_hivepanel') }}
 
                             <ArrowRight class="size-4 transition group-hover:translate-x-0.5" />
                         </button>
                     </div>
 
-                    <div class="border-t border-white/[0.05] bg-black/[0.08] px-6 py-3.5">
-                        <div class="flex items-center justify-center gap-1.5 text-[11px] text-zinc-600">
+                    <div class="border-t border-foreground/[0.05] bg-black/[0.08] px-6 py-3.5">
+                        <div class="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                             <ShieldCheck class="size-3.5" />
-                            <span>Your passkey never leaves your device</span>
+                            <span>{{ t('ui.your_passkey_never_leaves_your_device') }}</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-7 flex items-center justify-center gap-2 text-[11px] text-zinc-700">
-                    <span>HivePanel</span>
-                    <span class="size-0.5 rounded-full bg-zinc-700" />
-                    <span>Game server management, rebuilt.</span>
+                <div class="mt-7 flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                    <span>{{ t('ui.hivepanel_6123007') }}</span>
+                    <span class="size-0.5 rounded-full bg-surface-elevated" />
+                    <span>{{ t('ui.game_server_management_rebuilt') }}</span>
                 </div>
             </div>
         </main>

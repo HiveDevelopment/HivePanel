@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/composables/useLanguage';
 import { useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -44,39 +45,45 @@ const closeModal = () => {
 
 <template>
     <div class="space-y-6">
-        <HeadingSmall title="Delete account" description="Delete your account and all of its resources" />
-        <div class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10">
-            <div class="relative space-y-0.5 text-red-600 dark:text-red-100">
-                <p class="font-medium">Warning</p>
-                <p class="text-sm">Please proceed with caution, this cannot be undone.</p>
+        <HeadingSmall :title="t('ui.delete_account')" :description="t('ui.delete_your_account_and_all_of_its_resources')" />
+        <div class="space-y-4 rounded-lg border border-status-danger bg-status-danger p-4 dark:border-status-danger/10 dark:bg-status-danger/10">
+            <div class="relative space-y-0.5 text-status-danger dark:text-status-danger">
+                <p class="font-medium">{{ t('ui.warning') }}</p>
+                <p class="text-sm">{{ t('ui.please_proceed_with_caution_this_cannot_be_undone') }}</p>
             </div>
             <Dialog>
                 <DialogTrigger as-child>
-                    <Button variant="destructive">Delete account</Button>
+                    <Button variant="destructive">{{ t('ui.delete_account') }}</Button>
                 </DialogTrigger>
                 <DialogContent>
                     <form class="space-y-6" @submit="deleteUser">
                         <DialogHeader class="space-y-3">
-                            <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
+                            <DialogTitle>{{ t('ui.are_you_sure_you_want_to_delete_your_account') }}</DialogTitle>
                             <DialogDescription>
-                                Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your
-                                password to confirm you would like to permanently delete your account.
+                                {{ t('ui.once_your_account_is_deleted_all_of_its_resources_and_data_will_a') }}
                             </DialogDescription>
                         </DialogHeader>
 
                         <div class="grid gap-2">
-                            <Label for="password" class="sr-only">Password</Label>
-                            <Input id="password" type="password" name="password" ref="passwordInput" v-model="form.password" placeholder="Password" />
+                            <Label for="password" class="sr-only">{{ t('ui.password') }}</Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                name="password"
+                                ref="passwordInput"
+                                v-model="form.password"
+                                :placeholder="t('ui.password')"
+                            />
                             <InputError :message="form.errors.password" />
                         </div>
 
                         <DialogFooter>
                             <DialogClose as-child>
-                                <Button variant="secondary" @click="closeModal"> Cancel </Button>
+                                <Button variant="secondary" @click="closeModal"> {{ t('ui.cancel') }} </Button>
                             </DialogClose>
 
                             <Button variant="destructive" :disabled="form.processing">
-                                <button type="submit">Delete account</button>
+                                <button type="submit">{{ t('ui.delete_account') }}</button>
                             </Button>
                         </DialogFooter>
                     </form>

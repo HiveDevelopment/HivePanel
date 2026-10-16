@@ -4,7 +4,8 @@
 
 body,
 html {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer base {
@@ -93,7 +94,7 @@ html {
 /* HivePanel scrollbars */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #3f3f46 #0d0f11;
+    scrollbar-color: rgb(var(--hp-border)) rgb(var(--hp-surfaceDark));
 }
 
 *::-webkit-scrollbar {
@@ -102,25 +103,25 @@ html {
 }
 
 *::-webkit-scrollbar-track {
-    background: #0d0f11;
+    background: rgb(var(--hp-surfaceDark));
 }
 
 *::-webkit-scrollbar-thumb {
-    background: #3f3f46;
-    border: 2px solid #0d0f11;
+    background: rgb(var(--hp-border));
+    border: 2px solid rgb(var(--hp-surfaceDark));
     border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background: #52525b;
+    background: rgb(var(--hp-muted) / 0.6);
 }
 
 *::-webkit-scrollbar-thumb:active {
-    background: #71717a;
+    background: rgb(var(--hp-muted));
 }
 
 *::-webkit-scrollbar-corner {
-    background: #0d0f11;
+    background: rgb(var(--hp-surfaceDark));
 }
 :root {
     --hp-accent: 255 138 0;

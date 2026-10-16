@@ -5,7 +5,7 @@ import type { NavEntry } from '@/components/sidebar/navigation';
 import { adminNavigation, dashboardNavigation, serverNavigation } from '@/components/sidebar/navigation';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Clock3, Puzzle, Vote, Settings, Download, Network, Terminal } from 'lucide-vue-next';
+import { Clock3, Download, Network, Puzzle, Settings, Terminal, Vote } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -26,12 +26,18 @@ let navigationRequest = 0;
 async function loadExtensionPages() {
     const current = ++navigationRequest;
     try {
-        const response = await fetch(`/nectar/navigation${props.context === 'server' && props.activeCell?.id ? `?cell=${encodeURIComponent(props.activeCell.id)}` : ''}`, {
-            credentials: 'same-origin',
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-        });
-        if (!response.ok) { if (current === navigationRequest) extensionPages.value = []; return; }
+        const response = await fetch(
+            `/nectar/navigation${props.context === 'server' && props.activeCell?.id ? `?cell=${encodeURIComponent(props.activeCell.id)}` : ''}`,
+            {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+            },
+        );
+        if (!response.ok) {
+            if (current === navigationRequest) extensionPages.value = [];
+            return;
+        }
         const data = await response.json();
         if (current === navigationRequest) extensionPages.value = Array.isArray(data.pages) ? data.pages : [];
     } catch {
@@ -67,16 +73,20 @@ const installDescription = computed(() =>
 const navigation = computed<NavEntry[]>(() => {
     const icons = { puzzle: Puzzle, vote: Vote, settings: Settings, download: Download, network: Network, terminal: Terminal };
     const integrate = (base: NavEntry[]): NavEntry[] => {
-        const entries = base.map(entry => entry.type === 'group' ? { ...entry, items: [...entry.items] } : { ...entry });
+        const entries = base.map((entry) => (entry.type === 'group' ? { ...entry, items: [...entry.items] } : { ...entry }));
         for (const extension of extensionPages.value) {
             const requested = extension.sidebarGroup ?? 'extensions';
-            let target = entries.find(entry => entry.type === 'group' && entry.id === requested);
+            let target = entries.find((entry) => entry.type === 'group' && entry.id === requested);
             if (!target || target.type !== 'group') {
                 const id = requested === 'tools' ? 'tools' : 'extensions';
-                target = entries.find(entry => entry.type === 'group' && entry.id === id);
-                if (!target) { target = { type: 'group', id, title: id === 'tools' ? 'Tools' : 'Extensions', items: [] }; entries.push(target); }
+                target = entries.find((entry) => entry.type === 'group' && entry.id === id);
+                if (!target) {
+                    target = { type: 'group', id, title: id === 'tools' ? 'Tools' : 'Extensions', items: [] };
+                    entries.push(target);
+                }
             }
-            if (target.type === 'group') target.items.push({ title: extension.title, href: extension.href, icon: icons[extension.icon as keyof typeof icons] ?? Puzzle });
+            if (target.type === 'group')
+                target.items.push({ title: extension.title, href: extension.href, icon: icons[extension.icon as keyof typeof icons] ?? Puzzle });
         }
         return entries;
     };
@@ -123,8 +133,8 @@ const navigation = computed<NavEntry[]>(() => {
                 <div class="flex items-start gap-2">
                     <Clock3 class="mt-0.5 size-4 shrink-0 text-hive" />
                     <div class="min-w-0">
-                        <p class="text-xs font-black text-zinc-200">{{ installTitle }}</p>
-                        <p class="mt-1 text-[11px] leading-4 text-zinc-500">
+                        <p class="text-xs font-black text-foreground">{{ installTitle }}</p>
+                        <p class="mt-1 text-[11px] leading-4 text-muted-foreground">
                             {{ installDescription }}
                         </p>
                     </div>
@@ -133,7 +143,6 @@ const navigation = computed<NavEntry[]>(() => {
 
             <NavMixed :items="navigation" />
         </SidebarContent>
-
     </Sidebar>
 
     <slot />

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { t } from '@/composables/useLanguage';
 import UserInfo from '@/components/UserInfo.vue';
 import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { t } from '@/composables/useLanguage';
 import type { User } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { LogOut, Settings, LockKeyholeIcon } from 'lucide-vue-next';
+import { LockKeyholeIcon, LogOut, Settings } from 'lucide-vue-next';
 
 interface Props {
     user: User;
@@ -32,13 +32,13 @@ defineProps<Props>();
     <DropdownMenuItem :as-child="true">
         <Link class="block w-full" :href="route('admin.dashboard')" as="button">
             <LockKeyholeIcon class="mr-2 h-4 w-4" />
-            Admin Area
+            {{ t('Admin Area') }}
         </Link>
     </DropdownMenuItem>
     <DropdownMenuItem :as-child="true">
         <Link class="block w-full" method="post" :href="route('logout')" as="button">
             <LogOut class="mr-2 h-4 w-4" />
-            Log out
+            {{ t('Log out') }}
         </Link>
     </DropdownMenuItem>
 </template>

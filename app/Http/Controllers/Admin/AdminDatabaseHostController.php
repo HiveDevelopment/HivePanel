@@ -21,8 +21,7 @@ class AdminDatabaseHostController extends Controller
                     ->orderBy('name')
                     ->get()
                     ->map(
-                        fn (DatabaseHost $host) =>
-                            $this->payload($host)
+                        fn (DatabaseHost $host) => $this->payload($host)
                     ),
             ]
         );
@@ -47,15 +46,14 @@ class AdminDatabaseHostController extends Controller
             $host->delete();
 
             return back()->withErrors([
-                'host' =>
-                    'Database connection failed: '
-                    . $exception->getMessage(),
+                'host' => 'Database connection failed: '
+                    .$exception->getMessage(),
             ]);
         }
 
         return back()->with(
             'success',
-            'Database host added.'
+            __('Database host added.')
         );
     }
 
@@ -96,15 +94,14 @@ class AdminDatabaseHostController extends Controller
             $databaseHost->save();
 
             return back()->withErrors([
-                'host' =>
-                    'Database connection failed: '
-                    . $exception->getMessage(),
+                'host' => 'Database connection failed: '
+                    .$exception->getMessage(),
             ]);
         }
 
         return back()->with(
             'success',
-            'Database host updated.'
+            __('Database host updated.')
         );
     }
 
@@ -122,7 +119,7 @@ class AdminDatabaseHostController extends Controller
 
         return back()->with(
             'success',
-            'Database host removed.'
+            __('Database host removed.')
         );
     }
 
@@ -136,8 +133,7 @@ class AdminDatabaseHostController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' =>
-                'Database connection successful.',
+            'message' => 'Database connection successful.',
         ]);
     }
 
@@ -214,18 +210,13 @@ class AdminDatabaseHostController extends Controller
             'username' => $host->username,
             'public_host' => $host->public_host,
             'public_port' => $host->public_port,
-            'display_host' =>
-                $host->displayHost(),
-            'display_port' =>
-                $host->displayPort(),
-            'max_databases' =>
-                $host->max_databases,
-            'databases_count' =>
-                $host->databases_count,
+            'display_host' => $host->displayHost(),
+            'display_port' => $host->displayPort(),
+            'max_databases' => $host->max_databases,
+            'databases_count' => $host->databases_count,
             'enabled' => $host->enabled,
-            'created_at' =>
-                $host->created_at
-                    ?->toISOString(),
+            'created_at' => $host->created_at
+                ?->toISOString(),
         ];
     }
 }

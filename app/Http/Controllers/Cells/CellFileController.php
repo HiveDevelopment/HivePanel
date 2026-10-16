@@ -5,13 +5,12 @@ namespace App\Http\Controllers\Cells;
 use App\Enums\AuditEvent;
 use App\Enums\BackupMountStatus;
 use App\Models\Cell;
-use App\Models\SftpCredential;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\Node\BackupNodeClient;
 use App\Services\Node\CellNodeClient;
-use App\Services\Node\FileNodeClient;
 use App\Services\Node\FileArchiveNodeClient;
+use App\Services\Node\FileNodeClient;
 use App\Services\Sftp\SftpAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -51,6 +50,8 @@ class CellFileController extends CellBaseController
         return Inertia::render('Cells/Files', [
             'cell' => $workerCell,
             'mode' => 'live',
+            'canViewInstances' => $cell->userCan($user, 'instances.view'),
+            'canManageInstances' => $cell->userCan($user, 'instances.update'),
             'initialPath' => (string) request()->query('path', ''),
 
             'mount' => null,
@@ -765,7 +766,7 @@ class CellFileController extends CellBaseController
         array $result,
         string $mountID,
     ): array {
-        $prefix = '__backup_mount__/' . $mountID;
+        $prefix = '__backup_mount__/'.$mountID;
 
         if (
             isset($result['files']) &&
@@ -788,7 +789,7 @@ class CellFileController extends CellBaseController
 
                 $result['path'] = $relativePath === ''
                     ? $prefix
-                    : $prefix . '/' . $relativePath;
+                    : $prefix.'/'.$relativePath;
             }
 
             return $result;
@@ -820,7 +821,7 @@ class CellFileController extends CellBaseController
 
         $entry['path'] = $entryPath === ''
             ? $prefix
-            : $prefix . '/' . $entryPath;
+            : $prefix.'/'.$entryPath;
 
         $entry['virtual'] = true;
         $entry['virtual_type'] = 'backup_mount_item';
@@ -881,7 +882,7 @@ class CellFileController extends CellBaseController
             'name' => $mount->backup?->name
                 ?: 'Mounted Backup',
 
-            'path' => '__backup_mount__/' . $mount->id,
+            'path' => '__backup_mount__/'.$mount->id,
 
             'type' => 'directory',
             'is_directory' => true,

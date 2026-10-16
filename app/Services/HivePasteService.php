@@ -15,11 +15,11 @@ class HivePasteService
         }
 
         if ($content === '' || strlen($content) > (int) config('services.hivepaste.max_bytes', 524288)) {
-            throw ValidationException::withMessages(['content' => 'Content is empty or exceeds the HivePaste sharing limit.']);
+            throw ValidationException::withMessages(['content' => __('Content is empty or exceeds the HivePaste sharing limit.')]);
         }
 
         if (str_contains($content, "\0") || ! mb_check_encoding($content, 'UTF-8')) {
-            throw ValidationException::withMessages(['content' => 'Only UTF-8 text files can be shared.']);
+            throw ValidationException::withMessages(['content' => __('Only UTF-8 text files can be shared.')]);
         }
 
         $url = rtrim((string) config('services.hivepaste.url', 'https://paste.hivepanel.dev'), '/');
@@ -38,11 +38,11 @@ class HivePasteService
             ]);
 
         if ($response->status() === 429) {
-            throw ValidationException::withMessages(['content' => 'HivePaste is receiving too many requests. Please try again later.']);
+            throw ValidationException::withMessages(['content' => __('HivePaste is receiving too many requests. Please try again later.')]);
         }
 
         if ($response->status() === 413) {
-            throw ValidationException::withMessages(['content' => 'This content is too large for HivePaste.']);
+            throw ValidationException::withMessages(['content' => __('This content is too large for HivePaste.')]);
         }
 
         if (! $response->successful() || ! is_string($response->json('url'))) {

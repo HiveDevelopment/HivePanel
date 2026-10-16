@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Comb;
 use App\Services\RegistryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class AdminCombController extends Controller
@@ -69,7 +69,7 @@ class AdminCombController extends Controller
         ) {
             return back()
                 ->withErrors([
-                    'manifest' => 'The Comb JSON is invalid.',
+                    'manifest' => __('The Comb JSON is invalid.'),
                 ])
                 ->withInput();
         }
@@ -110,7 +110,7 @@ class AdminCombController extends Controller
                 'required',
                 'string',
                 'max:255',
-                'unique:combs,external_id,' . $comb->id,
+                'unique:combs,external_id,'.$comb->id,
             ],
             'name' => ['required', 'string', 'max:255'],
             'game' => ['nullable', 'string', 'max:255'],
@@ -131,7 +131,7 @@ class AdminCombController extends Controller
         ) {
             return back()
                 ->withErrors([
-                    'manifest' => 'The Comb JSON is invalid.',
+                    'manifest' => __('The Comb JSON is invalid.'),
                 ])
                 ->withInput();
         }
@@ -183,7 +183,7 @@ class AdminCombController extends Controller
             )
         ) {
             return back()->withErrors([
-                'comb' => 'This Comb has local changes. Delete it or reset it before importing the Registry version.',
+                'comb' => __('This Comb has local changes. Delete it or reset it before importing the Registry version.'),
             ]);
         }
 

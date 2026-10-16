@@ -20,6 +20,7 @@ use Throwable;
 class AdminUpdateController extends Controller
 {
     private const WORKERS_PER_PAGE = 25;
+
     private const WORKER_ONLINE_MINUTES = 2;
 
     public function index(
@@ -42,10 +43,9 @@ class AdminUpdateController extends Controller
             'latestRelease' => $latest,
             'updateStatus' => $updates->status(),
 
-            'canInstallUpdates' =>
-                $request->user()?->hasAdminPermission(
-                    AdminPermissions::UPDATES_INSTALL
-                ) ?? false,
+            'canInstallUpdates' => $request->user()?->hasAdminPermission(
+                AdminPermissions::UPDATES_INSTALL
+            ) ?? false,
 
             'checkError' => $error,
 
@@ -108,7 +108,7 @@ class AdminUpdateController extends Controller
 
         return back()->with(
             'success',
-            'HivePanel update has been queued.'
+            __('HivePanel update has been queued.')
         );
     }
 
@@ -247,39 +247,30 @@ class AdminUpdateController extends Controller
                 $paginator->items()
             )
                 ->map(
-                    fn (Node $node) =>
-                        $this->workerPayload(
-                            $node,
-                            $latestVersion,
-                            $onlineSince
-                        )
+                    fn (Node $node) => $this->workerPayload(
+                        $node,
+                        $latestVersion,
+                        $onlineSince
+                    )
                 )
                 ->values()
                 ->all(),
 
-            'current_page' =>
-                $paginator->currentPage(),
+            'current_page' => $paginator->currentPage(),
 
-            'last_page' =>
-                $paginator->lastPage(),
+            'last_page' => $paginator->lastPage(),
 
-            'per_page' =>
-                $paginator->perPage(),
+            'per_page' => $paginator->perPage(),
 
-            'total' =>
-                $paginator->total(),
+            'total' => $paginator->total(),
 
-            'from' =>
-                $paginator->firstItem(),
+            'from' => $paginator->firstItem(),
 
-            'to' =>
-                $paginator->lastItem(),
+            'to' => $paginator->lastItem(),
 
-            'prev_page_url' =>
-                $paginator->previousPageUrl(),
+            'prev_page_url' => $paginator->previousPageUrl(),
 
-            'next_page_url' =>
-                $paginator->nextPageUrl(),
+            'next_page_url' => $paginator->nextPageUrl(),
         ];
     }
 
@@ -429,30 +420,22 @@ class AdminUpdateController extends Controller
             'id' => $node->id,
             'name' => $node->name,
 
-            'hostname' =>
-                $node->worker_hostname,
+            'hostname' => $node->worker_hostname,
 
-            'platform' =>
-                $node->worker_platform,
+            'platform' => $node->worker_platform,
 
-            'version' =>
-                $version,
+            'version' => $version,
 
-            'latest_version' =>
-                $latestVersion,
+            'latest_version' => $latestVersion,
 
-            'online' =>
-                $online,
+            'online' => $online,
 
-            'outdated' =>
-                $outdated,
+            'outdated' => $outdated,
 
-            'version_available' =>
-                $version !== null,
+            'version_available' => $version !== null,
 
-            'last_seen_at' =>
-                $node->last_seen_at
-                    ?->toISOString(),
+            'last_seen_at' => $node->last_seen_at
+                ?->toISOString(),
         ];
     }
 
@@ -493,8 +476,7 @@ class AdminUpdateController extends Controller
                     $response = Http::timeout(5)
                         ->acceptJson()
                         ->withHeaders([
-                            'User-Agent' =>
-                                'HivePanel',
+                            'User-Agent' => 'HivePanel',
                         ])
                         ->get(
                             'https://api.github.com/repos/HiveDevelopment/HiveWorker/releases/latest'

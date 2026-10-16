@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/composables/useLanguage';
 import { ChevronDown, ChevronUp, Search } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
@@ -79,38 +80,38 @@ function alignClass(align?: string) {
 </script>
 
 <template>
-    <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface">
-        <div class="border-b border-zinc-800 p-4 sm:p-5">
+    <section class="overflow-hidden rounded-panel border border-border bg-surface">
+        <div class="border-b border-border p-4 sm:p-5">
             <div class="relative">
-                <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
                 <input
                     v-model="search"
                     :placeholder="searchPlaceholder"
-                    class="w-full rounded-button border border-zinc-800 bg-[#0d0f11] py-3 pl-10 pr-4 text-sm font-bold text-white outline-none transition placeholder:text-zinc-600 focus:border-hive/50"
+                    class="w-full rounded-button border border-border bg-surface-dark py-3 pl-10 pr-4 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-hive/50"
                     @input="page = 1"
                 />
             </div>
         </div>
 
         <div v-if="paginatedRows.length === 0" class="p-10 text-center">
-            <div class="text-lg font-black text-zinc-300">
+            <div class="text-lg font-black text-foreground">
                 {{ emptyTitle }}
             </div>
 
-            <p class="mt-2 text-sm text-zinc-500">
+            <p class="mt-2 text-sm text-muted-foreground">
                 {{ emptyDescription }}
             </p>
         </div>
 
         <div v-else class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-zinc-800">
-                <thead class="bg-[#0d0f11]">
+            <table class="min-w-full divide-y divide-border">
+                <thead class="bg-surface-dark">
                     <tr>
                         <th
                             v-for="column in columns"
                             :key="column.key"
-                            class="px-5 py-4 text-xs font-black uppercase tracking-wide text-zinc-500"
+                            class="px-5 py-4 text-xs font-black uppercase tracking-wide text-muted-foreground"
                             :class="[alignClass(column.align), column.sortable ? 'cursor-pointer select-none hover:text-hive' : '']"
                             @click="sort(column)"
                         >
@@ -126,7 +127,7 @@ function alignClass(align?: string) {
                     </tr>
                 </thead>
 
-                <tbody class="divide-y divide-zinc-800">
+                <tbody class="divide-y divide-border">
                     <tr
                         v-for="row in paginatedRows"
                         :key="row.id"
@@ -149,27 +150,27 @@ function alignClass(align?: string) {
 
         <div
             v-if="sortedRows.length > perPage"
-            class="flex items-center justify-between border-t border-zinc-800 px-5 py-4 text-sm text-zinc-500"
+            class="flex items-center justify-between border-t border-border px-5 py-4 text-sm text-muted-foreground"
         >
             <div>
-                Page {{ page }} of {{ totalPages }}
+                {{ t('ui.page') }} {{ page }} {{ t('ui.of') }} {{ totalPages }}
             </div>
 
             <div class="flex gap-2">
                 <button
-                    class="rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-2 font-bold text-zinc-300 disabled:opacity-40"
+                    class="rounded-button border border-border bg-surface-dark px-3 py-2 font-bold text-foreground disabled:opacity-40"
                     :disabled="page <= 1"
                     @click="page--"
                 >
-                    Previous
+                    {{ t('ui.previous') }}
                 </button>
 
                 <button
-                    class="rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-2 font-bold text-zinc-300 disabled:opacity-40"
+                    class="rounded-button border border-border bg-surface-dark px-3 py-2 font-bold text-foreground disabled:opacity-40"
                     :disabled="page >= totalPages"
                     @click="page++"
                 >
-                    Next
+                    {{ t('ui.next') }}
                 </button>
             </div>
         </div>

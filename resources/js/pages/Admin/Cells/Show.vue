@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import ConfirmationModal from '@/components/ui/ConfirmationModal.vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import axios from 'axios'
+import ConfirmationModal from '@/components/ui/ConfirmationModal.vue';
+import { t } from '@/composables/useLanguage';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     ArrowLeft,
     Boxes,
@@ -20,196 +21,187 @@ import {
     ShieldCheck,
     Trash2,
     TriangleAlert,
-    User,
     WifiOff,
     Wrench,
-} from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+} from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
 
 type SyncDifference = {
-    field: string
-    panel: any
-    worker: any
-}
+    field: string;
+    panel: any;
+    worker: any;
+};
 
 type SyncResult = {
-    status: 'synced' | 'out_of_sync' | 'missing' | 'unreachable' | 'error'
-    synced: boolean
-    repairable: boolean
-    message: string
-    differences: SyncDifference[]
-    expected?: Record<string, any>
-    actual?: Record<string, any>
-}
+    status: 'synced' | 'out_of_sync' | 'missing' | 'unreachable' | 'error';
+    synced: boolean;
+    repairable: boolean;
+    message: string;
+    differences: SyncDifference[];
+    expected?: Record<string, any>;
+    actual?: Record<string, any>;
+};
 
 const props = defineProps<{
-    cell: any
-}>()
+    cell: any;
+}>();
 
-const showDeleteModal = ref(false)
-const deleting = ref(false)
+const showDeleteModal = ref(false);
+const deleting = ref(false);
 
-const showRecreateModal = ref(false)
-const recreateConfirmation = ref('')
-const recreatingSync = ref(false)
+const showRecreateModal = ref(false);
+const recreateConfirmation = ref('');
+const recreatingSync = ref(false);
 
-const showRecoveryReinstallModal = ref(false)
-const recoveryReinstallConfirmation = ref('')
-const recoveryReinstalling = ref(false)
-const recoveryReinstallError = ref<string | null>(null)
+const showRecoveryReinstallModal = ref(false);
+const recoveryReinstallConfirmation = ref('');
+const recoveryReinstalling = ref(false);
+const recoveryReinstallError = ref<string | null>(null);
 
-const syncResult = ref<SyncResult | null>(null)
-const checkingSync = ref(false)
-const repairingSync = ref(false)
+const syncResult = ref<SyncResult | null>(null);
+const checkingSync = ref(false);
+const repairingSync = ref(false);
 
-const isInstalled = computed(() => props.cell.install_status === 'installed')
-const isInstalling = computed(() => props.cell.install_status === 'installing')
-const isPending = computed(() => props.cell.install_status === 'pending')
-const isFailed = computed(() => props.cell.install_status === 'failed')
+const isInstalled = computed(() => props.cell.install_status === 'installed');
+const isInstalling = computed(() => props.cell.install_status === 'installing');
+const isPending = computed(() => props.cell.install_status === 'pending');
+const isFailed = computed(() => props.cell.install_status === 'failed');
 
-const allocationTotal = computed(() =>
-    (props.cell.allocation ? 1 : 0) + (props.cell.additional_allocations?.length ?? 0)
-)
+const allocationTotal = computed(() => (props.cell.allocation ? 1 : 0) + (props.cell.additional_allocations?.length ?? 0));
 
 const workerHealthLabel = computed(() => {
     switch (syncResult.value?.status) {
         case 'synced':
-            return recoveryRequired.value ? 'Recovery Required' : 'Synced'
+            return recoveryRequired.value ? 'Recovery Required' : 'Synced';
 
         case 'out_of_sync':
-            return 'Out of Sync'
+            return 'Out of Sync';
 
         case 'missing':
-            return 'Missing'
+            return 'Missing';
 
         case 'unreachable':
-            return 'Unavailable'
+            return 'Unavailable';
 
         case 'error':
-            return 'Error'
+            return 'Error';
 
         default:
-            return 'Checking'
+            return 'Checking';
     }
-})
+});
 
-const workerHealthClass = computed(() =>
-    syncStatusClass(syncResult.value?.status)
-)
+const workerHealthClass = computed(() => syncStatusClass(syncResult.value?.status));
 
-const recoveryRequiredOverride = ref<boolean | null>(null)
-const workerRecreatedAtOverride = ref<string | null>(null)
+const recoveryRequiredOverride = ref<boolean | null>(null);
+const workerRecreatedAtOverride = ref<string | null>(null);
 
-const recoveryRequired = computed(() => recoveryRequiredOverride.value ?? (props.cell.worker_recovery?.required === true))
-const workerRecreatedAt = computed(() => workerRecreatedAtOverride.value ?? props.cell.worker_recovery?.recreated_at ?? null)
+const recoveryRequired = computed(() => recoveryRequiredOverride.value ?? props.cell.worker_recovery?.required === true);
+const workerRecreatedAt = computed(() => workerRecreatedAtOverride.value ?? props.cell.worker_recovery?.recreated_at ?? null);
 
-const canConfirmRecreate = computed(() =>
-    recreateConfirmation.value === props.cell.name && !recreatingSync.value
-)
+const canConfirmRecreate = computed(() => recreateConfirmation.value === props.cell.name && !recreatingSync.value);
 
-const canConfirmRecoveryReinstall = computed(() =>
-    recoveryReinstallConfirmation.value === props.cell.name && !recoveryReinstalling.value
-)
+const canConfirmRecoveryReinstall = computed(() => recoveryReinstallConfirmation.value === props.cell.name && !recoveryReinstalling.value);
 
 const syncStatusLabel = computed(() => {
     if (syncResult.value?.status === 'synced' && recoveryRequired.value) {
-        return 'Synced · Recovery Required'
+        return 'Synced · Recovery Required';
     }
 
     switch (syncResult.value?.status) {
         case 'synced':
-            return 'Synced'
+            return 'Synced';
 
         case 'out_of_sync':
-            return 'Out of Sync'
+            return 'Out of Sync';
 
         case 'missing':
-            return 'Worker Cell Missing'
+            return 'Worker Cell Missing';
 
         case 'unreachable':
-            return 'Worker Unavailable'
+            return 'Worker Unavailable';
 
         case 'error':
-            return 'Sync Check Failed'
+            return 'Sync Check Failed';
 
         default:
-            return 'Checking Worker'
+            return 'Checking Worker';
     }
-})
+});
 
 const syncStatusDescription = computed(() => {
     if (syncResult.value?.status === 'synced' && recoveryRequired.value) {
-        return 'The Worker definition matches HivePanel, but this Cell still requires reinstallation to complete recovery.'
+        return 'The Worker definition matches HivePanel, but this Cell still requires reinstallation to complete recovery.';
     }
 
     switch (syncResult.value?.status) {
         case 'synced':
-            return 'HivePanel and the Worker have matching definitions.'
+            return 'HivePanel and the Worker have matching definitions.';
 
         case 'out_of_sync':
-            return 'The Worker definition differs from the definition stored by HivePanel.'
+            return 'The Worker definition differs from the definition stored by HivePanel.';
 
         case 'missing':
-            return 'This Cell exists in HivePanel but not on the assigned Worker.'
+            return 'This Cell exists in HivePanel but not on the assigned Worker.';
 
         case 'unreachable':
-            return 'The assigned node could not be contacted.'
+            return 'The assigned node could not be contacted.';
 
         case 'error':
-            return syncResult.value.message || 'HivePanel was unable to inspect this Cell on the Worker.'
+            return syncResult.value.message || 'HivePanel was unable to inspect this Cell on the Worker.';
 
         default:
-            return 'Comparing HivePanel with the assigned Worker.'
+            return 'Comparing HivePanel with the assigned Worker.';
     }
-})
+});
 
 function deleteCell() {
-    deleting.value = true
+    deleting.value = true;
 
     router.delete(`/admin/cells/${props.cell.id}`, {
         preserveScroll: true,
 
         onFinish: () => {
-            deleting.value = false
-            showDeleteModal.value = false
+            deleting.value = false;
+            showDeleteModal.value = false;
         },
-    })
+    });
 }
 
 function openRecreateModal() {
-    recreateConfirmation.value = ''
-    showRecreateModal.value = true
+    recreateConfirmation.value = '';
+    showRecreateModal.value = true;
 }
 
 function closeRecreateModal() {
-    if (recreatingSync.value) return
+    if (recreatingSync.value) return;
 
-    recreateConfirmation.value = ''
-    showRecreateModal.value = false
+    recreateConfirmation.value = '';
+    showRecreateModal.value = false;
 }
 
 function openRecoveryReinstallModal() {
-    recoveryReinstallConfirmation.value = ''
-    recoveryReinstallError.value = null
-    showRecoveryReinstallModal.value = true
+    recoveryReinstallConfirmation.value = '';
+    recoveryReinstallError.value = null;
+    showRecoveryReinstallModal.value = true;
 }
 
 function closeRecoveryReinstallModal() {
-    if (recoveryReinstalling.value) return
+    if (recoveryReinstalling.value) return;
 
-    recoveryReinstallConfirmation.value = ''
-    recoveryReinstallError.value = null
-    showRecoveryReinstallModal.value = false
+    recoveryReinstallConfirmation.value = '';
+    recoveryReinstallError.value = null;
+    showRecoveryReinstallModal.value = false;
 }
 
 async function checkWorkerSync() {
-    if (checkingSync.value || repairingSync.value || recreatingSync.value || recoveryReinstalling.value) return
+    if (checkingSync.value || repairingSync.value || recreatingSync.value || recoveryReinstalling.value) return;
 
-    checkingSync.value = true
+    checkingSync.value = true;
 
     try {
-        const response = await axios.get(`/admin/cells/${props.cell.id}/sync`)
-        syncResult.value = response.data
+        const response = await axios.get(`/admin/cells/${props.cell.id}/sync`);
+        syncResult.value = response.data;
     } catch (error: any) {
         syncResult.value = error.response?.data || {
             status: 'error',
@@ -217,20 +209,20 @@ async function checkWorkerSync() {
             repairable: false,
             message: 'Unable to inspect the Worker cell.',
             differences: [],
-        }
+        };
     } finally {
-        checkingSync.value = false
+        checkingSync.value = false;
     }
 }
 
 async function repairWorkerSync() {
-    if (repairingSync.value || checkingSync.value || recreatingSync.value || recoveryReinstalling.value || !syncResult.value?.repairable) return
+    if (repairingSync.value || checkingSync.value || recreatingSync.value || recoveryReinstalling.value || !syncResult.value?.repairable) return;
 
-    repairingSync.value = true
+    repairingSync.value = true;
 
     try {
-        const response = await axios.post(`/admin/cells/${props.cell.id}/sync`)
-        syncResult.value = response.data
+        const response = await axios.post(`/admin/cells/${props.cell.id}/sync`);
+        syncResult.value = response.data;
     } catch (error: any) {
         syncResult.value = error.response?.data || {
             status: 'error',
@@ -238,29 +230,29 @@ async function repairWorkerSync() {
             repairable: false,
             message: 'Unable to repair the Worker cell.',
             differences: [],
-        }
+        };
     } finally {
-        repairingSync.value = false
+        repairingSync.value = false;
     }
 }
 
 async function recreateWorkerCell() {
-    if (!canConfirmRecreate.value) return
+    if (!canConfirmRecreate.value) return;
 
-    recreatingSync.value = true
+    recreatingSync.value = true;
 
     try {
-        const response = await axios.post(`/admin/cells/${props.cell.id}/sync/recreate`)
-        syncResult.value = response.data
-        recoveryRequiredOverride.value = true
-        workerRecreatedAtOverride.value = response.data.recreated_at ?? new Date().toISOString()
-        recreateConfirmation.value = ''
-        showRecreateModal.value = false
+        const response = await axios.post(`/admin/cells/${props.cell.id}/sync/recreate`);
+        syncResult.value = response.data;
+        recoveryRequiredOverride.value = true;
+        workerRecreatedAtOverride.value = response.data.recreated_at ?? new Date().toISOString();
+        recreateConfirmation.value = '';
+        showRecreateModal.value = false;
 
         router.reload({
             only: ['cell'],
             preserveScroll: true,
-        })
+        });
     } catch (error: any) {
         syncResult.value = error.response?.data || {
             status: 'error',
@@ -268,169 +260,167 @@ async function recreateWorkerCell() {
             repairable: false,
             message: 'Unable to recreate the Worker Cell.',
             differences: [],
-        }
+        };
 
-        recreateConfirmation.value = ''
-        showRecreateModal.value = false
+        recreateConfirmation.value = '';
+        showRecreateModal.value = false;
     } finally {
-        recreatingSync.value = false
+        recreatingSync.value = false;
     }
 }
 
 async function recoveryReinstall() {
-    if (!canConfirmRecoveryReinstall.value) return
+    if (!canConfirmRecoveryReinstall.value) return;
 
-    recoveryReinstalling.value = true
-    recoveryReinstallError.value = null
+    recoveryReinstalling.value = true;
+    recoveryReinstallError.value = null;
 
     try {
         await axios.post(`/admin/cells/${props.cell.id}/reinstall`, {
             confirmation: recoveryReinstallConfirmation.value,
             start_on_completion: false,
-        })
+        });
 
-        recoveryReinstallConfirmation.value = ''
-        showRecoveryReinstallModal.value = false
+        recoveryReinstallConfirmation.value = '';
+        showRecoveryReinstallModal.value = false;
 
         router.reload({
             only: ['cell'],
             preserveScroll: true,
-        })
+        });
     } catch (error: any) {
-        recoveryReinstallError.value = error.response?.data?.message || 'Unable to start the recovery reinstall.'
+        recoveryReinstallError.value = error.response?.data?.message || 'Unable to start the recovery reinstall.';
     } finally {
-        recoveryReinstalling.value = false
+        recoveryReinstalling.value = false;
     }
 }
 
 function installStatusClass(status?: string) {
     switch (status) {
         case 'installed':
-            return 'border-status-success/30 bg-status-success/10 text-status-success'
+            return 'border-status-success/30 bg-status-success/10 text-status-success';
 
         case 'installing':
-            return 'border-hive/30 bg-hive/10 text-hive'
+            return 'border-hive/30 bg-hive/10 text-hive';
 
         case 'pending':
-            return 'border-status-warning/30 bg-status-warning/10 text-status-warning'
+            return 'border-status-warning/30 bg-status-warning/10 text-status-warning';
 
         case 'failed':
-            return 'border-status-danger/30 bg-status-danger/10 text-status-danger'
+            return 'border-status-danger/30 bg-status-danger/10 text-status-danger';
 
         default:
-            return 'border-zinc-700 bg-zinc-800 text-zinc-400'
+            return 'border-border bg-surface-light text-muted-foreground';
     }
 }
 
 function syncStatusClass(status?: string) {
     if (status === 'synced' && recoveryRequired.value) {
-        return 'border-status-warning/30 bg-status-warning/10 text-status-warning'
+        return 'border-status-warning/30 bg-status-warning/10 text-status-warning';
     }
 
     switch (status) {
         case 'synced':
-            return 'border-status-success/30 bg-status-success/10 text-status-success'
+            return 'border-status-success/30 bg-status-success/10 text-status-success';
 
         case 'out_of_sync':
-            return 'border-status-warning/30 bg-status-warning/10 text-status-warning'
+            return 'border-status-warning/30 bg-status-warning/10 text-status-warning';
 
         case 'missing':
-            return 'border-status-danger/30 bg-status-danger/10 text-status-danger'
+            return 'border-status-danger/30 bg-status-danger/10 text-status-danger';
 
         case 'unreachable':
         case 'error':
-            return 'border-status-danger/30 bg-status-danger/10 text-status-danger'
+            return 'border-status-danger/30 bg-status-danger/10 text-status-danger';
 
         default:
-            return 'border-zinc-700 bg-zinc-800 text-zinc-400'
+            return 'border-border bg-surface-light text-muted-foreground';
     }
 }
 
 function syncDifferenceLabel(field: string) {
     switch (field) {
         case 'worker_cell':
-            return 'Worker Cell'
+            return 'Worker Cell';
 
         case 'comb':
-            return 'Comb'
+            return 'Comb';
 
         case 'comb_data':
-            return 'Comb Data'
+            return 'Comb Data';
 
         case 'variables':
-            return 'Variables'
+            return 'Variables';
 
         case 'allocation':
-            return 'Primary Allocation'
+            return 'Primary Allocation';
 
         case 'additional_allocations':
-            return 'Additional Allocations'
+            return 'Additional Allocations';
 
         case 'limits':
-            return 'Resource Limits'
+            return 'Resource Limits';
 
         case 'name':
-            return 'Name'
+            return 'Name';
 
         default:
-            return field
-                .replaceAll('_', ' ')
-                .replace(/\b\w/g, character => character.toUpperCase())
+            return field.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
     }
 }
 
 function formatSyncValue(value: any) {
-    if (value === null || value === undefined) return 'Missing'
+    if (value === null || value === undefined) return 'Missing';
 
     if (typeof value === 'boolean') {
-        return value ? 'true' : 'false'
+        return value ? 'true' : 'false';
     }
 
     if (typeof value === 'object') {
-        if (Array.isArray(value) && value.length === 0) return '{}'
-        if (!Array.isArray(value) && Object.keys(value).length === 0) return '{}'
+        if (Array.isArray(value) && value.length === 0) return '{}';
+        if (!Array.isArray(value) && Object.keys(value).length === 0) return '{}';
 
-        return JSON.stringify(value, null, 2)
+        return JSON.stringify(value, null, 2);
     }
 
-    if (value === '') return 'Empty'
+    if (value === '') return 'Empty';
 
-    return String(value)
+    return String(value);
 }
 
 function formatDate(value?: string) {
-    if (!value) return 'Never'
+    if (!value) return 'Never';
 
-    return new Date(value).toLocaleString()
+    return new Date(value).toLocaleString();
 }
 
 function formatMb(value?: number) {
-    if (!value) return 'Unlimited'
+    if (!value) return 'Unlimited';
 
     if (value >= 1024) {
-        return `${(value / 1024).toFixed(value % 1024 === 0 ? 0 : 1)} GB`
+        return `${(value / 1024).toFixed(value % 1024 === 0 ? 0 : 1)} GB`;
     }
 
-    return `${value} MB`
+    return `${value} MB`;
 }
 
 onMounted(() => {
-    checkWorkerSync()
-})
+    checkWorkerSync();
+});
 </script>
 
 <template>
     <AppLayout :context="'admin'">
         <Head :title="`Cell ${cell.name}`" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-5">
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                             <div class="flex items-start gap-4">
                                 <div
-                                    class="flex size-12 shrink-0 items-center justify-center rounded-button border border-zinc-800 bg-[#0d0f11] text-hive"
+                                    class="flex size-12 shrink-0 items-center justify-center rounded-button border border-border bg-surface-dark text-hive"
                                 >
                                     <Server class="size-6" />
                                 </div>
@@ -451,40 +441,31 @@ onMounted(() => {
                                             class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black"
                                             :class="installStatusClass(cell.install_status)"
                                         >
-                                            <CheckCircle2
-                                                v-if="isInstalled"
-                                                class="size-3.5"
-                                            />
+                                            <CheckCircle2 v-if="isInstalled" class="size-3.5" />
 
-                                            <Clock3
-                                                v-else-if="isPending || isInstalling"
-                                                class="size-3.5"
-                                            />
+                                            <Clock3 v-else-if="isPending || isInstalling" class="size-3.5" />
 
-                                            <CircleAlert
-                                                v-else-if="isFailed"
-                                                class="size-3.5"
-                                            />
+                                            <CircleAlert v-else-if="isFailed" class="size-3.5" />
 
                                             {{ cell.install_status_label || cell.install_status || 'Unknown' }}
                                         </span>
                                     </div>
 
-                                    <p class="mt-2 text-sm text-zinc-400">
-                                        Manage this cell, review deployment information, resources, and installation state.
+                                    <p class="mt-2 text-sm text-muted-foreground">
+                                        {{ t('ui.manage_this_cell_review_deployment_information_resources_and_inst') }}
                                     </p>
 
-                                    <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-zinc-500">
+                                    <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-muted-foreground">
                                         <span>
-                                            ID:
-                                            <span class="font-mono text-zinc-400">
+                                            {{ t('ui.id') }}
+                                            <span class="font-mono text-muted-foreground">
                                                 {{ cell.id }}
                                             </span>
                                         </span>
 
                                         <span v-if="cell.daemon_id">
-                                            Daemon:
-                                            <span class="font-mono text-zinc-400">
+                                            {{ t('ui.daemon') }}
+                                            <span class="font-mono text-muted-foreground">
                                                 {{ cell.daemon_id }}
                                             </span>
                                         </span>
@@ -495,10 +476,10 @@ onMounted(() => {
                             <div class="flex flex-wrap gap-2">
                                 <Link
                                     href="/admin/cells"
-                                    class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive"
+                                    class="inline-flex items-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive"
                                 >
                                     <ArrowLeft class="size-4" />
-                                    Back
+                                    {{ t('ui.back') }}
                                 </Link>
 
                                 <Link
@@ -506,110 +487,103 @@ onMounted(() => {
                                     class="inline-flex items-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-black transition hover:bg-hive-light"
                                 >
                                     <Edit class="size-4" />
-                                    Edit Cell
+                                    {{ t('ui.edit_cell') }}
                                 </Link>
                             </div>
                         </div>
                     </section>
 
-                    <section
-                        v-if="isFailed"
-                        class="rounded-panel border border-status-danger/30 bg-status-danger/10 p-5 sm:p-6"
-                    >
+                    <section v-if="isFailed" class="rounded-panel border border-status-danger/30 bg-status-danger/10 p-5 sm:p-6">
                         <div class="flex items-start gap-3">
                             <CircleAlert class="mt-0.5 size-6 shrink-0 text-status-danger" />
 
                             <div class="min-w-0">
                                 <h2 class="text-lg font-black text-status-danger">
-                                    Installation Failed
+                                    {{ t('ui.installation_failed') }}
                                 </h2>
 
-                                <p class="mt-1 text-sm text-zinc-400">
-                                    The Worker was unable to complete this cell installation.
+                                <p class="mt-1 text-sm text-muted-foreground">
+                                    {{ t('ui.the_worker_was_unable_to_complete_this_cell_installation') }}
                                 </p>
 
                                 <div class="mt-4 rounded-button border border-status-danger/20 bg-black/20 p-4">
-                                    <pre class="whitespace-pre-wrap break-words font-mono text-xs leading-6 text-zinc-300">{{ cell.install_failure_reason || 'No failure reason was recorded.' }}</pre>
+                                    <pre class="whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground">{{
+                                        cell.install_failure_reason || 'No failure reason was recorded.'
+                                    }}</pre>
                                 </div>
                             </div>
                         </div>
                     </section>
 
                     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <Server class="size-4 text-hive" />
-                                Node
+                                {{ t('ui.node') }}
                             </div>
 
-                            <div class="mt-3 text-lg font-black text-white">
+                            <div class="mt-3 text-lg font-black text-foreground">
                                 {{ cell.node?.name || 'Unknown' }}
                             </div>
 
-                            <div class="mt-1 text-xs text-zinc-500">
+                            <div class="mt-1 text-xs text-muted-foreground">
                                 {{ cell.node?.location || 'No location' }}
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <Network class="size-4 text-hive" />
-                                Primary
+                                {{ t('ui.primary') }}
                             </div>
 
-                            <div
-                                v-if="cell.allocation"
-                                class="mt-3 font-mono text-base font-black text-white"
-                            >
+                            <div v-if="cell.allocation" class="mt-3 font-mono text-base font-black text-foreground">
                                 {{ cell.allocation.ip }}:{{ cell.allocation.port }}
                             </div>
 
-                            <div
-                                v-else
-                                class="mt-3 text-lg font-black text-status-warning"
-                            >
-                                Missing
+                            <div v-else class="mt-3 text-lg font-black text-status-warning">
+                                {{ t('ui.missing') }}
                             </div>
 
-                            <div class="mt-1 text-xs text-zinc-500">
+                            <div class="mt-1 text-xs text-muted-foreground">
                                 {{ cell.allocation?.alias || 'No alias' }}
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <Boxes class="size-4 text-hive" />
-                                Allocations
+                                {{ t('ui.allocations') }}
                             </div>
 
-                            <div class="mt-3 text-lg font-black text-white">
+                            <div class="mt-3 text-lg font-black text-foreground">
                                 {{ allocationTotal }}
                             </div>
 
-                            <div class="mt-1 text-xs text-zinc-500">
-                                {{ cell.additional_allocations?.length ?? 0 }} additional
+                            <div class="mt-1 text-xs text-muted-foreground">
+                                {{ cell.additional_allocations?.length ?? 0 }} {{ t('ui.additional') }}
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <Boxes class="size-4 text-hive" />
-                                Comb
+                                {{ t('ui.comb') }}
                             </div>
 
-                            <div class="mt-3 text-lg font-black text-white">
+                            <div class="mt-3 text-lg font-black text-foreground">
                                 {{ cell.comb }}
                             </div>
 
-                            <div class="mt-1 text-xs text-zinc-500">
+                            <div class="mt-1 text-xs text-muted-foreground">
                                 {{ cell.variables?.version ? `Version ${cell.variables.version}` : 'No version' }}
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <Database class="size-4 text-hive" />
-                                Installation
+                                {{ t('ui.installation') }}
                             </div>
 
                             <div class="mt-3">
@@ -621,80 +595,81 @@ onMounted(() => {
                                 </span>
                             </div>
 
-                            <div class="mt-2 text-xs text-zinc-500">
+                            <div class="mt-2 text-xs text-muted-foreground">
                                 <template v-if="isInstalled">
                                     {{ formatDate(cell.installed_at) }}
                                 </template>
 
                                 <template v-else-if="isInstalling">
-                                    Installation in progress
+                                    {{ t('ui.installation_in_progress') }}
                                 </template>
 
                                 <template v-else-if="isPending">
-                                    Waiting for queue
+                                    {{ t('ui.waiting_for_queue') }}
                                 </template>
 
                                 <template v-else-if="isFailed">
-                                    Action required
+                                    {{ t('ui.action_required') }}
                                 </template>
 
                                 <template v-else>
-                                    No installation data
+                                    {{ t('ui.no_installation_data') }}
                                 </template>
                             </div>
                         </div>
 
-                        <div class="rounded-panel border border-zinc-800 bg-surface p-5">
-                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                        <div class="rounded-panel border border-border bg-surface p-5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                 <ShieldCheck class="size-4 text-hive" />
-                                Worker
+                                {{ t('ui.worker') }}
                             </div>
 
                             <div class="mt-3">
-                                <span
-                                    class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-black"
-                                    :class="workerHealthClass"
-                                >
+                                <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-black" :class="workerHealthClass">
                                     {{ workerHealthLabel }}
                                 </span>
                             </div>
 
-                            <div class="mt-2 text-xs text-zinc-500">
+                            <div class="mt-2 text-xs text-muted-foreground">
                                 {{ syncResult?.message || 'Checking Worker definition' }}
                             </div>
                         </div>
                     </section>
 
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <div class="flex items-center gap-2">
                                     <Network class="size-5 text-hive" />
 
                                     <h2 class="text-lg font-black">
-                                        Networking
+                                        {{ t('ui.networking') }}
                                     </h2>
                                 </div>
 
-                                <p class="mt-1 text-sm text-zinc-500">
-                                    Exact primary and additional IP/port assignments currently attached to this Cell.
+                                <p class="mt-1 text-sm text-muted-foreground">
+                                    {{ t('ui.exact_primary_and_additional_ip_port_assignments_currently_attach') }}
                                 </p>
                             </div>
 
                             <div class="flex flex-wrap items-center gap-2">
                                 <Link
                                     :href="`/admin/cells/${cell.id}/edit`"
-                                    class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-1.5 text-xs font-black text-zinc-300 transition hover:border-hive hover:text-hive"
+                                    class="inline-flex items-center gap-2 rounded-button border border-border bg-surface-dark px-3 py-1.5 text-xs font-black text-foreground transition hover:border-hive hover:text-hive"
                                 >
                                     <Edit class="size-3.5" />
-                                    Edit Allocations
+                                    {{ t('ui.edit_allocations') }}
                                 </Link>
-                                <span class="inline-flex items-center rounded-full border border-hive/30 bg-hive/10 px-2.5 py-1 text-xs font-black text-hive">
-                                    {{ cell.allocation ? 1 : 0 }} Primary
+                                <span
+                                    class="inline-flex items-center rounded-full border border-hive/30 bg-hive/10 px-2.5 py-1 text-xs font-black text-hive"
+                                >
+                                    {{ cell.allocation ? 1 : 0 }} {{ t('ui.primary') }}
                                 </span>
 
-                                <span class="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs font-black text-zinc-300">
-                                    {{ cell.additional_allocations?.length ?? 0 }} Additional
+                                <span
+                                    class="inline-flex items-center rounded-full border border-border bg-surface-light px-2.5 py-1 text-xs font-black text-foreground"
+                                >
+                                    {{ cell.additional_allocations?.length ?? 0 }} {{ t('ui.additional_9c34874') }}
                                 </span>
                             </div>
                         </div>
@@ -703,80 +678,74 @@ onMounted(() => {
                             <div class="rounded-button border border-hive/30 bg-hive/5 p-4">
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="text-xs font-black uppercase tracking-wide text-hive">
-                                        Primary Allocation
+                                        {{ t('ui.primary_allocation') }}
                                     </div>
 
-                                    <span class="rounded-full border border-hive/30 bg-hive/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-hive">
-                                        Primary
+                                    <span
+                                        class="rounded-full border border-hive/30 bg-hive/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-hive"
+                                    >
+                                        {{ t('ui.primary') }}
                                     </span>
                                 </div>
 
                                 <template v-if="cell.allocation">
-                                    <div class="mt-3 font-mono text-lg font-black text-white">
+                                    <div class="mt-3 font-mono text-lg font-black text-foreground">
                                         {{ cell.allocation.ip }}:{{ cell.allocation.port }}
                                     </div>
 
-                                    <div class="mt-1 text-xs text-zinc-500">
+                                    <div class="mt-1 text-xs text-muted-foreground">
                                         {{ cell.allocation.alias || 'No alias' }}
                                     </div>
 
                                     <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                                        <div class="rounded-button border border-zinc-800 bg-black/20 p-3">
-                                            <div class="text-[10px] font-black uppercase tracking-wide text-zinc-600">
-                                                server_ip
+                                        <div class="rounded-button border border-border bg-black/20 p-3">
+                                            <div class="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                                                {{ t('ui.server_ip') }}
                                             </div>
 
-                                            <div class="mt-1 break-all font-mono text-xs font-black text-zinc-300">
+                                            <div class="mt-1 break-all font-mono text-xs font-black text-foreground">
                                                 {{ cell.variables?.server_ip || cell.allocation.ip }}
                                             </div>
                                         </div>
 
-                                        <div class="rounded-button border border-zinc-800 bg-black/20 p-3">
-                                            <div class="text-[10px] font-black uppercase tracking-wide text-zinc-600">
-                                                server_port
+                                        <div class="rounded-button border border-border bg-black/20 p-3">
+                                            <div class="text-[10px] font-black uppercase tracking-wide text-muted-foreground">
+                                                {{ t('ui.server_port') }}
                                             </div>
 
-                                            <div class="mt-1 font-mono text-xs font-black text-zinc-300">
+                                            <div class="mt-1 font-mono text-xs font-black text-foreground">
                                                 {{ cell.variables?.server_port || cell.allocation.port }}
                                             </div>
                                         </div>
                                     </div>
                                 </template>
 
-                                <div
-                                    v-else
-                                    class="mt-3 text-sm font-black text-status-warning"
-                                >
-                                    No primary allocation assigned
+                                <div v-else class="mt-3 text-sm font-black text-status-warning">
+                                    {{ t('ui.no_primary_allocation_assigned') }}
                                 </div>
                             </div>
 
                             <div>
-                                <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                    Additional Allocations
+                                <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                    {{ t('ui.additional_allocations') }}
                                 </div>
 
                                 <div
                                     v-if="!cell.additional_allocations || cell.additional_allocations.length === 0"
-                                    class="mt-3 rounded-button border border-zinc-800 bg-[#0d0f11] p-4 text-sm font-bold text-zinc-500"
+                                    class="mt-3 rounded-button border border-border bg-surface-dark p-4 text-sm font-bold text-muted-foreground"
                                 >
-                                    No additional allocations assigned.
+                                    {{ t('ui.no_additional_allocations_assigned') }}
                                 </div>
 
-                                <div
-                                    v-else
-                                    class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                                >
+                                <div v-else class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                     <div
                                         v-for="allocation in cell.additional_allocations"
                                         :key="allocation.id"
-                                        class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4"
+                                        class="rounded-button border border-border bg-surface-dark p-4"
                                     >
-                                        <div class="font-mono text-sm font-black text-white">
-                                            {{ allocation.ip }}:{{ allocation.port }}
-                                        </div>
+                                        <div class="font-mono text-sm font-black text-foreground">{{ allocation.ip }}:{{ allocation.port }}</div>
 
-                                        <div class="mt-1 text-xs text-zinc-500">
+                                        <div class="mt-1 text-xs text-muted-foreground">
                                             {{ allocation.alias || 'No alias' }}
                                         </div>
                                     </div>
@@ -787,15 +756,15 @@ onMounted(() => {
 
                     <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                         <div class="space-y-5">
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center justify-between gap-4">
                                     <div>
                                         <h2 class="text-lg font-black">
-                                            Cell Information
+                                            {{ t('ui.cell_information') }}
                                         </h2>
 
-                                        <p class="mt-1 text-sm text-zinc-500">
-                                            Core identifiers and deployment timestamps.
+                                        <p class="mt-1 text-sm text-muted-foreground">
+                                            {{ t('ui.core_identifiers_and_deployment_timestamps') }}
                                         </p>
                                     </div>
 
@@ -803,97 +772,95 @@ onMounted(() => {
                                 </div>
 
                                 <div class="mt-5 grid gap-3 md:grid-cols-2">
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Cell ID
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.cell_id') }}
                                         </div>
 
-                                        <div class="mt-2 break-all font-mono text-sm font-black text-white">
+                                        <div class="mt-2 break-all font-mono text-sm font-black text-foreground">
                                             {{ cell.id }}
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Daemon ID
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.daemon_id') }}
                                         </div>
 
-                                        <div class="mt-2 break-all font-mono text-sm font-black text-white">
+                                        <div class="mt-2 break-all font-mono text-sm font-black text-foreground">
                                             {{ cell.daemon_id || 'Not created on worker' }}
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Created
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.created') }}
                                         </div>
 
-                                        <div class="mt-2 text-sm font-black text-white">
+                                        <div class="mt-2 text-sm font-black text-foreground">
                                             {{ formatDate(cell.created_at) }}
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Last Updated
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.last_updated') }}
                                         </div>
 
-                                        <div class="mt-2 text-sm font-black text-white">
+                                        <div class="mt-2 text-sm font-black text-foreground">
                                             {{ formatDate(cell.updated_at) }}
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="cell.node?.public_fqdn"
-                                        class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4 md:col-span-2"
-                                    >
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Node FQDN
+                                    <div v-if="cell.node?.public_fqdn" class="rounded-button border border-border bg-surface-dark p-4 md:col-span-2">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.node_fqdn') }}
                                         </div>
 
-                                        <div class="mt-2 break-all font-mono text-sm font-black text-white">
+                                        <div class="mt-2 break-all font-mono text-sm font-black text-foreground">
                                             {{ cell.node.public_fqdn }}
                                         </div>
                                     </div>
                                 </div>
                             </section>
 
-                            <section
-                                v-if="recoveryRequired"
-                                class="rounded-panel border border-status-warning/30 bg-status-warning/10 p-5 sm:p-6"
-                            >
+                            <section v-if="recoveryRequired" class="rounded-panel border border-status-warning/30 bg-status-warning/10 p-5 sm:p-6">
                                 <div class="flex items-start gap-3">
-                                    <div class="flex size-10 shrink-0 items-center justify-center rounded-button border border-status-warning/30 bg-status-warning/10 text-status-warning">
+                                    <div
+                                        class="flex size-10 shrink-0 items-center justify-center rounded-button border border-status-warning/30 bg-status-warning/10 text-status-warning"
+                                    >
                                         <TriangleAlert class="size-5" />
                                     </div>
 
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
                                             <h2 class="text-lg font-black text-status-warning">
-                                                Reinstall Required
+                                                {{ t('ui.reinstall_required') }}
                                             </h2>
 
-                                            <span class="inline-flex items-center rounded-full border border-status-warning/30 bg-status-warning/10 px-2.5 py-1 text-xs font-black text-status-warning">
-                                                Recovery
+                                            <span
+                                                class="inline-flex items-center rounded-full border border-status-warning/30 bg-status-warning/10 px-2.5 py-1 text-xs font-black text-status-warning"
+                                            >
+                                                {{ t('ui.recovery') }}
                                             </span>
                                         </div>
 
-                                        <p class="mt-2 text-sm leading-6 text-zinc-300">
-                                            The missing Worker Cell definition has been recreated successfully, but the Cell still needs to be reinstalled before it should be considered fully recovered.
+                                        <p class="mt-2 text-sm leading-6 text-foreground">
+                                            {{ t('ui.the_missing_worker_cell_definition_has_been_recreated_successfull') }}
                                         </p>
 
                                         <div class="mt-4 rounded-button border border-status-warning/20 bg-black/20 p-4">
-                                            <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                                Worker recreated
+                                            <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                                {{ t('ui.worker_recreated') }}
                                             </div>
 
-                                            <div class="mt-1 text-sm font-bold text-zinc-300">
+                                            <div class="mt-1 text-sm font-bold text-foreground">
                                                 {{ formatDate(workerRecreatedAt || undefined) }}
                                             </div>
                                         </div>
 
-                                        <p class="mt-3 text-xs leading-5 text-zinc-500">
-                                            Worker synchronization may show as Synced because the stored definition matches HivePanel. Recovery remains incomplete until installation succeeds.
+                                        <p class="mt-3 text-xs leading-5 text-muted-foreground">
+                                            {{ t('ui.worker_synchronization_may_show_as_synced_because_the_stored_defi') }}
                                         </p>
 
                                         <button
@@ -902,63 +869,39 @@ onMounted(() => {
                                             :disabled="recoveryReinstalling"
                                             @click="openRecoveryReinstallModal"
                                         >
-                                            <RefreshCw
-                                                class="size-4"
-                                                :class="{ 'animate-spin': recoveryReinstalling }"
-                                            />
+                                            <RefreshCw class="size-4" :class="{ 'animate-spin': recoveryReinstalling }" />
                                             {{ recoveryReinstalling ? 'Queueing Reinstall...' : 'Reinstall Cell' }}
                                         </button>
                                     </div>
                                 </div>
                             </section>
 
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div class="flex items-start gap-3">
                                         <div
                                             class="flex size-10 shrink-0 items-center justify-center rounded-button border"
                                             :class="syncStatusClass(syncResult?.status)"
                                         >
-                                            <RefreshCw
-                                                v-if="checkingSync"
-                                                class="size-5 animate-spin"
-                                            />
+                                            <RefreshCw v-if="checkingSync" class="size-5 animate-spin" />
 
-                                            <CheckCircle2
-                                                v-else-if="syncResult?.status === 'synced'"
-                                                class="size-5"
-                                            />
+                                            <CheckCircle2 v-else-if="syncResult?.status === 'synced'" class="size-5" />
 
-                                            <Wrench
-                                                v-else-if="syncResult?.status === 'out_of_sync'"
-                                                class="size-5"
-                                            />
+                                            <Wrench v-else-if="syncResult?.status === 'out_of_sync'" class="size-5" />
 
-                                            <Server
-                                                v-else-if="syncResult?.status === 'missing'"
-                                                class="size-5"
-                                            />
+                                            <Server v-else-if="syncResult?.status === 'missing'" class="size-5" />
 
-                                            <WifiOff
-                                                v-else-if="syncResult?.status === 'unreachable'"
-                                                class="size-5"
-                                            />
+                                            <WifiOff v-else-if="syncResult?.status === 'unreachable'" class="size-5" />
 
-                                            <CircleAlert
-                                                v-else-if="syncResult?.status === 'error'"
-                                                class="size-5"
-                                            />
+                                            <CircleAlert v-else-if="syncResult?.status === 'error'" class="size-5" />
 
-                                            <ShieldCheck
-                                                v-else
-                                                class="size-5"
-                                            />
+                                            <ShieldCheck v-else class="size-5" />
                                         </div>
 
                                         <div>
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <h2 class="text-lg font-black">
-                                                    Worker Sync
+                                                    {{ t('ui.worker_sync') }}
                                                 </h2>
 
                                                 <span
@@ -974,47 +917,39 @@ onMounted(() => {
                                                 </span>
                                             </div>
 
-                                            <p class="mt-1 text-sm text-zinc-500">
+                                            <p class="mt-1 text-sm text-muted-foreground">
                                                 {{ syncStatusDescription }}
                                             </p>
 
-                                            <p
-                                                v-if="cell.worker_sync?.checked_at"
-                                                class="mt-2 text-xs font-bold text-zinc-600"
-                                            >
-                                                Last checked {{ formatDate(cell.worker_sync.checked_at) }}
+                                            <p v-if="cell.worker_sync?.checked_at" class="mt-2 text-xs font-bold text-muted-foreground">
+                                                {{ t('ui.last_checked') }} {{ formatDate(cell.worker_sync.checked_at) }}
                                             </p>
                                         </div>
                                     </div>
 
                                     <button
                                         type="button"
-                                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive disabled:cursor-not-allowed disabled:opacity-50"
+                                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive disabled:cursor-not-allowed disabled:opacity-50"
                                         :disabled="checkingSync || repairingSync || recreatingSync || recoveryReinstalling"
                                         @click="checkWorkerSync"
                                     >
-                                        <RefreshCw
-                                            class="size-4"
-                                            :class="{ 'animate-spin': checkingSync }"
-                                        />
+                                        <RefreshCw class="size-4" :class="{ 'animate-spin': checkingSync }" />
                                         {{ checkingSync ? 'Checking...' : 'Check Again' }}
                                     </button>
                                 </div>
 
-                                <div
-                                    v-if="checkingSync && !syncResult"
-                                    class="mt-5 rounded-button border border-zinc-800 bg-[#0d0f11] p-5"
-                                >
+                                <div v-if="checkingSync && !syncResult" class="mt-5 rounded-button border border-border bg-surface-dark p-5">
                                     <div class="flex items-center gap-3">
                                         <RefreshCw class="size-5 animate-spin text-hive" />
 
                                         <div>
-                                            <div class="text-sm font-black text-white">
-                                                Checking Worker definition
+                                            <div class="text-sm font-black text-foreground">
+                                                {{ t('ui.checking_worker_definition') }}
                                             </div>
 
-                                            <div class="mt-1 text-xs text-zinc-500">
-                                                Contacting {{ cell.node?.name || 'the assigned node' }} and comparing definitions.
+                                            <div class="mt-1 text-xs text-muted-foreground">
+                                                {{ t('ui.contacting') }} {{ cell.node?.name || 'the assigned node' }}
+                                                {{ t('ui.and_comparing_definitions') }}
                                             </div>
                                         </div>
                                     </div>
@@ -1024,20 +959,16 @@ onMounted(() => {
                                     <div
                                         v-if="syncResult.status === 'synced'"
                                         class="mt-5 rounded-button border p-4"
-                                        :class="recoveryRequired
-                                            ? 'border-status-warning/20 bg-status-warning/5'
-                                            : 'border-status-success/20 bg-status-success/5'"
+                                        :class="
+                                            recoveryRequired
+                                                ? 'border-status-warning/20 bg-status-warning/5'
+                                                : 'border-status-success/20 bg-status-success/5'
+                                        "
                                     >
                                         <div class="flex items-start gap-3">
-                                            <TriangleAlert
-                                                v-if="recoveryRequired"
-                                                class="mt-0.5 size-5 shrink-0 text-status-warning"
-                                            />
+                                            <TriangleAlert v-if="recoveryRequired" class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
-                                            <CheckCircle2
-                                                v-else
-                                                class="mt-0.5 size-5 shrink-0 text-status-success"
-                                            />
+                                            <CheckCircle2 v-else class="mt-0.5 size-5 shrink-0 text-status-success" />
 
                                             <div>
                                                 <div
@@ -1047,34 +978,33 @@ onMounted(() => {
                                                     {{ recoveryRequired ? 'Definitions match, recovery incomplete' : 'Definitions match' }}
                                                 </div>
 
-                                                <p class="mt-1 text-sm leading-6 text-zinc-400">
+                                                <p class="mt-1 text-sm leading-6 text-muted-foreground">
                                                     <template v-if="recoveryRequired">
-                                                        The Worker definition matches HivePanel, but the Cell must still be reinstalled before recovery is complete.
+                                                        {{ t('ui.the_worker_definition_matches_hivepanel_but_the_cell_must_still_b') }}
                                                     </template>
 
                                                     <template v-else>
-                                                        The Cell name, Comb, Comb data, variables, primary allocation, additional allocations and resource limits stored by the Worker match HivePanel.
+                                                        {{ t('ui.the_cell_name_comb_comb_data_variables_primary_allocation_additio') }}
                                                     </template>
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-else-if="syncResult.status === 'out_of_sync'"
-                                        class="mt-5"
-                                    >
+                                    <div v-else-if="syncResult.status === 'out_of_sync'" class="mt-5">
                                         <div class="rounded-button border border-status-warning/20 bg-status-warning/5 p-4">
                                             <div class="flex items-start gap-3">
                                                 <CircleAlert class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
                                                 <div>
                                                     <div class="text-sm font-black text-status-warning">
-                                                        Worker definition is stale
+                                                        {{ t('ui.worker_definition_is_stale') }}
                                                     </div>
 
-                                                    <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                                        {{ syncResult.differences.length }} {{ syncResult.differences.length === 1 ? 'field differs' : 'fields differ' }} from HivePanel. Repairing will update the Worker's stored definition to match HivePanel.
+                                                    <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                                        {{ syncResult.differences.length }}
+                                                        {{ syncResult.differences.length === 1 ? 'field differs' : 'fields differ' }}
+                                                        {{ t('ui.from_hivepanel_repairing_will_update_the_worker_s_stored_definiti') }}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1084,29 +1014,35 @@ onMounted(() => {
                                             <div
                                                 v-for="difference in syncResult.differences"
                                                 :key="difference.field"
-                                                class="overflow-hidden rounded-button border border-zinc-800 bg-[#0d0f11]"
+                                                class="overflow-hidden rounded-button border border-border bg-surface-dark"
                                             >
-                                                <div class="border-b border-zinc-800 px-4 py-3">
+                                                <div class="border-b border-border px-4 py-3">
                                                     <div class="text-xs font-black uppercase tracking-wide text-status-warning">
                                                         {{ syncDifferenceLabel(difference.field) }}
                                                     </div>
                                                 </div>
 
-                                                <div class="grid divide-y divide-zinc-800 md:grid-cols-2 md:divide-x md:divide-y-0">
+                                                <div class="grid divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
                                                     <div class="min-w-0 p-4">
-                                                        <div class="text-[11px] font-black uppercase tracking-wide text-zinc-500">
-                                                            HivePanel
+                                                        <div class="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                                                            {{ t('ui.hivepanel_6123007') }}
                                                         </div>
 
-                                                        <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-zinc-300">{{ formatSyncValue(difference.panel) }}</pre>
+                                                        <pre
+                                                            class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground"
+                                                            >{{ formatSyncValue(difference.panel) }}</pre
+                                                        >
                                                     </div>
 
                                                     <div class="min-w-0 p-4">
-                                                        <div class="text-[11px] font-black uppercase tracking-wide text-zinc-500">
-                                                            Worker
+                                                        <div class="text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                                                            {{ t('ui.worker') }}
                                                         </div>
 
-                                                        <pre class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-zinc-300">{{ formatSyncValue(difference.worker) }}</pre>
+                                                        <pre
+                                                            class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground"
+                                                            >{{ formatSyncValue(difference.worker) }}</pre
+                                                        >
                                                     </div>
                                                 </div>
                                             </div>
@@ -1119,15 +1055,9 @@ onMounted(() => {
                                             :disabled="repairingSync || checkingSync || recreatingSync || recoveryReinstalling"
                                             @click="repairWorkerSync"
                                         >
-                                            <RefreshCw
-                                                v-if="repairingSync"
-                                                class="size-4 animate-spin"
-                                            />
+                                            <RefreshCw v-if="repairingSync" class="size-4 animate-spin" />
 
-                                            <Wrench
-                                                v-else
-                                                class="size-4"
-                                            />
+                                            <Wrench v-else class="size-4" />
 
                                             {{ repairingSync ? 'Repairing...' : 'Repair Cell' }}
                                         </button>
@@ -1142,43 +1072,38 @@ onMounted(() => {
 
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-sm font-black text-status-danger">
-                                                    Worker Cell Missing
+                                                    {{ t('ui.worker_cell_missing') }}
                                                 </div>
 
-                                                <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                                    This Cell exists in HivePanel but the Worker has no Cell matching daemon ID
-                                                    <span class="font-mono font-bold text-zinc-300">{{ cell.daemon_id || 'unknown' }}</span>.
+                                                <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                                    {{ t('ui.this_cell_exists_in_hivepanel_but_the_worker_has_no_cell_matching') }}
+                                                    <span class="font-mono font-bold text-foreground">{{ cell.daemon_id || 'unknown' }}</span
+                                                    >.
                                                 </p>
 
-                                                <p class="mt-2 text-xs leading-5 text-zinc-500">
-                                                    HivePanel can recreate the missing Worker definition using the existing daemon ID, primary allocation, additional allocations, Comb, variables and resource limits.
+                                                <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                                                    {{ t('ui.hivepanel_can_recreate_the_missing_worker_definition_using_the_ex') }}
                                                 </p>
 
                                                 <div class="mt-4 rounded-button border border-status-danger/20 bg-black/20 p-4">
                                                     <div class="text-xs font-black uppercase tracking-wide text-status-danger">
-                                                        Recovery safeguard
+                                                        {{ t('ui.recovery_safeguard') }}
                                                     </div>
 
-                                                    <p class="mt-2 text-xs leading-5 text-zinc-400">
-                                                        The Worker will refuse recreation if a Cell or instance directory with this daemon ID already exists. Existing filesystem data will not be overwritten by this recovery action.
+                                                    <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                                                        {{ t('ui.the_worker_will_refuse_recreation_if_a_cell_or_instance_directory') }}
                                                     </p>
                                                 </div>
 
                                                 <button
                                                     type="button"
-                                                    class="mt-4 inline-flex items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    class="mt-4 inline-flex items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-2.5 text-sm font-black text-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                                     :disabled="checkingSync || repairingSync || recreatingSync || recoveryReinstalling"
                                                     @click="openRecreateModal"
                                                 >
-                                                    <RefreshCw
-                                                        v-if="recreatingSync"
-                                                        class="size-4 animate-spin"
-                                                    />
+                                                    <RefreshCw v-if="recreatingSync" class="size-4 animate-spin" />
 
-                                                    <Server
-                                                        v-else
-                                                        class="size-4"
-                                                    />
+                                                    <Server v-else class="size-4" />
 
                                                     {{ recreatingSync ? 'Recreating...' : 'Recreate Worker Cell' }}
                                                 </button>
@@ -1195,11 +1120,12 @@ onMounted(() => {
 
                                             <div>
                                                 <div class="text-sm font-black text-status-danger">
-                                                    Worker Unavailable
+                                                    {{ t('ui.worker_unavailable') }}
                                                 </div>
 
-                                                <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                                    HivePanel could not contact {{ cell.node?.name || 'the assigned node' }}. No definition comparison or repair can be performed until the Worker is reachable.
+                                                <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                                    {{ t('ui.hivepanel_could_not_contact') }} {{ cell.node?.name || 'the assigned node'
+                                                    }}{{ t('ui.no_definition_comparison_or_repair_can_be_performed_until_the_wor') }}
                                                 </p>
                                             </div>
                                         </div>
@@ -1214,10 +1140,10 @@ onMounted(() => {
 
                                             <div>
                                                 <div class="text-sm font-black text-status-danger">
-                                                    Sync Check Failed
+                                                    {{ t('ui.sync_check_failed') }}
                                                 </div>
 
-                                                <p class="mt-1 text-sm leading-6 text-zinc-400">
+                                                <p class="mt-1 text-sm leading-6 text-muted-foreground">
                                                     {{ syncResult.message }}
                                                 </p>
                                             </div>
@@ -1226,15 +1152,15 @@ onMounted(() => {
                                 </template>
                             </section>
 
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center justify-between gap-4">
                                     <div>
                                         <h2 class="text-lg font-black">
-                                            Variables
+                                            {{ t('ui.variables') }}
                                         </h2>
 
-                                        <p class="mt-1 text-sm text-zinc-500">
-                                            Runtime and comb variables stored for this cell.
+                                        <p class="mt-1 text-sm text-muted-foreground">
+                                            {{ t('ui.runtime_and_comb_variables_stored_for_this_cell') }}
                                         </p>
                                     </div>
 
@@ -1243,39 +1169,32 @@ onMounted(() => {
 
                                 <div
                                     v-if="!cell.variables || Object.keys(cell.variables).length === 0"
-                                    class="mt-5 rounded-button border border-zinc-800 bg-[#0d0f11] p-5 text-sm font-bold text-zinc-500"
+                                    class="mt-5 rounded-button border border-border bg-surface-dark p-5 text-sm font-bold text-muted-foreground"
                                 >
-                                    No variables stored for this cell.
+                                    {{ t('ui.no_variables_stored_for_this_cell') }}
                                 </div>
 
-                                <div
-                                    v-else
-                                    class="mt-5 overflow-hidden rounded-button border border-zinc-800"
-                                >
-                                    <table class="min-w-full divide-y divide-zinc-800">
-                                        <thead class="bg-[#0d0f11]">
+                                <div v-else class="mt-5 overflow-hidden rounded-button border border-border">
+                                    <table class="min-w-full divide-y divide-border">
+                                        <thead class="bg-surface-dark">
                                             <tr>
-                                                <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">
-                                                    Variable
+                                                <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                                    {{ t('ui.variable') }}
                                                 </th>
 
-                                                <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wide text-zinc-500">
-                                                    Value
+                                                <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                                    {{ t('ui.value') }}
                                                 </th>
                                             </tr>
                                         </thead>
 
-                                        <tbody class="divide-y divide-zinc-800">
-                                            <tr
-                                                v-for="(value, key) in cell.variables"
-                                                :key="key"
-                                                class="transition hover:bg-surface-light/40"
-                                            >
-                                                <td class="px-4 py-3 font-mono text-sm font-black text-white">
+                                        <tbody class="divide-y divide-border">
+                                            <tr v-for="(value, key) in cell.variables" :key="key" class="transition hover:bg-surface-light/40">
+                                                <td class="px-4 py-3 font-mono text-sm font-black text-foreground">
                                                     {{ key }}
                                                 </td>
 
-                                                <td class="px-4 py-3 font-mono text-sm font-bold text-zinc-400">
+                                                <td class="px-4 py-3 font-mono text-sm font-bold text-muted-foreground">
                                                     {{ value }}
                                                 </td>
                                             </tr>
@@ -1286,15 +1205,15 @@ onMounted(() => {
                         </div>
 
                         <aside class="space-y-5">
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center justify-between gap-3">
                                     <div>
                                         <h2 class="text-lg font-black">
-                                            Installation
+                                            {{ t('ui.installation') }}
                                         </h2>
 
-                                        <p class="mt-1 text-xs text-zinc-500">
-                                            Deployment state for this Cell.
+                                        <p class="mt-1 text-xs text-muted-foreground">
+                                            {{ t('ui.deployment_state_for_this_cell') }}
                                         </p>
                                     </div>
 
@@ -1302,9 +1221,9 @@ onMounted(() => {
                                 </div>
 
                                 <div class="mt-5 space-y-3">
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Status
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.status') }}
                                         </div>
 
                                         <div class="mt-2">
@@ -1317,40 +1236,37 @@ onMounted(() => {
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                        <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                            Installed At
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
+                                        <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                            {{ t('ui.installed_at') }}
                                         </div>
 
-                                        <div class="mt-2 text-sm font-black text-white">
+                                        <div class="mt-2 text-sm font-black text-foreground">
                                             {{ formatDate(cell.installed_at) }}
                                         </div>
                                     </div>
 
-                                    <div
-                                        v-if="recoveryRequired"
-                                        class="rounded-button border border-status-warning/30 bg-status-warning/10 p-4"
-                                    >
+                                    <div v-if="recoveryRequired" class="rounded-button border border-status-warning/30 bg-status-warning/10 p-4">
                                         <div class="text-xs font-black uppercase tracking-wide text-status-warning">
-                                            Recovery
+                                            {{ t('ui.recovery') }}
                                         </div>
 
-                                        <div class="mt-2 text-sm font-black text-white">
-                                            Reinstall required
+                                        <div class="mt-2 text-sm font-black text-foreground">
+                                            {{ t('ui.reinstall_required_6d863ad') }}
                                         </div>
                                     </div>
                                 </div>
                             </section>
 
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center justify-between gap-3">
                                     <div>
                                         <h2 class="text-lg font-black">
-                                            Resource Limits
+                                            {{ t('ui.resource_limits') }}
                                         </h2>
 
-                                        <p class="mt-1 text-xs text-zinc-500">
-                                            Assigned runtime limits.
+                                        <p class="mt-1 text-xs text-muted-foreground">
+                                            {{ t('ui.assigned_runtime_limits') }}
                                         </p>
                                     </div>
 
@@ -1358,42 +1274,40 @@ onMounted(() => {
                                 </div>
 
                                 <div class="mt-5 space-y-3">
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
                                         <div class="flex items-center justify-between gap-3">
-                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                                 <MemoryStick class="size-4" />
-                                                Memory
+                                                {{ t('ui.memory') }}
                                             </div>
 
-                                            <div class="text-lg font-black text-white">
+                                            <div class="text-lg font-black text-foreground">
                                                 {{ formatMb(cell.limits?.memory_mb) }}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
                                         <div class="flex items-center justify-between gap-3">
-                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                                 <HardDrive class="size-4" />
-                                                Disk
+                                                {{ t('ui.disk') }}
                                             </div>
 
-                                            <div class="text-lg font-black text-white">
+                                            <div class="text-lg font-black text-foreground">
                                                 {{ formatMb(cell.limits?.disk_mb) }}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                    <div class="rounded-button border border-border bg-surface-dark p-4">
                                         <div class="flex items-center justify-between gap-3">
-                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                                            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                                 <Cpu class="size-4" />
-                                                CPU
+                                                {{ t('ui.cpu') }}
                                             </div>
 
-                                            <div class="text-lg font-black text-white">
-                                                {{ cell.limits?.cpu_percent ?? 0 }}%
-                                            </div>
+                                            <div class="text-lg font-black text-foreground">{{ cell.limits?.cpu_percent ?? 0 }}%</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1401,28 +1315,30 @@ onMounted(() => {
 
                             <section class="rounded-panel border border-status-danger/30 bg-surface p-5 sm:p-6">
                                 <div class="flex items-start gap-3">
-                                    <div class="flex size-10 shrink-0 items-center justify-center rounded-button border border-status-danger/30 bg-status-danger/10 text-status-danger">
+                                    <div
+                                        class="flex size-10 shrink-0 items-center justify-center rounded-button border border-status-danger/30 bg-status-danger/10 text-status-danger"
+                                    >
                                         <Trash2 class="size-5" />
                                     </div>
 
                                     <div>
-                                        <h2 class="text-lg font-black text-white">
-                                            Danger Zone
+                                        <h2 class="text-lg font-black text-foreground">
+                                            {{ t('ui.danger_zone') }}
                                         </h2>
 
-                                        <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                            Permanently delete this cell and release all assigned allocations.
+                                        <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                            {{ t('ui.permanently_delete_this_cell_and_release_all_assigned_allocations') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <button
                                     type="button"
-                                    class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-3 text-sm font-black text-white transition hover:opacity-90"
+                                    class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-3 text-sm font-black text-foreground transition hover:opacity-90"
                                     @click="showDeleteModal = true"
                                 >
                                     <Trash2 class="size-4" />
-                                    Delete Cell
+                                    {{ t('ui.delete_cell') }}
                                 </button>
                             </section>
                         </aside>
@@ -1433,10 +1349,10 @@ onMounted(() => {
 
         <ConfirmationModal
             :open="showDeleteModal"
-            title="Delete Cell?"
+            :title="t('ui.delete_cell_9779b50')"
             :description="`Are you sure you wish to delete '${cell.name}'? This action cannot be undone and will remove the Cell from HivePanel, release all allocations and delete it from the worker.`"
-            confirm-text="Delete Cell"
-            cancel-text="Cancel"
+            :confirm-text="t('ui.delete_cell')"
+            :cancel-text="t('Cancel')"
             :danger="true"
             :loading="deleting"
             @cancel="showDeleteModal = false"
@@ -1451,17 +1367,19 @@ onMounted(() => {
             >
                 <div class="w-full max-w-lg rounded-panel border border-status-danger/30 bg-surface p-5 shadow-2xl sm:p-6">
                     <div class="flex items-start gap-3">
-                        <div class="flex size-11 shrink-0 items-center justify-center rounded-button border border-status-danger/30 bg-status-danger/10 text-status-danger">
+                        <div
+                            class="flex size-11 shrink-0 items-center justify-center rounded-button border border-status-danger/30 bg-status-danger/10 text-status-danger"
+                        >
                             <Server class="size-5" />
                         </div>
 
                         <div>
-                            <h2 class="text-lg font-black text-white">
-                                Recreate Worker Cell?
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('ui.recreate_worker_cell') }}
                             </h2>
 
-                            <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                This will recreate the missing Worker definition using HivePanel's existing daemon ID and stored configuration.
+                            <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                {{ t('ui.this_will_recreate_the_missing_worker_definition_using_hivepanel_') }}
                             </p>
                         </div>
                     </div>
@@ -1470,24 +1388,24 @@ onMounted(() => {
                         <div class="flex items-start gap-3">
                             <CircleAlert class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
-                            <p class="text-sm leading-6 text-zinc-300">
-                                This does not silently generate a new daemon ID. The Worker must recreate
-                                <span class="font-mono font-black text-white">{{ cell.daemon_id }}</span>
-                                exactly. The Worker will refuse the operation if that Cell or its instance directory already exists.
+                            <p class="text-sm leading-6 text-foreground">
+                                {{ t('ui.this_does_not_silently_generate_a_new_daemon_id_the_worker_must_r') }}
+                                <span class="font-mono font-black text-foreground">{{ cell.daemon_id }}</span>
+                                {{ t('ui.exactly_the_worker_will_refuse_the_operation_if_that_cell_or_its_') }}
                             </p>
                         </div>
                     </div>
 
                     <div class="mt-5">
-                        <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                            Type <span class="text-white">{{ cell.name }}</span> to confirm
+                        <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                            {{ t('ui.type') }} <span class="text-foreground">{{ cell.name }}</span> {{ t('ui.to_confirm') }}
                         </label>
 
                         <input
                             v-model="recreateConfirmation"
                             type="text"
                             autocomplete="off"
-                            class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-700 focus:border-status-danger"
+                            class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-status-danger"
                             :placeholder="cell.name"
                             :disabled="recreatingSync"
                             @keyup.enter="recreateWorkerCell"
@@ -1497,28 +1415,22 @@ onMounted(() => {
                     <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-button border border-zinc-800 bg-surface-light px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:border-zinc-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            class="inline-flex items-center justify-center rounded-button border border-border bg-surface-light px-4 py-2.5 text-sm font-bold text-foreground transition hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                             :disabled="recreatingSync"
                             @click="closeRecreateModal"
                         >
-                            Cancel
+                            {{ t('ui.cancel') }}
                         </button>
 
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-2.5 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            class="inline-flex items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-2.5 text-sm font-black text-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                             :disabled="!canConfirmRecreate"
                             @click="recreateWorkerCell"
                         >
-                            <RefreshCw
-                                v-if="recreatingSync"
-                                class="size-4 animate-spin"
-                            />
+                            <RefreshCw v-if="recreatingSync" class="size-4 animate-spin" />
 
-                            <Server
-                                v-else
-                                class="size-4"
-                            />
+                            <Server v-else class="size-4" />
 
                             {{ recreatingSync ? 'Recreating...' : 'Recreate Worker Cell' }}
                         </button>
@@ -1535,17 +1447,19 @@ onMounted(() => {
             >
                 <div class="w-full max-w-lg rounded-panel border border-status-warning/30 bg-surface p-5 shadow-2xl sm:p-6">
                     <div class="flex items-start gap-3">
-                        <div class="flex size-11 shrink-0 items-center justify-center rounded-button border border-status-warning/30 bg-status-warning/10 text-status-warning">
+                        <div
+                            class="flex size-11 shrink-0 items-center justify-center rounded-button border border-status-warning/30 bg-status-warning/10 text-status-warning"
+                        >
                             <RefreshCw class="size-5" />
                         </div>
 
                         <div>
-                            <h2 class="text-lg font-black text-white">
-                                Reinstall Recovered Cell?
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('ui.reinstall_recovered_cell') }}
                             </h2>
 
-                            <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                The Worker definition has been restored, but the Cell still needs to be installed before recovery is complete.
+                            <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                {{ t('ui.the_worker_definition_has_been_restored_but_the_cell_still_needs_') }}
                             </p>
                         </div>
                     </div>
@@ -1554,8 +1468,8 @@ onMounted(() => {
                         <div class="flex items-start gap-3">
                             <CircleAlert class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
-                            <p class="text-sm leading-6 text-zinc-300">
-                                This will prepare the Worker instance directory and run the installation using the Comb and variables currently stored by HivePanel.
+                            <p class="text-sm leading-6 text-foreground">
+                                {{ t('ui.this_will_prepare_the_worker_instance_directory_and_run_the_insta') }}
                             </p>
                         </div>
                     </div>
@@ -1568,15 +1482,15 @@ onMounted(() => {
                     </div>
 
                     <div class="mt-5">
-                        <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                            Type <span class="text-white">{{ cell.name }}</span> to confirm
+                        <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                            {{ t('ui.type') }} <span class="text-foreground">{{ cell.name }}</span> {{ t('ui.to_confirm') }}
                         </label>
 
                         <input
                             v-model="recoveryReinstallConfirmation"
                             type="text"
                             autocomplete="off"
-                            class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-zinc-700 focus:border-status-warning"
+                            class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-status-warning"
                             :placeholder="cell.name"
                             :disabled="recoveryReinstalling"
                             @keyup.enter="recoveryReinstall"
@@ -1586,11 +1500,11 @@ onMounted(() => {
                     <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-button border border-zinc-800 bg-surface-light px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:border-zinc-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                            class="inline-flex items-center justify-center rounded-button border border-border bg-surface-light px-4 py-2.5 text-sm font-bold text-foreground transition hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                             :disabled="recoveryReinstalling"
                             @click="closeRecoveryReinstallModal"
                         >
-                            Cancel
+                            {{ t('ui.cancel') }}
                         </button>
 
                         <button
@@ -1599,10 +1513,7 @@ onMounted(() => {
                             :disabled="!canConfirmRecoveryReinstall"
                             @click="recoveryReinstall"
                         >
-                            <RefreshCw
-                                class="size-4"
-                                :class="{ 'animate-spin': recoveryReinstalling }"
-                            />
+                            <RefreshCw class="size-4" :class="{ 'animate-spin': recoveryReinstalling }" />
 
                             {{ recoveryReinstalling ? 'Queueing Reinstall...' : 'Reinstall Cell' }}
                         </button>

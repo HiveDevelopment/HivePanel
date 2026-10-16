@@ -1,256 +1,198 @@
 <script setup lang="ts">
-import InstallationLogs from '@/components/cells/InstallationLogs.vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, Link, router } from '@inertiajs/vue3'
-import {
-    AlertTriangle,
-    ArrowLeft,
-    CheckCircle2,
-    Clock3,
-    LoaderCircle,
-    RefreshCw,
-    Server,
-} from 'lucide-vue-next'
-import {
-    computed,
-    onMounted,
-    onUnmounted,
-    ref,
-} from 'vue'
+import InstallationLogs from '@/components/cells/InstallationLogs.vue';
+import { t } from '@/composables/useLanguage';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, LoaderCircle, RefreshCw, Server } from 'lucide-vue-next';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-type InstallStatus =
-    | 'pending'
-    | 'installing'
-    | 'installed'
-    | 'failed'
+type InstallStatus = 'pending' | 'installing' | 'installed' | 'failed';
 
 type Cell = {
-    id: string
-    daemon_id?: string | null
-    node_id?: string | null
-    name: string
-    comb?: string | null
-    install_status: InstallStatus
-    install_status_label: string
-    install_failure_reason?: string | null
-    installed_at?: string | null
+    id: string;
+    daemon_id?: string | null;
+    node_id?: string | null;
+    name: string;
+    comb?: string | null;
+    install_status: InstallStatus;
+    install_status_label: string;
+    install_failure_reason?: string | null;
+    installed_at?: string | null;
 
     node?: {
-        id?: string | null
-        name?: string | null
-        location?: string | null
-    } | null
-}
+        id?: string | null;
+        name?: string | null;
+        location?: string | null;
+    } | null;
+};
 
 const props = defineProps<{
-    cell: Cell
-}>()
+    cell: Cell;
+}>();
 
-const installStatus = ref<InstallStatus>(
-    props.cell.install_status,
-)
+const installStatus = ref<InstallStatus>(props.cell.install_status);
 
-const installStatusLabel = ref(
-    props.cell.install_status_label,
-)
+const installStatusLabel = ref(props.cell.install_status_label);
 
-const failureReason = ref<string | null>(
-    props.cell.install_failure_reason ?? null,
-)
+const failureReason = ref<string | null>(props.cell.install_failure_reason ?? null);
 
-const refreshing = ref(false)
-const retrying = ref(false)
-const pollingError = ref('')
+const refreshing = ref(false);
+const retrying = ref(false);
+const pollingError = ref('');
 
-let refreshTimer: number | null = null
+let refreshTimer: number | null = null;
 
 const isPending = computed(() => {
-    return installStatus.value === 'pending'
-})
+    return installStatus.value === 'pending';
+});
 
 const isInstalling = computed(() => {
-    return installStatus.value === 'installing'
-})
+    return installStatus.value === 'installing';
+});
 
 const isInstalled = computed(() => {
-    return installStatus.value === 'installed'
-})
+    return installStatus.value === 'installed';
+});
 
 const isFailed = computed(() => {
-    return installStatus.value === 'failed'
-})
+    return installStatus.value === 'failed';
+});
 
 const pageTitle = computed(() => {
     if (isFailed.value) {
-        return `${props.cell.name} Installation Failed`
+        return `${props.cell.name} Installation Failed`;
     }
 
     if (isInstalled.value) {
-        return `${props.cell.name} Installed`
+        return `${props.cell.name} Installed`;
     }
 
-    return `${props.cell.name} Installing`
-})
+    return `${props.cell.name} Installing`;
+});
 
 const heading = computed(() => {
     if (isPending.value) {
-        return 'Waiting to install'
+        return 'Waiting to install';
     }
 
     if (isInstalling.value) {
-        return 'Installing your cell'
+        return 'Installing your cell';
     }
 
     if (isFailed.value) {
-        return 'Installation failed'
+        return 'Installation failed';
     }
 
-    return 'Installation complete'
-})
+    return 'Installation complete';
+});
 
 const description = computed(() => {
     if (isPending.value) {
-        return 'This cell is queued and waiting for a Worker to begin the installation.'
+        return 'This cell is queued and waiting for a Worker to begin the installation.';
     }
 
     if (isInstalling.value) {
-        return 'HivePanel is preparing the server files and runtime environment. This page will update automatically.'
+        return 'HivePanel is preparing the server files and runtime environment. This page will update automatically.';
     }
 
     if (isFailed.value) {
-        return 'HivePanel was unable to complete the installation. Review the error below before retrying.'
+        return 'HivePanel was unable to complete the installation. Review the error below before retrying.';
     }
 
-    return 'The cell has finished installing and is ready to use.'
-})
+    return 'The cell has finished installing and is ready to use.';
+});
 
 const statusClass = computed(() => {
     if (isFailed.value) {
-        return [
-            'border-status-danger/30',
-            'bg-status-danger/10',
-            'text-status-danger',
-        ]
+        return ['border-status-danger/30', 'bg-status-danger/10', 'text-status-danger'];
     }
 
     if (isInstalled.value) {
-        return [
-            'border-status-success/30',
-            'bg-status-success/10',
-            'text-status-success',
-        ]
+        return ['border-status-success/30', 'bg-status-success/10', 'text-status-success'];
     }
 
     if (isPending.value) {
-        return [
-            'border-status-warning/30',
-            'bg-status-warning/10',
-            'text-status-warning',
-        ]
+        return ['border-status-warning/30', 'bg-status-warning/10', 'text-status-warning'];
     }
 
-    return [
-        'border-hive/30',
-        'bg-hive/10',
-        'text-hive',
-    ]
-})
+    return ['border-hive/30', 'bg-hive/10', 'text-hive'];
+});
 
 function stopPolling() {
     if (refreshTimer !== null) {
-        window.clearInterval(refreshTimer)
-        refreshTimer = null
+        window.clearInterval(refreshTimer);
+        refreshTimer = null;
     }
 }
 
 function startPolling() {
-    stopPolling()
+    stopPolling();
 
-    if (
-        isInstalled.value ||
-        isFailed.value
-    ) {
-        return
+    if (isInstalled.value || isFailed.value) {
+        return;
     }
 
-    refreshTimer = window.setInterval(
-        refreshStatus,
-        2500,
-    )
+    refreshTimer = window.setInterval(refreshStatus, 2500);
 }
 
 async function refreshStatus() {
     if (refreshing.value) {
-        return
+        return;
     }
 
-    refreshing.value = true
-    pollingError.value = ''
+    refreshing.value = true;
+    pollingError.value = '';
 
     try {
-        const response = await fetch(
-            `/cells/${props.cell.id}/installation-status`,
-            {
-                credentials: 'same-origin',
-                headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
+        const response = await fetch(`/cells/${props.cell.id}/installation-status`, {
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
-        )
+        });
 
         if (!response.ok) {
-            pollingError.value =
-                'Unable to check the current installation status.'
+            pollingError.value = 'Unable to check the current installation status.';
 
-            return
+            return;
         }
 
-        const data = await response.json()
+        const data = await response.json();
 
-        installStatus.value =
-            data.install_status ??
-            installStatus.value
+        installStatus.value = data.install_status ?? installStatus.value;
 
-        installStatusLabel.value =
-            data.install_status_label ??
-            installStatusLabel.value
+        installStatusLabel.value = data.install_status_label ?? installStatusLabel.value;
 
-        failureReason.value =
-            data.install_failure_reason ??
-            null
+        failureReason.value = data.install_failure_reason ?? null;
 
         if (installStatus.value === 'installed') {
-            stopPolling()
+            stopPolling();
 
-            router.visit(
-                `/cells/${props.cell.id}`,
-                {
-                    preserveScroll: false,
-                },
-            )
+            router.visit(`/cells/${props.cell.id}`, {
+                preserveScroll: false,
+            });
 
-            return
+            return;
         }
 
         if (installStatus.value === 'failed') {
-            stopPolling()
+            stopPolling();
         }
     } catch {
-        pollingError.value =
-            'Unable to connect to HivePanel to check the installation status.'
+        pollingError.value = 'Unable to connect to HivePanel to check the installation status.';
     } finally {
-        refreshing.value = false
+        refreshing.value = false;
     }
 }
 
 async function retryInstallation() {
     if (retrying.value) {
-        return
+        return;
     }
 
-    retrying.value = true
-    pollingError.value = ''
+    retrying.value = true;
+    pollingError.value = '';
 
     router.post(
         `/cells/${props.cell.id}/installation/retry`,
@@ -259,65 +201,58 @@ async function retryInstallation() {
             preserveScroll: true,
 
             onSuccess: () => {
-                installStatus.value = 'pending'
-                installStatusLabel.value = 'Pending'
-                failureReason.value = null
+                installStatus.value = 'pending';
+                installStatusLabel.value = 'Pending';
+                failureReason.value = null;
 
-                startPolling()
+                startPolling();
             },
 
             onError: () => {
-                pollingError.value =
-                    'The installation could not be retried.'
+                pollingError.value = 'The installation could not be retried.';
             },
 
             onFinish: () => {
-                retrying.value = false
+                retrying.value = false;
             },
         },
-    )
+    );
 }
 
 onMounted(() => {
     if (isInstalled.value) {
-        router.visit(
-            `/cells/${props.cell.id}`,
-        )
+        router.visit(`/cells/${props.cell.id}`);
 
-        return
+        return;
     }
 
     if (!isFailed.value) {
-        refreshStatus()
-        startPolling()
+        refreshStatus();
+        startPolling();
     }
-})
+});
 
 onUnmounted(() => {
-    stopPolling()
-})
+    stopPolling();
+});
 </script>
 
 <template>
-    <AppLayout
-        context="server"
-        :active-cell="cell"
-        active-cell-status="installing"
-    >
+    <AppLayout context="server" :active-cell="cell" active-cell-status="installing">
         <Head :title="pageTitle" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="flex min-h-[calc(100vh-5rem)] items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
                 <div class="w-full max-w-3xl">
-                    <section class="overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_24px_90px_rgba(0,0,0,0.35)]">
-                        <div class="border-b border-zinc-800 bg-surface-light px-6 py-5 sm:px-8">
+                    <section class="overflow-hidden rounded-panel border border-border bg-surface shadow-[0_24px_90px_rgba(0,0,0,0.35)]">
+                        <div class="border-b border-border bg-surface-light px-6 py-5 sm:px-8">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <div class="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">
-                                        Cell installation
+                                    <div class="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
+                                        {{ t('ui.cell_installation') }}
                                     </div>
 
-                                    <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">
+                                    <h1 class="mt-2 text-2xl font-black text-foreground sm:text-3xl">
                                         {{ cell.name }}
                                     </h1>
                                 </div>
@@ -326,25 +261,13 @@ onUnmounted(() => {
                                     class="inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black"
                                     :class="statusClass"
                                 >
-                                    <AlertTriangle
-                                        v-if="isFailed"
-                                        class="size-4"
-                                    />
+                                    <AlertTriangle v-if="isFailed" class="size-4" />
 
-                                    <CheckCircle2
-                                        v-else-if="isInstalled"
-                                        class="size-4"
-                                    />
+                                    <CheckCircle2 v-else-if="isInstalled" class="size-4" />
 
-                                    <Clock3
-                                        v-else-if="isPending"
-                                        class="size-4"
-                                    />
+                                    <Clock3 v-else-if="isPending" class="size-4" />
 
-                                    <LoaderCircle
-                                        v-else
-                                        class="size-4 animate-spin"
-                                    />
+                                    <LoaderCircle v-else class="size-4 animate-spin" />
 
                                     {{ installStatusLabel }}
                                 </div>
@@ -353,44 +276,26 @@ onUnmounted(() => {
 
                         <div class="px-6 py-8 sm:px-8 sm:py-10">
                             <div class="flex flex-col items-center text-center">
-                                <div
-                                    class="flex size-20 items-center justify-center rounded-full border"
-                                    :class="statusClass"
-                                >
-                                    <AlertTriangle
-                                        v-if="isFailed"
-                                        class="size-9"
-                                    />
+                                <div class="flex size-20 items-center justify-center rounded-full border" :class="statusClass">
+                                    <AlertTriangle v-if="isFailed" class="size-9" />
 
-                                    <CheckCircle2
-                                        v-else-if="isInstalled"
-                                        class="size-9"
-                                    />
+                                    <CheckCircle2 v-else-if="isInstalled" class="size-9" />
 
-                                    <Clock3
-                                        v-else-if="isPending"
-                                        class="size-9"
-                                    />
+                                    <Clock3 v-else-if="isPending" class="size-9" />
 
-                                    <LoaderCircle
-                                        v-else
-                                        class="size-9 animate-spin"
-                                    />
+                                    <LoaderCircle v-else class="size-9 animate-spin" />
                                 </div>
 
-                                <h2 class="mt-6 text-2xl font-black text-white">
+                                <h2 class="mt-6 text-2xl font-black text-foreground">
                                     {{ heading }}
                                 </h2>
 
-                                <p class="mt-3 max-w-xl text-sm leading-7 text-zinc-400">
+                                <p class="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
                                     {{ description }}
                                 </p>
                             </div>
 
-                            <div
-                                v-if="!isFailed && !isInstalled"
-                                class="mt-8 overflow-hidden rounded-full bg-zinc-900"
-                            >
+                            <div v-if="!isFailed && !isInstalled" class="mt-8 overflow-hidden rounded-full bg-surface">
                                 <div
                                     class="h-2 w-1/3 rounded-full bg-hive"
                                     :class="{
@@ -400,10 +305,7 @@ onUnmounted(() => {
                                 />
                             </div>
 
-                            <div
-                                v-if="pollingError"
-                                class="mt-8 rounded-button border border-status-warning/30 bg-status-warning/10 p-4"
-                            >
+                            <div v-if="pollingError" class="mt-8 rounded-button border border-status-warning/30 bg-status-warning/10 p-4">
                                 <div class="flex items-start gap-3">
                                     <AlertTriangle class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
@@ -413,48 +315,44 @@ onUnmounted(() => {
                                 </div>
                             </div>
 
-                            <div
-                                v-if="isFailed"
-                                class="mt-8 rounded-button border border-status-danger/30 bg-status-danger/10 p-5"
-                            >
+                            <div v-if="isFailed" class="mt-8 rounded-button border border-status-danger/30 bg-status-danger/10 p-5">
                                 <div class="flex items-start gap-3">
                                     <AlertTriangle class="mt-0.5 size-5 shrink-0 text-status-danger" />
 
                                     <div class="min-w-0">
                                         <div class="text-sm font-black text-status-danger">
-                                            Worker error
+                                            {{ t('ui.worker_error') }}
                                         </div>
 
-                                        <pre class="mt-3 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-zinc-300">{{ failureReason || 'No installation error was provided.' }}</pre>
+                                        <pre class="mt-3 whitespace-pre-wrap break-words font-mono text-xs leading-6 text-foreground">{{
+                                            failureReason || 'No installation error was provided.'
+                                        }}</pre>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="mt-8 grid gap-3 sm:grid-cols-2">
-                                <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                    <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-zinc-500">
+                                <div class="rounded-button border border-border bg-surface-dark p-4">
+                                    <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-muted-foreground">
                                         <Server class="size-4" />
-                                        Node
+                                        {{ t('ui.node') }}
                                     </div>
 
-                                    <div class="mt-2 text-sm font-bold text-white">
+                                    <div class="mt-2 text-sm font-bold text-foreground">
                                         {{ cell.node?.name || 'Unknown node' }}
                                     </div>
 
-                                    <div
-                                        v-if="cell.node?.location"
-                                        class="mt-1 text-xs text-zinc-500"
-                                    >
+                                    <div v-if="cell.node?.location" class="mt-1 text-xs text-muted-foreground">
                                         {{ cell.node.location }}
                                     </div>
                                 </div>
 
-                                <div class="rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
-                                    <div class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Cell ID
+                                <div class="rounded-button border border-border bg-surface-dark p-4">
+                                    <div class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.cell_id') }}
                                     </div>
 
-                                    <div class="mt-2 break-all font-mono text-xs text-zinc-300">
+                                    <div class="mt-2 break-all font-mono text-xs text-foreground">
                                         {{ cell.id }}
                                     </div>
                                 </div>
@@ -463,10 +361,10 @@ onUnmounted(() => {
                             <div class="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                                 <Link
                                     href="/cells"
-                                    class="inline-flex items-center justify-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:border-zinc-700 hover:text-white"
+                                    class="inline-flex items-center justify-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2.5 text-sm font-bold text-foreground transition hover:border-border hover:text-foreground"
                                 >
                                     <ArrowLeft class="size-4" />
-                                    Back to Cells
+                                    {{ t('ui.back_to_cells') }}
                                 </Link>
 
                                 <div class="flex flex-col gap-3 sm:flex-row">
@@ -484,17 +382,13 @@ onUnmounted(() => {
                                             }"
                                         />
 
-                                        {{
-                                            retrying
-                                                ? 'Retrying...'
-                                                : 'Retry Installation'
-                                        }}
+                                        {{ retrying ? 'Retrying...' : 'Retry Installation' }}
                                     </button>
 
                                     <button
                                         v-else-if="!isInstalled"
                                         type="button"
-                                        class="inline-flex items-center justify-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive disabled:cursor-not-allowed disabled:opacity-60"
+                                        class="inline-flex items-center justify-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2.5 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive disabled:cursor-not-allowed disabled:opacity-60"
                                         :disabled="refreshing"
                                         @click="refreshStatus"
                                     >
@@ -505,11 +399,7 @@ onUnmounted(() => {
                                             }"
                                         />
 
-                                        {{
-                                            refreshing
-                                                ? 'Checking...'
-                                                : 'Check Status'
-                                        }}
+                                        {{ refreshing ? 'Checking...' : 'Check Status' }}
                                     </button>
                                 </div>
                             </div>

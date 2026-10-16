@@ -1,52 +1,52 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { computed, ref, watch } from 'vue'
-import { useConfirm } from '@/composables/useConfirm'
+import { useConfirm } from '@/composables/useConfirm';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Head, router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 
-import ScheduleHeader from './Components/ScheduleHeader.vue'
-import GeneralCard from './Components/GeneralCard.vue'
-import AIWorkflowCard from './Components/AIWorkflowCard.vue'
-import WorkflowCard from './Components/WorkflowCard.vue'
-import ScheduleInfoCard from './Components/ScheduleInfoCard.vue'
-import RecentRunsCard from './Components/RecentRunsCard.vue'
+import AIWorkflowCard from './Components/AIWorkflowCard.vue';
+import GeneralCard from './Components/GeneralCard.vue';
+import RecentRunsCard from './Components/RecentRunsCard.vue';
+import ScheduleHeader from './Components/ScheduleHeader.vue';
+import ScheduleInfoCard from './Components/ScheduleInfoCard.vue';
+import WorkflowCard from './Components/WorkflowCard.vue';
 
-const { confirm } = useConfirm()
+const { confirm } = useConfirm();
 
 type ActionField = {
-    name: string
-    label: string
-    type: 'text' | 'number' | 'select'
-    required?: boolean
-    default?: any
-    placeholder?: string
-    options?: { label: string; value: string }[]
-}
+    name: string;
+    label: string;
+    type: 'text' | 'number' | 'select';
+    required?: boolean;
+    default?: any;
+    placeholder?: string;
+    options?: { label: string; value: string }[];
+};
 
 type ActionDefinition = {
-    type: string
-    name: string
-    description: string
-    fields: ActionField[]
-}
+    type: string;
+    name: string;
+    description: string;
+    fields: ActionField[];
+};
 
 type ScheduleAction = {
-    id?: number
-    type: string
-    payload: Record<string, any>
-}
+    id?: number;
+    type: string;
+    payload: Record<string, any>;
+};
 
 const props = defineProps<{
-    cell: any
-    schedule: any
-    actionDefinitions: ActionDefinition[]
-}>()
+    cell: any;
+    schedule: any;
+    actionDefinitions: ActionDefinition[];
+}>();
 
-const saving = ref(false)
-const error = ref('')
-const toastMessage = ref('')
-const workflowPrompt = ref('')
-const workflowLoading = ref(false)
+const saving = ref(false);
+const error = ref('');
+const toastMessage = ref('');
+const workflowPrompt = ref('');
+const workflowLoading = ref(false);
 
 const cron = ref({
     minute: props.schedule.cron_expression?.split(/\s+/)[0] ?? '0',
@@ -54,7 +54,7 @@ const cron = ref({
     day: props.schedule.cron_expression?.split(/\s+/)[2] ?? '*',
     month: props.schedule.cron_expression?.split(/\s+/)[3] ?? '*',
     dayOfWeek: props.schedule.cron_expression?.split(/\s+/)[4] ?? '*',
-})
+});
 
 const form = ref({
     name: props.schedule.name,
@@ -68,72 +68,76 @@ const form = ref({
         type: action.type,
         payload: action.payload ?? {},
     })) as ScheduleAction[],
-})
+});
 
 const cronSummary = computed(() => {
-    return `${form.value.cron_expression} (${form.value.timezone})`
-})
+    return `${form.value.cron_expression} (${form.value.timezone})`;
+});
 
-watch(cron, () => {
-    form.value.cron_expression = [
-        cron.value.minute || '*',
-        cron.value.hour || '*',
-        cron.value.day || '*',
-        cron.value.month || '*',
-        cron.value.dayOfWeek || '*',
-    ].join(' ')
-}, { deep: true })
+watch(
+    cron,
+    () => {
+        form.value.cron_expression = [
+            cron.value.minute || '*',
+            cron.value.hour || '*',
+            cron.value.day || '*',
+            cron.value.month || '*',
+            cron.value.dayOfWeek || '*',
+        ].join(' ');
+    },
+    { deep: true },
+);
 
 function csrfToken() {
-    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 }
 
 function showToast(message: string) {
-    toastMessage.value = message
-    setTimeout(() => toastMessage.value = '', 3000)
+    toastMessage.value = message;
+    setTimeout(() => (toastMessage.value = ''), 3000);
 }
 
 async function readError(response: Response) {
-    const text = await response.text()
+    const text = await response.text();
 
     try {
-        const json = JSON.parse(text)
-        return json.message || json.error || text
+        const json = JSON.parse(text);
+        return json.message || json.error || text;
     } catch {
-        return text
+        return text;
     }
 }
 
 function formatDate(value?: string) {
-    if (!value) return 'Never'
-    return new Date(value).toLocaleString()
+    if (!value) return 'Never';
+    return new Date(value).toLocaleString();
 }
 
 function actionDefinition(type: string) {
-    return props.actionDefinitions.find(action => action.type === type)
+    return props.actionDefinitions.find((action) => action.type === type);
 }
 
 function actionName(type: string) {
-    return actionDefinition(type)?.name ?? type
+    return actionDefinition(type)?.name ?? type;
 }
 
 function statusClass(status?: string) {
-    if (status === 'success') return 'border-status-success/30 bg-status-success/10 text-status-success'
-    if (status === 'failed') return 'border-status-danger/30 bg-status-danger/10 text-status-danger'
-    if (status === 'running') return 'border-status-warning/30 bg-status-warning/10 text-status-warning'
+    if (status === 'success') return 'border-status-success/30 bg-status-success/10 text-status-success';
+    if (status === 'failed') return 'border-status-danger/30 bg-status-danger/10 text-status-danger';
+    if (status === 'running') return 'border-status-warning/30 bg-status-warning/10 text-status-warning';
 
-    return 'border-zinc-700 bg-zinc-800 text-zinc-400'
+    return 'border-border bg-surface-light text-muted-foreground';
 }
 
 function addAction(type = 'command') {
-    const definition = actionDefinition(type)
-    const payload: Record<string, any> = {}
+    const definition = actionDefinition(type);
+    const payload: Record<string, any> = {};
 
     for (const field of definition?.fields ?? []) {
-        payload[field.name] = field.default ?? ''
+        payload[field.name] = field.default ?? '';
     }
 
-    form.value.actions.push({ type, payload })
+    form.value.actions.push({ type, payload });
 }
 
 async function removeAction(index: number) {
@@ -143,46 +147,46 @@ async function removeAction(index: number) {
         confirmText: 'Remove Action',
         cancelText: 'Cancel',
         danger: true,
-    })
+    });
 
-    if (!accepted) return
+    if (!accepted) return;
 
-    form.value.actions.splice(index, 1)
-    showToast('Action removed.')
+    form.value.actions.splice(index, 1);
+    showToast('Action removed.');
 }
 
 function moveAction(index: number, direction: -1 | 1) {
-    const nextIndex = index + direction
-    if (nextIndex < 0 || nextIndex >= form.value.actions.length) return
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= form.value.actions.length) return;
 
-    const actions = [...form.value.actions]
-    const item = actions[index]
+    const actions = [...form.value.actions];
+    const item = actions[index];
 
-    actions.splice(index, 1)
-    actions.splice(nextIndex, 0, item)
+    actions.splice(index, 1);
+    actions.splice(nextIndex, 0, item);
 
-    form.value.actions = actions
+    form.value.actions = actions;
 }
 
 function onActionTypeChange(action: ScheduleAction) {
-    const definition = actionDefinition(action.type)
-    const payload: Record<string, any> = {}
+    const definition = actionDefinition(action.type);
+    const payload: Record<string, any> = {};
 
     for (const field of definition?.fields ?? []) {
-        payload[field.name] = field.default ?? ''
+        payload[field.name] = field.default ?? '';
     }
 
-    action.payload = payload
+    action.payload = payload;
 }
 
 async function generateWorkflow() {
     if (!workflowPrompt.value.trim()) {
-        showToast('Enter a workflow prompt first.')
-        return
+        showToast('Enter a workflow prompt first.');
+        return;
     }
 
-    workflowLoading.value = true
-    error.value = ''
+    workflowLoading.value = true;
+    error.value = '';
 
     try {
         const response = await fetch('/workflows/generate', {
@@ -198,39 +202,39 @@ async function generateWorkflow() {
                 prompt: workflowPrompt.value,
                 actions: props.actionDefinitions,
             }),
-        })
+        });
 
         if (!response.ok) {
-            const message = await readError(response)
-            error.value = message
-            showToast(message)
-            return
+            const message = await readError(response);
+            error.value = message;
+            showToast(message);
+            return;
         }
 
-        const data = await response.json()
+        const data = await response.json();
 
         form.value.actions = (data.actions ?? []).map((action: any) => ({
             type: action.type,
             payload: action.payload ?? {},
-        }))
+        }));
 
-        showToast('Workflow generated. Review it, then save changes.')
+        showToast('Workflow generated. Review it, then save changes.');
     } finally {
-        workflowLoading.value = false
+        workflowLoading.value = false;
     }
 }
 
 function validCron(expression: string) {
-    return expression.trim().split(/\s+/).length === 5
+    return expression.trim().split(/\s+/).length === 5;
 }
 
 async function saveSchedule() {
-    saving.value = true
-    error.value = ''
+    saving.value = true;
+    error.value = '';
 
     if (!validCron(form.value.cron_expression)) {
-        showToast('Cron expression must have 5 parts.')
-        return
+        showToast('Cron expression must have 5 parts.');
+        return;
     }
 
     try {
@@ -244,46 +248,46 @@ async function saveSchedule() {
                 'X-CSRF-TOKEN': csrfToken(),
             },
             body: JSON.stringify(form.value),
-        })
+        });
 
         if (!response.ok) {
-            const message = await readError(response)
-            error.value = message
-            showToast(message)
-            return
+            const message = await readError(response);
+            error.value = message;
+            showToast(message);
+            return;
         }
 
-        showToast('Schedule saved.')
-        router.reload({ only: ['schedule'] })
+        showToast('Schedule saved.');
+        router.reload({ only: ['schedule'] });
     } finally {
-        saving.value = false
+        saving.value = false;
     }
 }
 
 function runSchedule() {
-    router.post(`/cells/${props.cell.id}/schedules/${props.schedule.id}/run`, {}, {
-        preserveScroll: true,
-        onSuccess: () => {
-            showToast('Schedule dispatched.')
-            router.reload({ only: ['schedule'] })
+    router.post(
+        `/cells/${props.cell.id}/schedules/${props.schedule.id}/run`,
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showToast('Schedule dispatched.');
+                router.reload({ only: ['schedule'] });
+            },
         },
-    })
+    );
 }
 
 function backToSchedules() {
-    router.visit(`/cells/${props.cell.id}/schedules`)
+    router.visit(`/cells/${props.cell.id}/schedules`);
 }
 </script>
 
 <template>
-    <AppLayout
-        :context="'server'"
-        :active-cell="cell"
-        :active-cell-status="cell.status ?? 'offline'"
-    >
+    <AppLayout :context="'server'" :active-cell="cell" :active-cell-status="cell.status ?? 'offline'">
         <Head :title="`${schedule.name} Schedule`" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto max-w-[1500px] space-y-5">
                     <ScheduleHeader
@@ -305,16 +309,9 @@ function backToSchedules() {
 
                     <section class="grid gap-5 lg:grid-cols-[1fr_380px]">
                         <div class="space-y-5">
-                            <GeneralCard
-                                :form="form"
-                                :cron="cron"
-                            />
+                            <GeneralCard :form="form" :cron="cron" />
 
-                            <AIWorkflowCard
-                                v-model="workflowPrompt"
-                                :loading="workflowLoading"
-                                @generate="generateWorkflow"
-                            />
+                            <AIWorkflowCard v-model="workflowPrompt" :loading="workflowLoading" @generate="generateWorkflow" />
 
                             <WorkflowCard
                                 :form="form"
@@ -327,17 +324,9 @@ function backToSchedules() {
                         </div>
 
                         <aside class="space-y-5">
-                            <ScheduleInfoCard
-                                :schedule="schedule"
-                                :format-date="formatDate"
-                            />
+                            <ScheduleInfoCard :schedule="schedule" :format-date="formatDate" />
 
-                            <RecentRunsCard
-                                :schedule="schedule"
-                                :format-date="formatDate"
-                                :status-class="statusClass"
-                                :action-name="actionName"
-                            />
+                            <RecentRunsCard :schedule="schedule" :format-date="formatDate" :status-class="statusClass" :action-name="actionName" />
                         </aside>
                     </section>
                 </div>

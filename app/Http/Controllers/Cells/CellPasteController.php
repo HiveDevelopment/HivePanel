@@ -22,22 +22,24 @@ class CellPasteController extends CellBaseController
         $path = $data['path'];
         $name = basename(str_replace('\\', '/', $path));
         if ($name === '' || $name === '.' || $name === '..') {
-            throw ValidationException::withMessages(['path' => 'Select a file to share.']);
+            throw ValidationException::withMessages(['path' => __('Select a file to share.')]);
         }
         try {
             $file = $files->readFile($cell, $path);
             $content = $file['content'] ?? null;
             if (! is_string($content)) {
-                throw ValidationException::withMessages(['path' => 'The selected file is not readable text.']);
+                throw ValidationException::withMessages(['path' => __('The selected file is not readable text.')]);
             }
             $result = $paste->create($content, $name, $this->language($name));
         } catch (ValidationException $e) {
             throw $e;
         } catch (Throwable $e) {
             Log::warning('HivePaste file sharing failed', ['cell_id' => $cell->id, 'exception' => $e::class]);
+
             return response()->json(['message' => 'Unable to share this file. Check file size and HivePaste availability.'], 422);
         }
         $audit->log('hivepaste.file_shared', $cell, 'Shared a file to HivePaste', ['path' => $path, 'paste_id' => $result['id']]);
+
         return response()->json($result);
     }
 
@@ -51,15 +53,18 @@ class CellPasteController extends CellBaseController
             throw $e;
         } catch (Throwable $e) {
             Log::warning('HivePaste console sharing failed', ['cell_id' => $cell->id, 'exception' => $e::class]);
+
             return response()->json(['message' => 'Unable to share console output. Check size and HivePaste availability.'], 422);
         }
         $audit->log('hivepaste.console_shared', $cell, 'Shared console output to HivePaste', ['paste_id' => $result['id']]);
+
         return response()->json($result);
     }
 
     private function language(string $name): string
     {
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
         return match ($ext) {
             'js', 'mjs', 'cjs' => 'javascript', 'ts', 'tsx' => 'typescript', 'py' => 'python',
             'php' => 'php', 'json' => 'json', 'yml', 'yaml' => 'yaml', 'html', 'htm' => 'html',

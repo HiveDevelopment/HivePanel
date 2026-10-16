@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\AI\AISettings;
 use App\Http\Controllers\Controller;
 use App\Mail\TestMail;
 use App\Models\AppSetting;
 use App\Models\OAuthProvider;
 use App\Models\OidcProvider;
 use App\Support\AppSettings;
+use App\Support\InvitationTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\File;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AdminSettingsController extends Controller
@@ -39,7 +42,7 @@ class AdminSettingsController extends Controller
                 'mail' => $this->safeMailSettings(),
                 'captcha' => $this->safeCaptchaSettings(),
                 'ai' => $this->safeAISettings(),
-                'invitations' => \App\Support\InvitationTemplate::settings(),
+                'invitations' => InvitationTemplate::settings(),
             ],
             'oauthProviders' => $this->oauthProviders(),
             'oidcProviders' => OidcProvider::query()
@@ -64,8 +67,9 @@ class AdminSettingsController extends Controller
 
     private function safeAISettings(): array
     {
-        $settings = \App\AI\AISettings::current();
-        return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key']), 'providers' => collect(\App\Support\AppSettings::get('ai')['providers'] ?? [])->map(fn ($v) => ['has_key' => !empty($v['encrypted_key']), 'model' => $v['model'] ?? ''])->all()];
+        $settings = AISettings::current();
+
+        return ['enabled' => $settings['enabled'], 'provider' => $settings['provider'] === 'disabled' ? 'gemini' : $settings['provider'], 'model' => $settings['provider'] === 'disabled' ? 'gemini-2.5-flash-lite' : ($settings['model'] ?: 'gemini-2.5-flash-lite'), 'url' => $settings['url'], 'has_key' => filled($settings['key']), 'providers' => collect(AppSettings::get('ai')['providers'] ?? [])->map(fn ($v) => ['has_key' => ! empty($v['encrypted_key']), 'model' => $v['model'] ?? ''])->all()];
     }
 
     public function updateInvitations(Request $request)
@@ -83,7 +87,7 @@ class AdminSettingsController extends Controller
             ['value' => $data]
         );
 
-        return back()->with('success', 'Invitation email template updated.');
+        return back()->with('success', __('Invitation email template updated.'));
     }
 
     public function updateGeneral(Request $request)
@@ -124,7 +128,7 @@ class AdminSettingsController extends Controller
                 $next = Storage::disk('public')->url($path);
             } elseif ($request->filled($key) && $data[$key] !== $old) {
                 if (! filter_var($data[$key], FILTER_VALIDATE_URL) || ! in_array(parse_url($data[$key], PHP_URL_SCHEME), ['http', 'https'], true)) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([$key => 'Enter a valid HTTP or HTTPS image URL.']);
+                    throw ValidationException::withMessages([$key => __('Enter a valid HTTP or HTTPS image URL.')]);
                 }
                 $next = $data[$key];
             }
@@ -136,7 +140,8 @@ class AdminSettingsController extends Controller
         }
 
         $this->setSetting('general', $updated);
-        return back()->with('success', 'General settings updated.');
+
+        return back()->with('success', __('General settings updated.'));
     }
 
     public function updateSecurity(Request $request)
@@ -161,7 +166,8 @@ class AdminSettingsController extends Controller
         $this->setSetting('general', $general);
         unset($data['require_2fa']);
         $this->setSetting('security', $data);
-        return back()->with('success', 'Security settings updated.');
+
+        return back()->with('success', __('Security settings updated.'));
     }
 
     public function updateMail(Request $request)
@@ -182,7 +188,8 @@ class AdminSettingsController extends Controller
         }
 
         $this->setSetting('mail', $data);
-        return back()->with('success', 'Mail settings updated.');
+
+        return back()->with('success', __('Mail settings updated.'));
     }
 
     public function testMail(Request $request)
@@ -201,9 +208,9 @@ class AdminSettingsController extends Controller
         Config::set('mail.mailers.smtp.password', $mail['password'] ?? null);
         Config::set('mail.from.address', $mail['from_address'] ?? config('mail.from.address'));
         Config::set('mail.from.name', $mail['from_name'] ?? 'HivePanel');
-        Mail::to($data['email'])->send(new TestMail());
+        Mail::to($data['email'])->send(new TestMail);
 
-        return back()->with('success', 'Test email sent.');
+        return back()->with('success', __('Test email sent.'));
     }
 
     public function updateCaptcha(Request $request)
@@ -221,7 +228,8 @@ class AdminSettingsController extends Controller
         }
 
         $this->setSetting('captcha', $data);
-        return back()->with('success', 'Captcha settings updated.');
+
+        return back()->with('success', __('Captcha settings updated.'));
     }
 
     public function updateOAuth(Request $request)
@@ -252,7 +260,7 @@ class AdminSettingsController extends Controller
             ]);
         }
 
-        return back()->with('success', 'OAuth settings updated.');
+        return back()->with('success', __('OAuth settings updated.'));
     }
 
     private function setting(string $key, array $default = []): array
@@ -283,6 +291,7 @@ class AdminSettingsController extends Controller
         ]);
 
         $mail['password'] = '';
+
         return $mail;
     }
 
@@ -295,6 +304,7 @@ class AdminSettingsController extends Controller
             'secret_key' => '',
         ]);
         $captcha['secret_key'] = '';
+
         return $captcha;
     }
 
@@ -350,7 +360,7 @@ class AdminSettingsController extends Controller
             'allow_registration' => (bool) ($data['allow_registration'] ?? false),
         ]);
 
-        return back()->with('success', 'OpenID Connect provider added.');
+        return back()->with('success', __('OpenID Connect provider added.'));
     }
 
     public function updateOidc(Request $request, OidcProvider $oidcProvider)
@@ -377,13 +387,14 @@ class AdminSettingsController extends Controller
             'scopes' => $data['scopes'] ?? ['openid', 'profile', 'email'],
             'allow_registration' => (bool) ($data['allow_registration'] ?? false),
         ]);
-        
-        return back()->with('success', 'OpenID Connect provider updated.');
+
+        return back()->with('success', __('OpenID Connect provider updated.'));
     }
 
     public function destroyOidc(OidcProvider $oidcProvider)
     {
         $oidcProvider->delete();
-        return back()->with('success', 'OpenID Connect provider removed.');
+
+        return back()->with('success', __('OpenID Connect provider removed.'));
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminCellController;
 use App\Http\Controllers\Admin\AdminCellDatabaseLimitController;
 use App\Http\Controllers\Admin\AdminCellReinstallController;
 use App\Http\Controllers\Admin\AdminCellSyncController;
+use App\Http\Controllers\Admin\AdminCellToolsController;
 use App\Http\Controllers\Admin\AdminCombController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDatabaseHostController;
@@ -28,7 +29,9 @@ use App\Http\Controllers\Cells\CellController;
 use App\Http\Controllers\Cells\CellDatabaseController;
 use App\Http\Controllers\Cells\CellDomainController;
 use App\Http\Controllers\Cells\CellFileController;
+use App\Http\Controllers\Cells\CellFirewallController;
 use App\Http\Controllers\Cells\CellImporterController;
+use App\Http\Controllers\Cells\CellInstanceController;
 use App\Http\Controllers\Cells\CellMinecraftController;
 use App\Http\Controllers\Cells\CellNetworkController;
 use App\Http\Controllers\Cells\CellPasteController;
@@ -39,7 +42,9 @@ use App\Http\Controllers\Cells\CellReinstallController;
 use App\Http\Controllers\Cells\CellScheduleController;
 use App\Http\Controllers\Cells\CellSettingsController;
 use App\Http\Controllers\Cells\CellSftpCredentialController;
+use App\Http\Controllers\Cells\CellSplitterController;
 use App\Http\Controllers\Cells\CellStartupController;
+use App\Http\Controllers\Cells\CellSubdomainController;
 use App\Http\Controllers\Cells\CellSubUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Install\WorkerInstallScriptController;
@@ -85,7 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{node}/web-proxy', [AdminNodeWebProxyController::class, 'index'])->name('web-proxy')->middleware('admin.permission:'.AdminPermissions::NODES_VIEW);
             Route::patch('{node}/web-proxy', [AdminNodeWebProxyController::class, 'update'])->name('web-proxy.update')->middleware('admin.permission:'.AdminPermissions::NODES_UPDATE);
             Route::delete('{node}/web-proxy/{domain}', [AdminNodeWebProxyController::class, 'destroy'])->name('web-proxy.destroy')->middleware('admin.permission:'.AdminPermissions::NODES_UPDATE);
-            
+
             // Allocations
             Route::get('{node}/allocations', [AdminNodeAllocationController::class, 'index'])->name('allocations');
             Route::post('{node}/allocations', [AdminNodeAllocationController::class, 'store'])->name('allocations.store');
@@ -97,6 +102,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::patch('{node}/database-hosts/{assignment}', [AdminNodeDatabaseHostController::class, 'update'])->name('database-hosts.update');
             Route::delete('{node}/database-hosts/{assignment}', [AdminNodeDatabaseHostController::class, 'destroy'])->name('database-hosts.destroy');
         });
+
+        Route::get('/cell-tools', [AdminCellToolsController::class, 'index'])->name('settings.cell-tools')->middleware('admin.permission:'.AdminPermissions::SETTINGS_VIEW);
+        Route::put('/cell-tools', [AdminCellToolsController::class, 'update'])->name('settings.cell-tools.update')->middleware('admin.permission:'.AdminPermissions::SETTINGS_UPDATE);
+        Route::post('/cell-tools/zones', [AdminCellToolsController::class, 'zone'])->name('settings.cell-tools.zones')->middleware('admin.permission:'.AdminPermissions::SETTINGS_UPDATE);
+        Route::delete('/cell-tools/zones/{zone}', [AdminCellToolsController::class, 'destroyZone'])->name('settings.cell-tools.zones.destroy')->middleware('admin.permission:'.AdminPermissions::SETTINGS_UPDATE);
 
         // Cells
         Route::prefix('cells')->name('cells.')->group(function () {
@@ -247,6 +257,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/{id}/minecraft/packs/{pack}', [CellMinecraftController::class, 'deletePack'])->name('minecraft.packs.delete')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
         Route::post('/{id}/minecraft/export/{format}', [CellMinecraftController::class, 'export'])->name('minecraft.export')->middleware(['cell.permission:'.CellPermissions::FILES_VIEW, 'throttle:10,1']);
         Route::get('/{id}/minecraft/{mode}', [CellMinecraftController::class, 'index'])->whereIn('mode', ['mods', 'plugins', 'jars', 'modpacks', 'builder'])->name('minecraft.index')->middleware('cell.permission:'.CellPermissions::FILES_VIEW);
+
+        Route::get('/{id}/firewall', [CellFirewallController::class, 'index'])->name('firewall.index')->middleware('cell.permission:'.CellPermissions::FIREWALL_VIEW);
+        Route::put('/{id}/firewall', [CellFirewallController::class, 'update'])->name('firewall.update')->middleware(['cell.permission:'.CellPermissions::FIREWALL_UPDATE, 'throttle:20,1']);
+        Route::get('/{id}/subdomains', [CellSubdomainController::class, 'index'])->name('subdomains.index')->middleware('cell.permission:'.CellPermissions::SUBDOMAINS_VIEW);
+        Route::post('/{id}/subdomains', [CellSubdomainController::class, 'store'])->name('subdomains.store')->middleware(['cell.permission:'.CellPermissions::SUBDOMAINS_UPDATE, 'throttle:10,1']);
+        Route::post('/{id}/subdomains/{subdomain}/retry', [CellSubdomainController::class, 'retry'])->name('subdomains.retry')->middleware(['cell.permission:'.CellPermissions::SUBDOMAINS_UPDATE, 'throttle:5,1']);
+        Route::delete('/{id}/subdomains/{subdomain}', [CellSubdomainController::class, 'destroy'])->name('subdomains.destroy')->middleware('cell.permission:'.CellPermissions::SUBDOMAINS_UPDATE);
+        Route::get('/{id}/instances', [CellInstanceController::class, 'index'])->name('instances.index')->middleware('cell.permission:'.CellPermissions::INSTANCES_VIEW);
+        Route::get('/{id}/instances/status', [CellInstanceController::class, 'status'])->name('instances.status')->middleware('cell.permission:'.CellPermissions::INSTANCES_VIEW);
+        Route::post('/{id}/instances', [CellInstanceController::class, 'store'])->name('instances.store')->middleware(['cell.permission:'.CellPermissions::INSTANCES_UPDATE, 'throttle:5,1']);
+        Route::post('/{id}/instances/{instance}/activate', [CellInstanceController::class, 'activate'])->name('instances.activate')->middleware('cell.permission:'.CellPermissions::INSTANCES_UPDATE);
+        Route::delete('/{id}/instances/{instance}', [CellInstanceController::class, 'destroy'])->name('instances.destroy')->middleware('cell.permission:'.CellPermissions::INSTANCES_UPDATE);
+        Route::get('/{id}/splitter', [CellSplitterController::class, 'index'])->name('splitter.index')->middleware('cell.permission:'.CellPermissions::SPLITTER_MANAGE);
+        Route::post('/{id}/splitter', [CellSplitterController::class, 'store'])->name('splitter.store')->middleware(['cell.permission:'.CellPermissions::SPLITTER_MANAGE, 'throttle:5,1']);
+        Route::delete('/{id}/splitter/{split}', [CellSplitterController::class, 'destroy'])->name('splitter.destroy')->middleware('cell.permission:'.CellPermissions::SPLITTER_MANAGE);
+        Route::get('/{id}/switch-comb', [CellReinstallController::class, 'show'])->name('switch-comb.index')->middleware('cell.permission:'.CellPermissions::COMB_SWITCH);
+        Route::post('/{id}/switch-comb', [CellReinstallController::class, 'store'])->name('switch-comb.store')->middleware('cell.permission:'.CellPermissions::COMB_SWITCH);
 
         Route::get('/{id}/website', [CellDomainController::class, 'website'])->name('website')->middleware('cell.permission:'.CellPermissions::VIEW);
         Route::get('/{id}/domains', [CellDomainController::class, 'index'])->name('domains.index')->middleware('cell.permission:'.CellPermissions::DOMAINS_VIEW);

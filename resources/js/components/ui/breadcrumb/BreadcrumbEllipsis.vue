@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { t } from '@/composables/useLanguage';
 import { cn } from '@/lib/utils';
 import { MoreHorizontal } from 'lucide-vue-next';
 import type { HTMLAttributes } from 'vue';
@@ -13,6 +14,6 @@ const props = defineProps<{
         <slot>
             <MoreHorizontal class="h-4 w-4" />
         </slot>
-        <span class="sr-only">More</span>
+        <span class="sr-only">{{ t('ui.more') }}</span>
     </span>
 </template>

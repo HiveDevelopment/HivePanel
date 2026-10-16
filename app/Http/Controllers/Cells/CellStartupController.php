@@ -56,7 +56,7 @@ class CellStartupController extends CellBaseController
             }
         }
         if (is_array($request->input('variables')) && array_diff(array_keys($request->input('variables')), $editable)) {
-            throw ValidationException::withMessages(['variables' => 'Only editable Comb variables may be changed.']);
+            throw ValidationException::withMessages(['variables' => __('Only editable Comb variables may be changed.')]);
         }
         $data = $request->validate($rules);
         $image = app(CombImageService::class)->choose($manifest, $data['image'] ?? null, data_get($cell->metadata, 'docker.image'));
@@ -76,9 +76,9 @@ class CellStartupController extends CellBaseController
         } catch (\Throwable $exception) {
             report($exception);
 
-            return back()->withErrors(['variables' => 'Saved in the panel, but the Worker could not apply the change. Retry Save when the node is reachable.']);
+            return back()->withErrors(['variables' => __('Saved in the panel, but the Worker could not apply the change. Retry Save when the node is reachable.')]);
         }
 
-        return back()->with('success', 'Startup variables saved. Running Cells apply them on their next start.');
+        return back()->with('success', __('Startup variables saved. Running Cells apply them on their next start.'));
     }
 }

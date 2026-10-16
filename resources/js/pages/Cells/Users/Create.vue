@@ -1,31 +1,23 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
-import { ArrowLeft, UserPlus } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { t } from '@/composables/useLanguage';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, UserPlus } from 'lucide-vue-next';
+import { computed } from 'vue';
 
-type PermissionGroups = Record<string, Record<string, string>>
+type PermissionGroups = Record<string, Record<string, string>>;
 
 const props = defineProps<{
-    cell: any
-    permissionGroups: PermissionGroups
-}>()
+    cell: any;
+    permissionGroups: PermissionGroups;
+}>();
 
 const allPermissions = computed(() => {
-    return Object.values(props.permissionGroups).flatMap(group => Object.keys(group))
-})
+    return Object.values(props.permissionGroups).flatMap((group) => Object.keys(group));
+});
 
 const presets = {
-    readonly: [
-        'cell.view',
-        'console.view',
-        'files.view',
-        'files.read',
-        'backups.view',
-        'schedules.view',
-        'databases.view',
-        'settings.view',
-    ],
+    readonly: ['cell.view', 'console.view', 'files.view', 'files.read', 'backups.view', 'schedules.view', 'databases.view', 'settings.view'],
     developer: [
         'cell.view',
         'console.view',
@@ -42,54 +34,50 @@ const presets = {
         'startup.update',
     ],
     admin: [] as string[],
-}
+};
 
 const form = useForm({
     email: '',
     permissions: [] as string[],
-})
+});
 
 function applyPreset(preset: keyof typeof presets) {
-    form.permissions = preset === 'admin'
-        ? [...allPermissions.value]
-        : [...presets[preset]]
+    form.permissions = preset === 'admin' ? [...allPermissions.value] : [...presets[preset]];
 }
 
 function togglePermission(permission: string) {
     form.permissions = form.permissions.includes(permission)
-        ? form.permissions.filter(item => item !== permission)
-        : [...form.permissions, permission]
+        ? form.permissions.filter((item) => item !== permission)
+        : [...form.permissions, permission];
 }
 
 function groupChecked(permissions: string[]) {
-    return permissions.every(permission => form.permissions.includes(permission))
+    return permissions.every((permission) => form.permissions.includes(permission));
 }
 
 function toggleGroup(permissions: string[]) {
     form.permissions = groupChecked(permissions)
-        ? form.permissions.filter(permission => !permissions.includes(permission))
-        : Array.from(new Set([...form.permissions, ...permissions]))
+        ? form.permissions.filter((permission) => !permissions.includes(permission))
+        : Array.from(new Set([...form.permissions, ...permissions]));
 }
 
 function submit() {
-    form.post(`/cells/${props.cell.id}/users`)
+    form.post(`/cells/${props.cell.id}/users`);
 }
 </script>
 
 <template>
-    <AppLayout
-        context="server"
-        :active-cell="cell"
-        :active-cell-status="cell.status ?? 'offline'"
-    >
+    <AppLayout context="server" :active-cell="cell" :active-cell-status="cell.status ?? 'offline'">
         <Head :title="`Invite User - ${cell.name}`" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <form class="mx-auto space-y-5" @submit.prevent="submit">
                     <section class="overflow-hidden rounded-panel border border-hive/10 bg-surface">
                         <div class="relative p-5 sm:p-6">
-                            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,196,0,0.12),transparent_35%)]" />
+                            <div
+                                class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,196,0,0.12),transparent_35%)]"
+                            />
 
                             <div class="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div class="flex items-center gap-3">
@@ -99,35 +87,35 @@ function submit() {
 
                                     <div>
                                         <h1 class="text-2xl font-black sm:text-3xl">
-                                            Invite User
+                                            {{ t('ui.invite_user') }}
                                         </h1>
-                                        <p class="mt-1 text-sm text-zinc-400">
-                                            Give another user granular access to {{ cell.name }}.
+                                        <p class="mt-1 text-sm text-muted-foreground">
+                                            {{ t('ui.give_another_user_granular_access_to') }} {{ cell.name }}.
                                         </p>
                                     </div>
                                 </div>
 
                                 <Link
                                     :href="`/cells/${cell.id}/users`"
-                                    class="inline-flex items-center justify-center gap-2 rounded-button border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-hive/30 hover:text-hive"
+                                    class="inline-flex items-center justify-center gap-2 rounded-button border border-border px-4 py-2 text-sm font-bold text-foreground transition hover:border-hive/30 hover:text-hive"
                                 >
                                     <ArrowLeft class="size-4" />
-                                    Back
+                                    {{ t('ui.back') }}
                                 </Link>
                             </div>
                         </div>
                     </section>
 
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                        <label class="block text-xs font-black uppercase tracking-wide text-zinc-500">
-                            Email Address
+                    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                        <label class="block text-xs font-black uppercase tracking-wide text-muted-foreground">
+                            {{ t('ui.email_address_09bf25e') }}
                         </label>
 
                         <input
                             v-model="form.email"
                             type="email"
-                            class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-hive/50"
-                            placeholder="user@example.com"
+                            class="mt-2 w-full rounded-button border border-border bg-surface-dark px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-hive/50"
+                            :placeholder="t('ui.user_example_com')"
                         />
 
                         <p v-if="form.errors.email" class="mt-2 text-xs font-bold text-status-danger">
@@ -135,34 +123,42 @@ function submit() {
                         </p>
 
                         <div class="mt-5">
-                            <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                Presets
+                            <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                {{ t('ui.presets') }}
                             </label>
 
                             <div class="mt-3 grid grid-cols-3 gap-2">
-                                <button type="button" class="rounded-button border border-zinc-800 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:border-hive/30 hover:text-hive" @click="applyPreset('readonly')">
-                                    Read Only
+                                <button
+                                    type="button"
+                                    class="rounded-button border border-border px-3 py-2 text-xs font-bold text-foreground transition hover:border-hive/30 hover:text-hive"
+                                    @click="applyPreset('readonly')"
+                                >
+                                    {{ t('ui.read_only') }}
                                 </button>
 
-                                <button type="button" class="rounded-button border border-zinc-800 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:border-hive/30 hover:text-hive" @click="applyPreset('developer')">
-                                    Developer
+                                <button
+                                    type="button"
+                                    class="rounded-button border border-border px-3 py-2 text-xs font-bold text-foreground transition hover:border-hive/30 hover:text-hive"
+                                    @click="applyPreset('developer')"
+                                >
+                                    {{ t('ui.developer') }}
                                 </button>
 
-                                <button type="button" class="rounded-button border border-hive/20 bg-hive/10 px-3 py-2 text-xs font-bold text-hive transition hover:bg-hive/15" @click="applyPreset('admin')">
-                                    Admin
+                                <button
+                                    type="button"
+                                    class="rounded-button border border-hive/20 bg-hive/10 px-3 py-2 text-xs font-bold text-hive transition hover:bg-hive/15"
+                                    @click="applyPreset('admin')"
+                                >
+                                    {{ t('ui.admin') }}
                                 </button>
                             </div>
                         </div>
                     </section>
 
                     <section class="grid gap-4 xl:grid-cols-2">
-                        <div
-                            v-for="(permissions, group) in permissionGroups"
-                            :key="group"
-                            class="rounded-panel border border-zinc-800 bg-surface p-5"
-                        >
+                        <div v-for="(permissions, group) in permissionGroups" :key="group" class="rounded-panel border border-border bg-surface p-5">
                             <div class="mb-3 flex items-center justify-between">
-                                <h3 class="text-sm font-black text-zinc-200">
+                                <h3 class="text-sm font-black text-foreground">
                                     {{ group }}
                                 </h3>
 
@@ -179,20 +175,20 @@ function submit() {
                                 <label
                                     v-for="(label, permission) in permissions"
                                     :key="permission"
-                                    class="flex cursor-pointer items-start gap-3 rounded-md p-2 transition hover:bg-white/5"
+                                    class="flex cursor-pointer items-start gap-3 rounded-md p-2 transition hover:bg-foreground/5"
                                 >
                                     <input
                                         type="checkbox"
-                                        class="mt-1 rounded border-zinc-700 bg-black text-hive focus:ring-hive"
+                                        class="mt-1 rounded border-border bg-black text-hive focus:ring-hive"
                                         :checked="form.permissions.includes(permission)"
                                         @change="togglePermission(permission)"
                                     />
 
                                     <span>
-                                        <span class="block text-sm font-bold text-zinc-300">
+                                        <span class="block text-sm font-bold text-foreground">
                                             {{ label }}
                                         </span>
-                                        <span class="block text-xs text-zinc-600">
+                                        <span class="block text-xs text-muted-foreground">
                                             {{ permission }}
                                         </span>
                                     </span>
@@ -208,9 +204,9 @@ function submit() {
                     <div class="flex justify-end gap-2">
                         <Link
                             :href="`/cells/${cell.id}/users`"
-                            class="rounded-button border border-zinc-800 px-4 py-2 text-sm font-bold text-zinc-300 transition hover:text-white"
+                            class="rounded-button border border-border px-4 py-2 text-sm font-bold text-foreground transition hover:text-foreground"
                         >
-                            Cancel
+                            {{ t('ui.cancel') }}
                         </Link>
 
                         <button
@@ -219,7 +215,7 @@ function submit() {
                             :disabled="form.processing"
                         >
                             <UserPlus class="size-4" />
-                            Invite User
+                            {{ t('ui.invite_user') }}
                         </button>
                     </div>
                 </form>

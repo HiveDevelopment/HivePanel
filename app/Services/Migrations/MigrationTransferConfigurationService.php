@@ -182,6 +182,7 @@ class MigrationTransferConfigurationService
                 $pathTemplate = $this->detectWingsVolumePath($config);
             } catch (\Throwable $exception) {
                 report($exception);
+
                 continue;
             }
 
@@ -216,17 +217,17 @@ class MigrationTransferConfigurationService
 
         if ($sourceNode === '') {
             throw ValidationException::withMessages([
-                'transfer' => 'A source node is required.',
+                'transfer' => __('A source node is required.'),
             ]);
         }
 
         $directory = storage_path(
             'app/migrations/ssh/'
-            . $migration->id
-            . '/'
-            . Str::slug($sourceNode)
-            . '-'
-            . Str::random(10)
+            .$migration->id
+            .'/'
+            .Str::slug($sourceNode)
+            .'-'
+            .Str::random(10)
         );
 
         if (! is_dir($directory) && ! mkdir(
@@ -239,11 +240,11 @@ class MigrationTransferConfigurationService
             );
         }
 
-        $privateKeyPath = $directory . '/id_ed25519';
+        $privateKeyPath = $directory.'/id_ed25519';
         $comment = 'hivepanel-migration-'
-            . $migration->id
-            . '-'
-            . Str::slug($sourceNode);
+            .$migration->id
+            .'-'
+            .Str::slug($sourceNode);
 
         try {
             $result = Process::timeout(15)->run([
@@ -262,7 +263,7 @@ class MigrationTransferConfigurationService
             if ($result->failed()) {
                 throw new RuntimeException(
                     'Failed to generate SSH key: '
-                    . trim(
+                    .trim(
                         $result->errorOutput()
                         ?: $result->output()
                     )
@@ -274,7 +275,7 @@ class MigrationTransferConfigurationService
             );
 
             $publicKey = file_get_contents(
-                $privateKeyPath . '.pub'
+                $privateKeyPath.'.pub'
             );
 
             if (
@@ -299,7 +300,7 @@ class MigrationTransferConfigurationService
                     ?? 'hivepanel-migration',
                 'auth_type' => 'private_key',
                 'password' => null,
-                'private_key' => trim($privateKey) . "\n",
+                'private_key' => trim($privateKey)."\n",
                 'private_key_passphrase' => null,
                 'public_key' => trim($publicKey),
                 'path_template' => $current['path_template']
@@ -320,7 +321,7 @@ class MigrationTransferConfigurationService
             ];
         } finally {
             @unlink($privateKeyPath);
-            @unlink($privateKeyPath . '.pub');
+            @unlink($privateKeyPath.'.pub');
             @rmdir($directory);
         }
     }
@@ -453,7 +454,7 @@ class MigrationTransferConfigurationService
             'command -v setfacl >/dev/null || { echo "setfacl is required; install the acl package first."; exit 1; }',
             'id hivepanel-migration >/dev/null 2>&1 || sudo useradd --create-home --shell /bin/bash hivepanel-migration',
             'sudo install -d -m 700 -o hivepanel-migration -g hivepanel-migration /home/hivepanel-migration/.ssh',
-            'echo ' . escapeshellarg($encodedKey) . ' | base64 -d | sed \'s/^/restrict,command="internal-sftp" /\' | sudo tee /home/hivepanel-migration/.ssh/authorized_keys >/dev/null',
+            'echo '.escapeshellarg($encodedKey).' | base64 -d | sed \'s/^/restrict,command="internal-sftp" /\' | sudo tee /home/hivepanel-migration/.ssh/authorized_keys >/dev/null',
             'sudo chown hivepanel-migration:hivepanel-migration /home/hivepanel-migration/.ssh/authorized_keys',
             'sudo chmod 600 /home/hivepanel-migration/.ssh/authorized_keys',
             'sudo setfacl -m u:hivepanel-migration:--x /etc/pterodactyl',
@@ -483,7 +484,7 @@ class MigrationTransferConfigurationService
 
         $directory = storage_path(
             'app/migrations/ssh-detect/'
-            . Str::random(20)
+            .Str::random(20)
         );
 
         if (! is_dir($directory) && ! mkdir(
@@ -496,9 +497,9 @@ class MigrationTransferConfigurationService
             );
         }
 
-        $privateKeyPath = $directory . '/id_ed25519';
-        $configPath = $directory . '/config.yml';
-        $batchPath = $directory . '/sftp.batch';
+        $privateKeyPath = $directory.'/id_ed25519';
+        $configPath = $directory.'/config.yml';
+        $batchPath = $directory.'/sftp.batch';
 
         try {
             if (file_put_contents(
@@ -517,12 +518,12 @@ class MigrationTransferConfigurationService
             if (file_put_contents(
                 $batchPath,
                 'get '
-                . escapeshellarg($remoteConfig)
-                . ' '
-                . escapeshellarg($configPath)
-                . PHP_EOL
-                . 'bye'
-                . PHP_EOL,
+                .escapeshellarg($remoteConfig)
+                .' '
+                .escapeshellarg($configPath)
+                .PHP_EOL
+                .'bye'
+                .PHP_EOL,
             ) === false) {
                 throw new RuntimeException(
                     'Could not create the temporary SFTP batch file.'
@@ -555,8 +556,8 @@ class MigrationTransferConfigurationService
                         ?? ''
                     )
                 )
-                . '@'
-                . trim(
+                .'@'
+                .trim(
                     (string) (
                         $config['host']
                         ?? ''
@@ -567,7 +568,7 @@ class MigrationTransferConfigurationService
             if ($result->failed()) {
                 throw new RuntimeException(
                     'HivePanel connected to the source node but could not read the Wings configuration for automatic volume-path detection. '
-                    . trim(
+                    .trim(
                         $result->errorOutput()
                         ?: $result->output()
                     )
@@ -593,7 +594,7 @@ class MigrationTransferConfigurationService
             return rtrim(
                 $dataPath,
                 '/',
-            ) . '/{uuid}';
+            ).'/{uuid}';
         } finally {
             @unlink($privateKeyPath);
             @unlink($configPath);
@@ -616,6 +617,7 @@ class MigrationTransferConfigurationService
                 $line,
             )) {
                 $inSystem = true;
+
                 continue;
             }
 

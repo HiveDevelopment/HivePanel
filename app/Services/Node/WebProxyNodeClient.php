@@ -14,7 +14,7 @@ class WebProxyNodeClient extends NodeClient
             $response = $this->client($node)->connectTimeout(10)->timeout($deployment ? 300 : 45)->send($method, $path, strtoupper($method) === 'GET' ? [] : ['json' => $data]);
         } catch (ConnectionException $e) {
             report($e);
-            throw ValidationException::withMessages(['domains' => 'The node could not be reached. Check its connection and try again.']);
+            throw ValidationException::withMessages(['domains' => __('The node could not be reached. Check its connection and try again.')]);
         }
         if (! $response->successful()) {
             throw ValidationException::withMessages(['domains' => $response->json('message') ?: 'The Worker could not apply this change. Check that it supports node proxies.']);

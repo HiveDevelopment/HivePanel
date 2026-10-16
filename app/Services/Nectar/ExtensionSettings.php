@@ -5,6 +5,7 @@ namespace App\Services\Nectar;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ExtensionSettings
@@ -14,6 +15,7 @@ class ExtensionSettings
         $row = DB::table('nectar_extensions')->where('extension_id', $id)->first();
         abort_unless($row, 404);
         $manifest = json_decode($row->manifest, true);
+
         return $manifest['settings'] ?? [];
     }
 
@@ -29,6 +31,7 @@ class ExtensionSettings
                 if (! $publicOnly) {
                     $values[$key] = ['configured' => isset($stored[$key])];
                 }
+
                 continue;
             }
             $values[$key] = isset($stored[$key])
@@ -37,6 +40,7 @@ class ExtensionSettings
                     'toggle' => false, 'number' => 0, default => '',
                 });
         }
+
         return $values;
     }
 
@@ -50,19 +54,23 @@ class ExtensionSettings
             $rule = match ($type) {
                 'toggle' => ['required', 'boolean'],
                 'number' => ['required', 'numeric'],
-                'select' => ['required', 'string', \Illuminate\Validation\Rule::in($setting['options'])],
+                'select' => ['required', 'string', Rule::in($setting['options'])],
                 'password' => ['nullable', 'string', 'max:2000'],
                 default => ['required', 'string', 'max:2000'],
             };
             if ($type === 'number') {
-                if (isset($setting['min'])) $rule[] = 'min:'.$setting['min'];
-                if (isset($setting['max'])) $rule[] = 'max:'.$setting['max'];
+                if (isset($setting['min'])) {
+                    $rule[] = 'min:'.$setting['min'];
+                }
+                if (isset($setting['max'])) {
+                    $rule[] = 'max:'.$setting['max'];
+                }
             }
             $rules[$key] = $rule;
         }
         $validated = Validator::make($values, $rules)->validate();
         if (array_diff(array_keys($values), array_keys($rules))) {
-            throw ValidationException::withMessages(['settings' => 'Unknown setting key.']);
+            throw ValidationException::withMessages(['settings' => __('Unknown setting key.')]);
         }
         DB::transaction(function () use ($id, $schema, $validated) {
             foreach ($schema as $setting) {
@@ -70,7 +78,9 @@ class ExtensionSettings
                 $value = $validated[$key];
                 if ($setting['type'] === 'password') {
                     // Empty means keep the existing secret; never echo it to the UI.
-                    if ($value === null || $value === '') continue;
+                    if ($value === null || $value === '') {
+                        continue;
+                    }
                     $encoded = Crypt::encryptString($value);
                 } else {
                     $encoded = json_encode($value, JSON_THROW_ON_ERROR);

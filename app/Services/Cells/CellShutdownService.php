@@ -40,7 +40,7 @@ class CellShutdownService
         $command = trim((string) ($variables['shutdown_command'] ?? ''));
         if ($command !== '') {
             if (strlen($command) > 1000 || str_contains($command, "\n") || str_contains($command, "\r") || str_contains($command, "\0")) {
-                throw ValidationException::withMessages(['variables.shutdown_command' => 'Enter a single shutdown command of at most 1000 bytes.']);
+                throw ValidationException::withMessages(['variables.shutdown_command' => __('Enter a single shutdown command of at most 1000 bytes.')]);
             }
             $combData['stop'] = array_replace(['timeout' => 30, 'signal' => 'SIGTERM'], $combData['stop'] ?? [], ['command' => $command]);
         }

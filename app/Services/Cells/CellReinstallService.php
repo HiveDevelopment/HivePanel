@@ -165,7 +165,7 @@ class CellReinstallService
             }
         }
         if (array_diff(array_keys($provided), $editable)) {
-            throw ValidationException::withMessages(['variables' => 'Only editable Comb variables may be changed.']);
+            throw ValidationException::withMessages(['variables' => __('Only editable Comb variables may be changed.')]);
         }
         Validator::make($result, $rules)->validate();
 

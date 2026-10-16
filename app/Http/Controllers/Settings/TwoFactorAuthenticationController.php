@@ -29,7 +29,7 @@ class TwoFactorAuthenticationController extends Controller
             'Two-factor authentication is already enabled.'
         );
 
-        $google2fa = new Google2FA();
+        $google2fa = new Google2FA;
         $secret = $google2fa->generateSecretKey();
 
         $user->forceFill([
@@ -46,7 +46,7 @@ class TwoFactorAuthenticationController extends Controller
 
         $renderer = new ImageRenderer(
             new RendererStyle(240, 0),
-            new SvgImageBackEnd()
+            new SvgImageBackEnd
         );
 
         $writer = new Writer($renderer);
@@ -80,7 +80,7 @@ class TwoFactorAuthenticationController extends Controller
             'Two-factor authentication is already enabled.'
         );
 
-        $google2fa = new Google2FA();
+        $google2fa = new Google2FA;
 
         if (! $google2fa->verifyKey(
             $user->two_factor_secret,
@@ -121,7 +121,7 @@ class TwoFactorAuthenticationController extends Controller
             'two_factor_confirmed_at' => null,
         ])->save();
 
-        return back()->with('success', 'Two-factor authentication disabled.');
+        return back()->with('success', __('Two-factor authentication disabled.'));
     }
 
     /**

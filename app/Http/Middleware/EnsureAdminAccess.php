@@ -61,7 +61,7 @@ class EnsureAdminAccess
         }
 
         if (str_starts_with($name, 'admin.settings.')) {
-            return $name === 'admin.settings.index'
+            return in_array($name, ['admin.settings.index', 'admin.settings.cell-tools'], true)
                 ? AdminPermissions::SETTINGS_VIEW
                 : AdminPermissions::SETTINGS_UPDATE;
         }

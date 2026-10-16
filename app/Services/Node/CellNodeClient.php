@@ -59,12 +59,14 @@ class CellNodeClient
             ->json();
     }
 
-    public function deleteCell(Cell $cell): array
+    public function deleteCell(Cell $cell, ?string $operationToken = null): array
     {
-        return $this->nodeClient->client($cell->node)
-            ->delete('/cells/'.rawurlencode($cell->daemon_id))
-            ->throw()
-            ->json();
+        $response = $this->nodeClient->client($cell->node)->withHeaders($operationToken ? ['X-Hive-Operation' => $operationToken] : [])->delete('/cells/'.rawurlencode($cell->daemon_id));
+        if ($response->status() === 404) {
+            return ['message' => 'Cell already removed'];
+        }
+
+        return $response->throw()->json() ?? [];
     }
 
     public function stats(Cell $cell): array
@@ -273,6 +275,7 @@ class CellNodeClient
             ],
 
             'feature_limits' => [
+                'instance_limit' => (int) ($featureLimits['instance_limit'] ?? 5),
                 'database_limit' => data_get($featureLimits, 'database_limit'),
                 'allocation_limit' => data_get($featureLimits, 'allocation_limit'),
                 'backup_limit' => data_get($featureLimits, 'backup_limit'),

@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -39,11 +38,11 @@ class TwoFactorChallengeController extends Controller
             return $this->completeLogin($request, $user);
         }
 
-        $google2fa = new Google2FA();
+        $google2fa = new Google2FA;
 
         if (! $google2fa->verifyKey($user->two_factor_secret, preg_replace('/\s+/', '', $validated['code']))) {
             throw ValidationException::withMessages([
-                'code' => ['The authentication code is invalid.'],
+                'code' => [__('The authentication code is invalid.')],
             ]);
         }
 
@@ -71,7 +70,7 @@ class TwoFactorChallengeController extends Controller
 
         if ($matchedIndex === false) {
             throw ValidationException::withMessages([
-                'recovery_code' => ['The recovery code is invalid.'],
+                'recovery_code' => [__('The recovery code is invalid.')],
             ]);
         }
 
@@ -90,7 +89,7 @@ class TwoFactorChallengeController extends Controller
 
         if (! $userId) {
             throw ValidationException::withMessages([
-                'code' => ['Your login session has expired. Please sign in again.'],
+                'code' => [__('Your login session has expired. Please sign in again.')],
             ]);
         }
 
@@ -100,7 +99,7 @@ class TwoFactorChallengeController extends Controller
             $this->clearPendingLogin($request);
 
             throw ValidationException::withMessages([
-                'code' => ['Your login session has expired. Please sign in again.'],
+                'code' => [__('Your login session has expired. Please sign in again.')],
             ]);
         }
 

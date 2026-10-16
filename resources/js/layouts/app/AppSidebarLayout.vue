@@ -1,51 +1,45 @@
 <script setup lang="ts">
-import AppContent from '@/components/AppContent.vue'
-import AppShell from '@/components/AppShell.vue'
-import AppSidebar from '@/components/AppSidebar.vue'
-import AppSidebarHeader from '@/components/AppSidebarHeader.vue'
-import { useActiveCell, type CellStatus } from '@/composables/useActiveCell'
-import type { BreadcrumbItemType } from '@/types'
-import { onUnmounted, watch } from 'vue'
+import AppContent from '@/components/AppContent.vue';
+import AppShell from '@/components/AppShell.vue';
+import AppSidebar from '@/components/AppSidebar.vue';
+import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import { useActiveCell, type CellStatus } from '@/composables/useActiveCell';
+import type { BreadcrumbItemType } from '@/types';
+import { onUnmounted, watch } from 'vue';
 
-type SidebarContext = 'dashboard' | 'server' | 'admin'
+type SidebarContext = 'dashboard' | 'server' | 'admin';
 
-const props = withDefaults(defineProps<{
-    breadcrumbs?: BreadcrumbItemType[]
-    context?: SidebarContext
-    activeCell?: any
-    activeCellStatus?: CellStatus
-}>(), {
-    breadcrumbs: () => [],
-    context: 'dashboard',
-})
+const props = withDefaults(
+    defineProps<{
+        breadcrumbs?: BreadcrumbItemType[];
+        context?: SidebarContext;
+        activeCell?: any;
+        activeCellStatus?: CellStatus;
+    }>(),
+    {
+        breadcrumbs: () => [],
+        context: 'dashboard',
+    },
+);
 
-const {
-    activeCell,
-    activeCellStatus,
-    setActiveCell,
-    stopActiveCellPolling,
-} = useActiveCell()
+const { activeCell, activeCellStatus, setActiveCell, stopActiveCellPolling } = useActiveCell();
 
 watch(
     () => props.activeCell,
     (cell) => {
-        setActiveCell(props.context === 'server' ? cell : null, props.activeCellStatus)
+        setActiveCell(props.context === 'server' ? cell : null, props.activeCellStatus);
     },
     { immediate: true },
-)
+);
 
 onUnmounted(() => {
-    stopActiveCellPolling()
-})
+    stopActiveCellPolling();
+});
 </script>
 
 <template>
     <AppShell variant="sidebar">
-        <AppSidebar
-            :context="context"
-            :active-cell="activeCell"
-            :active-cell-status="activeCellStatus"
-        />
+        <AppSidebar :context="context" :active-cell="activeCell" :active-cell-status="activeCellStatus" />
 
         <AppContent variant="sidebar">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
@@ -55,7 +49,7 @@ onUnmounted(() => {
                         {{ activeCell.lock.reason || 'Server Locked' }}
                     </div>
 
-                    <div class="mt-1 text-sm text-zinc-300">
+                    <div class="mt-1 text-sm text-foreground">
                         {{ activeCell.lock.message || 'This server is temporarily locked.' }}
                     </div>
                 </div>

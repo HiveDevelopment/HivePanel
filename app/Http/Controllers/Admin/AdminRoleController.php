@@ -43,7 +43,7 @@ class AdminRoleController extends Controller
 
         $this->syncPermissions($role, $data['permissions']);
 
-        return redirect()->route('admin.roles.index')->with('success', 'Role created.');
+        return redirect()->route('admin.roles.index')->with('success', __('Role created.'));
     }
 
     public function edit(Role $role)
@@ -73,7 +73,7 @@ class AdminRoleController extends Controller
 
         $this->syncPermissions($role, $data['permissions']);
 
-        return redirect()->route('admin.roles.index')->with('success', 'Role updated.');
+        return redirect()->route('admin.roles.index')->with('success', __('Role updated.'));
     }
 
     public function destroy(Role $role)
@@ -82,7 +82,7 @@ class AdminRoleController extends Controller
 
         $role->delete();
 
-        return redirect()->route('admin.roles.index')->with('success', 'Role deleted.');
+        return redirect()->route('admin.roles.index')->with('success', __('Role deleted.'));
     }
 
     private function validateRole(Request $request): array
@@ -111,7 +111,7 @@ class AdminRoleController extends Controller
         $counter = 2;
 
         while (Role::where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $counter++;
+            $slug = $base.'-'.$counter++;
         }
 
         return $slug;

@@ -154,7 +154,7 @@ class AdminNodeController extends Controller
 
         $oneClickCommand = $registrationToken
             ? "curl -fsSL {$installScriptUrl} | sudo bash -s -- --panel-url {$panelUrl} --token {$registrationToken}"
-            : "Generate a registration token first.";
+            : 'Generate a registration token first.';
 
         $nativeTls = strtolower((string) $node->scheme) === 'https'
             && ! (bool) $node->behind_proxy;
@@ -207,7 +207,7 @@ allocations:
 {$this->allocationEntriesYaml($node)}
 YAML;
 
-        $systemdService = <<<SERVICE
+        $systemdService = <<<'SERVICE'
 [Unit]
 Description=HivePanel Worker
 Documentation=https://hivepanel.dev
@@ -365,7 +365,7 @@ SERVICE;
             'node_id' => $id,
         ]);
 
-        return redirect()->route('admin.nodes.index')->with('success', 'Node deleted successfully.');
+        return redirect()->route('admin.nodes.index')->with('success', __('Node deleted successfully.'));
     }
 
     public function statsJson(Node $node)
@@ -409,7 +409,7 @@ SERVICE;
 
     public function generateRegistrationToken(Node $node, AuditLogger $audit)
     {
-        $token = 'hpreg_' . Str::random(64);
+        $token = 'hpreg_'.Str::random(64);
 
         $node->update([
             'registration_token' => hash('sha256', $token),
@@ -536,14 +536,14 @@ SERVICE;
             ]);
 
         if ($allocations->isEmpty()) {
-            return '    - ip: "0.0.0.0"' . PHP_EOL
-                . '      port: 25565';
+            return '    - ip: "0.0.0.0"'.PHP_EOL
+                .'      port: 25565';
         }
 
         return $allocations
             ->map(fn (NodeAllocation $allocation) => implode(PHP_EOL, [
-                '    - ip: "' . addslashes($allocation->ip) . '"',
-                '      port: ' . (int) $allocation->port,
+                '    - ip: "'.addslashes($allocation->ip).'"',
+                '      port: '.(int) $allocation->port,
             ]))
             ->implode(PHP_EOL);
     }

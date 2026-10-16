@@ -13,6 +13,7 @@ class ThemeController extends Controller
     {
         $data = $request->validate(['theme_id' => ['nullable', Rule::in(array_column(PanelThemes::offered()['themes'], 'id'))]]);
         $request->user()->forceFill(['theme_id' => $data['theme_id'] ?? null])->save();
-        return back()->with('success', 'Theme preference saved.');
+
+        return back()->with('success', __('Theme preference saved.'));
     }
 }

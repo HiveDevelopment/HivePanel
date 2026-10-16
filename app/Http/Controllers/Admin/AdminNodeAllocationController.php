@@ -145,7 +145,7 @@ class AdminNodeAllocationController extends Controller
             'success',
             count($ports) === 1
                 ? 'Allocation added successfully.'
-                : count($ports) . ' allocations added successfully.'
+                : count($ports).' allocations added successfully.'
         );
     }
 
@@ -221,7 +221,7 @@ class AdminNodeAllocationController extends Controller
 
         return back()->with(
             'success',
-            'Allocation deleted successfully.'
+            __('Allocation deleted successfully.')
         );
     }
 

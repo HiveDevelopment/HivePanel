@@ -1,19 +1,14 @@
 <script setup lang="ts">
-import { useAppearance } from '@/composables/useAppearance'
-import {
-    Check,
-    Monitor,
-    Moon,
-    Sun,
-} from 'lucide-vue-next'
+import { useAppearance } from '@/composables/useAppearance';
+import { Check, Monitor, Moon, Sun } from 'lucide-vue-next';
 
 interface Props {
-    class?: string
+    class?: string;
 }
 
-const { class: containerClass = '' } = defineProps<Props>()
+const { class: containerClass = '' } = defineProps<Props>();
 
-const { appearance, updateAppearance } = useAppearance()
+const { appearance, updateAppearance } = useAppearance();
 
 const options = [
     {
@@ -34,16 +29,11 @@ const options = [
         label: 'System',
         description: 'Automatically match your device setting.',
     },
-] as const
+] as const;
 </script>
 
 <template>
-    <div
-        :class="[
-            'grid gap-3 md:grid-cols-3',
-            containerClass,
-        ]"
-    >
+    <div :class="['grid gap-3 md:grid-cols-3', containerClass]">
         <button
             v-for="{ value, Icon, label, description } in options"
             :key="value"
@@ -53,7 +43,7 @@ const options = [
                 'group relative flex min-h-36 flex-col rounded-xl border p-4 text-left transition',
                 appearance === value
                     ? 'border-hive/30 bg-hive/[0.06]'
-                    : 'border-white/[0.07] bg-[#0d0f11] hover:border-white/[0.13] hover:bg-[#101315]',
+                    : 'border-foreground/[0.07] bg-surface-dark hover:border-foreground/[0.13] hover:bg-surface',
             ]"
             @click="updateAppearance(value)"
         >
@@ -63,21 +53,16 @@ const options = [
                         'flex size-10 items-center justify-center rounded-xl border transition',
                         appearance === value
                             ? 'border-hive/20 bg-hive/10 text-hive'
-                            : 'border-white/[0.06] bg-white/[0.025] text-zinc-500 group-hover:text-zinc-300',
+                            : 'border-foreground/[0.06] bg-foreground/[0.025] text-muted-foreground group-hover:text-foreground',
                     ]"
                 >
-                    <component
-                        :is="Icon"
-                        class="size-4"
-                    />
+                    <component :is="Icon" class="size-4" />
                 </div>
 
                 <div
                     :class="[
                         'flex size-5 items-center justify-center rounded-full border transition',
-                        appearance === value
-                            ? 'border-hive bg-hive text-black'
-                            : 'border-white/[0.1] bg-transparent text-transparent',
+                        appearance === value ? 'border-hive bg-hive text-black' : 'border-foreground/[0.1] bg-transparent text-transparent',
                     ]"
                 >
                     <Check class="size-3" />
@@ -85,18 +70,11 @@ const options = [
             </div>
 
             <div class="mt-auto pt-5">
-                <div
-                    :class="[
-                        'text-sm font-semibold transition',
-                        appearance === value
-                            ? 'text-white'
-                            : 'text-zinc-300',
-                    ]"
-                >
+                <div :class="['text-sm font-semibold transition', appearance === value ? 'text-foreground' : 'text-foreground']">
                     {{ label }}
                 </div>
 
-                <p class="mt-1 text-xs leading-5 text-zinc-600">
+                <p class="mt-1 text-xs leading-5 text-muted-foreground">
                     {{ description }}
                 </p>
             </div>

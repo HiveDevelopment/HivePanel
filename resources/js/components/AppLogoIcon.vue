@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/composables/useLanguage';
 import type { HTMLAttributes } from 'vue';
 
 defineOptions({
@@ -13,5 +14,5 @@ defineProps<Props>();
 </script>
 
 <template>
-    <img src="https://cdn.thatbritish.one/hivepanel-icon.png" alt="HivePanel Icon" :class="className" />
+    <img src="https://cdn.thatbritish.one/hivepanel-icon.png" :alt="t('ui.hivepanel_icon')" :class="className" />
 </template>

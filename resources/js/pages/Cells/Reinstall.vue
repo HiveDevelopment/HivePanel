@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { AlertTriangle, ArrowLeft, Boxes, Check, ChevronDown, CircleAlert, RefreshCw, Server, ShieldAlert } from 'lucide-vue-next';
@@ -29,6 +30,8 @@ type Cell = {
 const props = defineProps<{
     cell: Cell;
     combs: Comb[];
+    switching?: boolean;
+    saveInstanceAllowed?: boolean;
 }>();
 
 const selectedCombId = ref('');
@@ -41,6 +44,7 @@ const imageOptions = computed(() => {
     return offers;
 });
 const confirmation = ref('');
+const saveInstance = ref(Boolean(props.switching && props.saveInstanceAllowed));
 const startOnCompletion = ref(false);
 
 const submitting = ref(false);
@@ -255,7 +259,7 @@ async function reinstall() {
     fieldErrors.value = {};
 
     try {
-        const response = await fetch(`/cells/${props.cell.id}/reinstall`, {
+        const response = await fetch(`/cells/${props.cell.id}/${props.switching ? 'switch-comb' : 'reinstall'}`, {
             method: 'POST',
             credentials: 'same-origin',
 
@@ -272,6 +276,7 @@ async function reinstall() {
                 image: image.value,
                 start_on_completion: startOnCompletion.value,
                 confirmation: confirmation.value,
+                save_instance: saveInstance.value,
             }),
         });
 
@@ -307,40 +312,40 @@ initialiseVariables();
 
 <template>
     <AppLayout context="server" :active-cell="cell" :active-cell-status="cell.status as any">
-        <Head :title="`Reinstall ${cell.name}`" />
+        <Head :title="`${switching ? 'Switch Comb' : 'Reinstall'} ${cell.name}`" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-5">
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                             <div class="flex items-start gap-4">
                                 <div
-                                    class="flex size-11 shrink-0 items-center justify-center rounded-button border border-zinc-800 bg-[#0d0f11] text-hive"
+                                    class="flex size-11 shrink-0 items-center justify-center rounded-button border border-border bg-surface-dark text-hive"
                                 >
                                     <RefreshCw class="size-5" />
                                 </div>
 
                                 <div>
-                                    <h1 class="text-2xl font-black sm:text-3xl">Reinstall Server</h1>
+                                    <h1 class="text-2xl font-black sm:text-3xl">{{ switching ? 'Switch Comb' : 'Reinstall Server' }}</h1>
 
-                                    <p class="mt-2 text-sm leading-6 text-zinc-400">
-                                        Install a fresh copy of
-                                        <span class="font-bold text-zinc-200">
+                                    <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                        {{ t('ui.install_a_fresh_copy_of') }}
+                                        <span class="font-bold text-foreground">
                                             {{ cell.name }}
                                         </span>
-                                        using the current or another comb.
+                                        {{ t('ui.using_the_current_or_another_comb') }}
                                     </p>
                                 </div>
                             </div>
 
                             <button
                                 type="button"
-                                class="inline-flex items-center justify-center gap-2 rounded-button border border-zinc-800 bg-surface-light px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive"
+                                class="inline-flex items-center justify-center gap-2 rounded-button border border-border bg-surface-light px-4 py-2.5 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive"
                                 @click="goBack"
                             >
                                 <ArrowLeft class="size-4" />
-                                Back
+                                {{ t('ui.back') }}
                             </button>
                         </div>
                     </section>
@@ -350,10 +355,10 @@ initialiseVariables();
                             <AlertTriangle class="mt-0.5 size-5 shrink-0 text-status-warning" />
 
                             <div>
-                                <div class="font-black text-status-warning">Server must be stopped</div>
+                                <div class="font-black text-status-warning">{{ t('ui.server_must_be_stopped') }}</div>
 
-                                <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                    Stop the server before reinstalling it. HivePanel will not automatically stop a running server for this action.
+                                <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                    {{ t('ui.stop_the_server_before_reinstalling_it_hivepanel_will_not_automat') }}
                                 </p>
                             </div>
                         </div>
@@ -361,37 +366,38 @@ initialiseVariables();
 
                     <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                         <div class="space-y-5">
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
                                         <div class="flex items-center gap-3">
                                             <Boxes class="size-5 text-hive" />
 
-                                            <h2 class="text-lg font-black">Server Software</h2>
+                                            <h2 class="text-lg font-black">{{ t('ui.server_software') }}</h2>
                                         </div>
 
-                                        <p class="mt-2 text-sm leading-6 text-zinc-500">
-                                            Choose the comb and installation options for the fresh installation.
+                                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                            {{ t('ui.choose_the_comb_and_installation_options_for_the_fresh_installati') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="mt-5">
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500"> Comb </label>
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground"> {{ t('ui.comb') }} </label>
 
                                     <div class="relative mt-2">
                                         <select
                                             v-model="selectedCombId"
-                                            class="w-full appearance-none rounded-button border border-zinc-800 bg-surface-light px-4 py-3 pr-10 text-sm font-bold text-zinc-200 outline-none transition focus:border-hive"
+                                            class="w-full appearance-none rounded-button border border-border bg-surface-light px-4 py-3 pr-10 text-sm font-bold text-foreground outline-none transition focus:border-hive"
                                         >
                                             <option v-for="comb in combs" :key="comb.id" :value="comb.id">
                                                 {{ comb.name }}
                                                 {{ comb.game ? `— ${comb.game}` : '' }}
                                             </option></select
-                                        ><label v-if="imageOptions.length > 1" class="mt-4 block text-xs text-zinc-400"
-                                            >Runtime image<select
+                                        ><label v-if="imageOptions.length > 1" class="mt-4 block text-xs text-muted-foreground"
+                                            >{{ t('ui.runtime_image')
+                                            }}<select
                                                 v-model="image"
-                                                class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-dark p-3 text-sm text-zinc-200"
+                                                class="mt-2 w-full rounded-button border border-border bg-surface-dark p-3 text-sm text-foreground"
                                             >
                                                 <option v-for="option in imageOptions" :key="option.image" :value="option.image">
                                                     {{ option.label }}
@@ -399,49 +405,51 @@ initialiseVariables();
                                             </select></label
                                         >
 
-                                        <ChevronDown class="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                                        <ChevronDown
+                                            class="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                                        />
                                     </div>
 
                                     <div v-if="selectedComb" class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                                        <span class="rounded-full border border-zinc-800 bg-[#0d0f11] px-3 py-1 font-bold text-zinc-400">
+                                        <span class="rounded-full border border-border bg-surface-dark px-3 py-1 font-bold text-muted-foreground">
                                             {{ selectedComb.external_id }}
                                         </span>
 
                                         <span
                                             v-if="selectedComb.game"
-                                            class="rounded-full border border-zinc-800 bg-[#0d0f11] px-3 py-1 font-bold capitalize text-zinc-400"
+                                            class="rounded-full border border-border bg-surface-dark px-3 py-1 font-bold capitalize text-muted-foreground"
                                         >
                                             {{ selectedComb.game }}
                                         </span>
 
                                         <span v-if="isSameComb" class="rounded-full border border-hive/30 bg-hive/10 px-3 py-1 font-black text-hive">
-                                            Current Comb
+                                            {{ t('ui.current_comb') }}
                                         </span>
                                     </div>
                                 </div>
                             </section>
 
-                            <section v-if="variableSchema.length > 0" class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section v-if="variableSchema.length > 0" class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center gap-3">
                                     <Server class="size-5 text-hive" />
 
                                     <div>
-                                        <h2 class="text-lg font-black">Comb Settings</h2>
+                                        <h2 class="text-lg font-black">{{ t('ui.comb_settings') }}</h2>
 
-                                        <p class="mt-1 text-sm text-zinc-500">Configure the options exposed by this comb.</p>
+                                        <p class="mt-1 text-sm text-muted-foreground">{{ t('ui.configure_the_options_exposed_by_this_comb') }}</p>
                                     </div>
                                 </div>
 
                                 <div class="mt-5 grid gap-4 lg:grid-cols-2">
                                     <div v-for="variable in variableSchema" :key="variableName(variable)">
-                                        <label class="text-sm font-bold text-zinc-400">
+                                        <label class="text-sm font-bold text-muted-foreground">
                                             {{ variableLabel(variable) }}
                                         </label>
 
                                         <select
                                             v-if="isSelectVariable(variable)"
                                             v-model="variables[variableName(variable)]"
-                                            class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none transition focus:border-hive"
+                                            class="mt-2 w-full rounded-button border border-border bg-surface-light px-4 py-3 text-sm text-foreground outline-none transition focus:border-hive"
                                         >
                                             <option
                                                 v-for="option in variableOptions(variable)"
@@ -454,14 +462,14 @@ initialiseVariables();
 
                                         <label
                                             v-else-if="isBooleanVariable(variable)"
-                                            class="mt-2 flex cursor-pointer items-center justify-between gap-4 rounded-button border border-zinc-800 bg-surface-light p-4"
+                                            class="mt-2 flex cursor-pointer items-center justify-between gap-4 rounded-button border border-border bg-surface-light p-4"
                                         >
                                             <div>
-                                                <div class="text-sm font-black text-zinc-200">
+                                                <div class="text-sm font-black text-foreground">
                                                     {{ variables[variableName(variable)] === 'true' ? 'Enabled' : 'Disabled' }}
                                                 </div>
 
-                                                <div class="mt-1 text-xs text-zinc-500">Toggle this comb option.</div>
+                                                <div class="mt-1 text-xs text-muted-foreground">{{ t('ui.toggle_this_comb_option') }}</div>
                                             </div>
 
                                             <input
@@ -484,49 +492,65 @@ initialiseVariables();
                                                       ? 'number'
                                                       : 'text'
                                             "
-                                            class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 focus:border-hive"
+                                            class="mt-2 w-full rounded-button border border-border bg-surface-light px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-hive"
                                         />
 
-                                        <p v-if="variableDescription(variable)" class="mt-2 text-xs leading-5 text-zinc-500">
+                                        <p v-if="variableDescription(variable)" class="mt-2 text-xs leading-5 text-muted-foreground">
                                             {{ variableDescription(variable) }}
                                         </p>
                                     </div>
                                 </div>
                             </section>
 
-                            <section v-else class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section v-else class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-start gap-3">
-                                    <Boxes class="mt-0.5 size-5 text-zinc-500" />
+                                    <Boxes class="mt-0.5 size-5 text-muted-foreground" />
 
                                     <div>
-                                        <h2 class="font-black text-zinc-300">No configurable comb settings</h2>
+                                        <h2 class="font-black text-foreground">{{ t('ui.no_configurable_comb_settings') }}</h2>
 
-                                        <p class="mt-1 text-sm leading-6 text-zinc-500">
-                                            This comb does not expose any user-configurable installation options.
+                                        <p class="mt-1 text-sm leading-6 text-muted-foreground">
+                                            {{ t('ui.this_comb_does_not_expose_any_user_configurable_installation_opti') }}
                                         </p>
                                     </div>
                                 </div>
                             </section>
 
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div class="flex items-center gap-3">
                                     <RefreshCw class="size-5 text-hive" />
 
                                     <div>
-                                        <h2 class="text-lg font-black">After Installation</h2>
+                                        <h2 class="text-lg font-black">{{ t('ui.after_installation') }}</h2>
 
-                                        <p class="mt-1 text-sm text-zinc-500">Choose what HivePanel should do after installation completes.</p>
+                                        <p class="mt-1 text-sm text-muted-foreground">
+                                            {{ t('ui.choose_what_hivepanel_should_do_after_installation_completes') }}
+                                        </p>
                                     </div>
                                 </div>
 
                                 <label
-                                    class="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-button border border-zinc-800 bg-surface-light p-4"
+                                    v-if="switching && saveInstanceAllowed"
+                                    class="flex items-start gap-3 rounded-button border border-border bg-surface-light p-4"
+                                >
+                                    <input v-model="saveInstance" type="checkbox" class="mt-1 size-4" />
+                                    <span
+                                        ><span class="block text-sm font-bold text-foreground">{{
+                                            t('ui.save_the_current_server_as_an_instance')
+                                        }}</span
+                                        ><span class="mt-1 block text-xs leading-5 text-muted-foreground">{{
+                                            t('ui.keep_its_files_and_runtime_so_you_can_activate_it_later_the_copy_')
+                                        }}</span></span
+                                    >
+                                </label>
+                                <label
+                                    class="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-button border border-border bg-surface-light p-4"
                                 >
                                     <div>
-                                        <div class="text-sm font-black text-zinc-200">Start server automatically</div>
+                                        <div class="text-sm font-black text-foreground">{{ t('ui.start_server_automatically') }}</div>
 
-                                        <div class="mt-1 text-xs leading-5 text-zinc-500">
-                                            Start the server when the fresh installation completes successfully.
+                                        <div class="mt-1 text-xs leading-5 text-muted-foreground">
+                                            {{ t('ui.start_the_server_when_the_fresh_installation_completes_successful') }}
                                         </div>
                                     </div>
 
@@ -545,33 +569,33 @@ initialiseVariables();
                                     </div>
 
                                     <div>
-                                        <h2 class="text-lg font-black">Reinstall Warning</h2>
+                                        <h2 class="text-lg font-black">{{ switching ? 'Before switching' : 'Reinstall Warning' }}</h2>
 
-                                        <p class="mt-2 text-sm leading-6 text-zinc-400">
-                                            Reinstalling permanently removes all files inside this server's working directory.
+                                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                            {{ t('ui.reinstalling_permanently_removes_all_files_inside_this_server_s_w') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="mt-5 space-y-2">
-                                    <div class="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                                         <Check class="size-4 text-status-success" />
-                                        Backups are retained
+                                        {{ t('ui.backups_are_retained') }}
                                     </div>
 
-                                    <div class="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                                         <Check class="size-4 text-status-success" />
-                                        Allocations are retained
+                                        {{ t('ui.allocations_are_retained') }}
                                     </div>
 
-                                    <div class="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                                         <Check class="size-4 text-status-success" />
-                                        Subusers are retained
+                                        {{ t('ui.subusers_are_retained') }}
                                     </div>
 
-                                    <div class="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                                    <div class="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                                         <Check class="size-4 text-status-success" />
-                                        Audit history is retained
+                                        {{ t('ui.audit_history_is_retained') }}
                                     </div>
                                 </div>
 
@@ -579,22 +603,26 @@ initialiseVariables();
                                     <div class="flex items-start gap-2">
                                         <CircleAlert class="mt-0.5 size-4 shrink-0 text-status-danger" />
 
-                                        <p class="text-xs leading-5 text-zinc-400">Server files cannot be recovered unless you have a backup.</p>
+                                        <p class="text-xs leading-5 text-muted-foreground">
+                                            {{ t('ui.server_files_cannot_be_recovered_unless_you_have_a_backup') }}
+                                        </p>
                                     </div>
                                 </div>
                             </section>
 
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                                 <div>
-                                    <h2 class="text-lg font-black">Confirm Reinstall</h2>
+                                    <h2 class="text-lg font-black">{{ t('ui.confirm_reinstall') }}</h2>
 
-                                    <p class="mt-2 text-sm leading-6 text-zinc-500">Enter the server name exactly to enable the reinstall action.</p>
+                                    <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                        {{ t('ui.enter_the_server_name_exactly_to_enable_the_reinstall_action') }}
+                                    </p>
                                 </div>
 
                                 <label class="mt-5 block">
-                                    <span class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Type
-                                        <span class="text-zinc-200">
+                                    <span class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.type') }}
+                                        <span class="text-foreground">
                                             {{ cell.name }}
                                         </span>
                                     </span>
@@ -603,7 +631,7 @@ initialiseVariables();
                                         v-model="confirmation"
                                         type="text"
                                         autocomplete="off"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-surface-light px-4 py-3 font-mono text-sm font-bold text-zinc-200 outline-none transition placeholder:text-zinc-700 focus:border-status-danger"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-light px-4 py-3 font-mono text-sm font-bold text-foreground outline-none transition placeholder:text-muted-foreground focus:border-status-danger"
                                         :placeholder="cell.name"
                                     />
                                 </label>
@@ -621,7 +649,7 @@ initialiseVariables();
 
                                 <button
                                     type="button"
-                                    class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-3 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                                    class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-button border border-status-danger bg-status-danger px-4 py-3 text-sm font-black text-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                                     :disabled="!canSubmit"
                                     @click="reinstall"
                                 >
@@ -636,11 +664,11 @@ initialiseVariables();
                                 </button>
 
                                 <p v-if="isRunning" class="mt-3 text-center text-xs font-bold text-status-warning">
-                                    Stop the server to enable reinstall.
+                                    {{ t('ui.stop_the_server_to_enable_reinstall') }}
                                 </p>
 
-                                <p v-else-if="!confirmationMatches" class="mt-3 text-center text-xs text-zinc-600">
-                                    Enter the server name to continue.
+                                <p v-else-if="!confirmationMatches" class="mt-3 text-center text-xs text-muted-foreground">
+                                    {{ t('ui.enter_the_server_name_to_continue') }}
                                 </p>
                             </section>
                         </aside>

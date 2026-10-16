@@ -27,7 +27,7 @@ class CombImageService
         $offered = array_column($this->options($manifest), 'image');
         $selected = $requested ?? (in_array($existing, $offered, true) ? $existing : (data_get($manifest, 'docker.image', $manifest['image'] ?? null) ?? $offered[0] ?? ''));
         if (! in_array($selected, $offered, true)) {
-            throw ValidationException::withMessages(['image' => 'Choose an image offered by this Comb.']);
+            throw ValidationException::withMessages(['image' => __('Choose an image offered by this Comb.')]);
         }
 
         return $selected;

@@ -1,5 +1,6 @@
 <!-- resources/js/components/ui/ConfirmationModal.vue -->
 <script setup lang="ts">
+import { t } from '@/composables/useLanguage';
 import { X } from 'lucide-vue-next'
 
 defineProps<{
@@ -23,12 +24,12 @@ const emit = defineEmits<{
         v-if="open"
         class="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     >
-        <div class="w-full max-w-md rounded-panel border border-zinc-800 bg-surface shadow-[0_25px_80px_rgba(0,0,0,0.55)]">
-            <div class="flex items-center justify-between border-b border-zinc-800 px-6 py-5">
-                <h2 class="text-lg font-black text-white">{{ title }}</h2>
+        <div class="w-full max-w-md rounded-panel border border-border bg-surface shadow-[0_25px_80px_rgba(0,0,0,0.55)]">
+            <div class="flex items-center justify-between border-b border-border px-6 py-5">
+                <h2 class="text-lg font-black text-foreground">{{ t(title ?? '') }}</h2>
 
                 <button
-                    class="text-zinc-500 transition hover:text-white disabled:opacity-50"
+                    class="text-muted-foreground transition hover:text-foreground disabled:opacity-50"
                     :disabled="loading"
                     @click="emit('cancel')"
                 >
@@ -37,29 +38,29 @@ const emit = defineEmits<{
             </div>
 
             <div class="px-6 py-5">
-                <p class="text-sm leading-6 text-zinc-400">
-                    {{ description }}
+                <p class="text-sm leading-6 text-muted-foreground">
+                    {{ t(description ?? '') }}
                 </p>
             </div>
 
-            <div class="flex justify-end gap-3 border-t border-zinc-800 px-6 py-4">
+            <div class="flex justify-end gap-3 border-t border-border px-6 py-4">
                 <button
-                    class="rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-bold text-zinc-300 transition hover:text-white disabled:opacity-50"
+                    class="rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-bold text-foreground transition hover:text-foreground disabled:opacity-50"
                     :disabled="loading"
                     @click="emit('cancel')"
                 >
-                    {{ cancelText ?? 'Cancel' }}
+                    {{ t(cancelText ?? 'Cancel') }}
                 </button>
 
                 <button
-                    class="rounded-button px-4 py-2 text-sm font-black text-white transition disabled:opacity-50"
+                    class="rounded-button px-4 py-2 text-sm font-black text-primary-foreground transition disabled:opacity-50"
                     :class="danger
                         ? 'border border-status-danger bg-status-danger/80 hover:bg-status-danger'
                         : 'border border-hive bg-hive hover:bg-hive-light'"
                     :disabled="loading"
                     @click="emit('confirm')"
                 >
-                    {{ loading ? 'Please wait...' : (confirmText ?? 'Confirm') }}
+                    {{ t(loading ? 'Please wait...' : (confirmText ?? 'Confirm')) }}
                 </button>
             </div>
         </div>

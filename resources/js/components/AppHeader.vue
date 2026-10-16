@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/navigation-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { t } from '@/composables/useLanguage';
 import type { BreadcrumbItem, NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-vue-next';
@@ -31,7 +32,9 @@ const isCurrentRoute = (url: string) => {
     return page.url === url;
 };
 
-const activeItemStyles = computed(() => (url: string) => (isCurrentRoute(url) ? 'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100' : ''));
+const activeItemStyles = computed(
+    () => (url: string) => (isCurrentRoute(url) ? 'text-muted-foreground dark:bg-surface-light dark:text-foreground' : ''),
+);
 
 const mainNavItems: NavItem[] = [
     {
@@ -68,11 +71,11 @@ const rightNavItems: NavItem[] = [
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="left" class="w-[300px] p-6">
-                            <SheetTitle class="sr-only">Navigation Menu</SheetTitle>
+                            <SheetTitle class="sr-only">{{ t('ui.navigation_menu') }}</SheetTitle>
                             <SheetHeader class="flex justify-start text-left">
-                                <AppLogoIcon class="size-6 fill-current text-black dark:text-white" />
+                                <AppLogoIcon class="size-6 fill-current text-black dark:text-foreground" />
                             </SheetHeader>
-                            <div class="flex flex-col justify-between h-full space-y-4 py-6 flex-1">
+                            <div class="flex h-full flex-1 flex-col justify-between space-y-4 py-6">
                                 <nav class="-mx-3 space-y-1">
                                     <Link
                                         v-for="item in mainNavItems"
@@ -159,7 +162,7 @@ const rightNavItems: NavItem[] = [
         </div>
 
         <div v-if="props.breadcrumbs.length > 1" class="flex w-full border-b border-sidebar-border/70">
-            <div class="mx-auto flex h-12 w-full items-center justify-start px-4 text-neutral-500 md:max-w-7xl">
+            <div class="mx-auto flex h-12 w-full items-center justify-start px-4 text-muted-foreground md:max-w-7xl">
                 <Breadcrumbs :breadcrumbs="breadcrumbs" />
             </div>
         </div>

@@ -59,7 +59,7 @@ class AdminNodeDatabaseHostController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Database host assigned to Node.');
+        return back()->with('success', __('Database host assigned to Node.'));
     }
 
     public function update(Node $node, NodeDatabaseHost $assignment, Request $request)
@@ -80,7 +80,7 @@ class AdminNodeDatabaseHostController extends Controller
             $assignment->update($data);
         });
 
-        return back()->with('success', 'Node database host updated.');
+        return back()->with('success', __('Node database host updated.'));
     }
 
     public function destroy(Node $node, NodeDatabaseHost $assignment)
@@ -89,7 +89,7 @@ class AdminNodeDatabaseHostController extends Controller
 
         $assignment->delete();
 
-        return back()->with('success', 'Database host removed from Node.');
+        return back()->with('success', __('Database host removed from Node.'));
     }
 
     private function assignmentPayload(NodeDatabaseHost $assignment): array

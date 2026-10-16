@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Cells;
 use App\Enums\AuditEvent;
 use App\Models\Cell;
 use App\Models\CellDomain;
+use App\Models\CellSubdomain;
 use App\Models\NodeAllocation;
 use App\Services\AuditLogger;
 use App\Services\Cells\CellSyncService;
@@ -50,7 +51,7 @@ class CellNetworkController extends CellBaseController
         });
         app(AuditLogger::class)->log(AuditEvent::SETTINGS_UPDATED, $cell, 'Allocation notes updated.', ['allocation_id' => $allocation]);
 
-        return back()->with('success', 'Allocation notes saved.');
+        return back()->with('success', __('Allocation notes saved.'));
     }
 
     public function update(string $id, Request $request, CellNodeClient $cells, CellSyncService $sync)
@@ -64,14 +65,14 @@ class CellNetworkController extends CellBaseController
             $current->load('allocations');
             $limit = (int) (data_get($current->metadata, 'feature_limits.allocation_limit') ?? max(1, $current->allocations->count()));
             if (count($data['allocation_ids']) > max(1, $limit) || ! in_array($data['primary_id'], $data['allocation_ids'], true)) {
-                throw ValidationException::withMessages(['allocation_ids' => 'Choose a primary allocation and stay within the allocation limit.']);
+                throw ValidationException::withMessages(['allocation_ids' => __('Choose a primary allocation and stay within the allocation limit.')]);
             }
             $allocations = NodeAllocation::where('node_id', $current->node_id)->whereIn('id', $data['allocation_ids'])->orderBy('id')->lockForUpdate()->get();
             if ($allocations->count() !== count($data['allocation_ids']) || $allocations->contains(fn ($allocation) => ($allocation->cell_id && $allocation->cell_id !== $current->id) || ($allocation->is_reserved && $allocation->cell_id !== $current->id))) {
-                throw ValidationException::withMessages(['allocation_ids' => 'One or more allocations are unavailable on this node.']);
+                throw ValidationException::withMessages(['allocation_ids' => __('One or more allocations are unavailable on this node.')]);
             }
-            if (CellDomain::where('cell_id', $current->id)->whereNotIn('allocation_id', $data['allocation_ids'])->exists()) {
-                throw ValidationException::withMessages(['allocation_ids' => 'Remove or retarget domain and proxy routes before releasing their allocation.']);
+            if (CellDomain::where('cell_id', $current->id)->whereNotIn('allocation_id', $data['allocation_ids'])->exists() || CellSubdomain::where('cell_id', $current->id)->whereNotIn('allocation_id', $data['allocation_ids'])->exists()) {
+                throw ValidationException::withMessages(['allocation_ids' => __('Remove or retarget domain and proxy routes before releasing their allocation.')]);
             }
             foreach ($allocations as $allocation) {
                 $allocation->update(['cell_id' => $current->id]);
@@ -91,9 +92,9 @@ class CellNetworkController extends CellBaseController
         } catch (\Throwable $exception) {
             report($exception);
 
-            return back()->withErrors(['allocation_ids' => 'Saved in the panel, but the Worker could not apply the change. Retry Save when the node is reachable.']);
+            return back()->withErrors(['allocation_ids' => __('Saved in the panel, but the Worker could not apply the change. Retry Save when the node is reachable.')]);
         }
 
-        return back()->with('success', 'Network settings saved. Running Cells apply the ports on their next start.');
+        return back()->with('success', __('Network settings saved. Running Cells apply the ports on their next start.'));
     }
 }

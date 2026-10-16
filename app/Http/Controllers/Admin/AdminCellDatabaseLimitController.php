@@ -22,13 +22,12 @@ class AdminCellDatabaseLimitController extends Controller
         ]);
 
         $cell->forceFill([
-            'database_limit' =>
-                $data['database_limit'],
+            'database_limit' => $data['database_limit'],
         ])->save();
 
         return back()->with(
             'success',
-            'Cell database limit updated.'
+            __('Cell database limit updated.')
         );
     }
 }

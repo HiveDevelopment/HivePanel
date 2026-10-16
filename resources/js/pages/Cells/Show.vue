@@ -3,6 +3,8 @@ import CellHeader from '@/components/cells/CellHeader.vue';
 import HivePasteShare from '@/components/cells/HivePasteShare.vue';
 import StatChartCard from '@/components/cells/StatChartCard.vue';
 import NectarSlot from '@/components/nectar/NectarSlot.vue';
+import { designTokens, extensionTheme, semanticTokens } from '@/composables/useDesignTokens';
+import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import DOMPurify from 'dompurify';
@@ -147,13 +149,20 @@ function popOutConsole() {
     // No server text is written as HTML; it is inserted using textContent.
     popup.document.open();
     popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>HivePanel Console</title><style>
-        *{box-sizing:border-box}body{margin:0;background:#101114;color:#e4e4e7;font:13px ui-monospace,SFMono-Regular,Consolas,monospace}
+        *{box-sizing:border-box}body{margin:0;background:rgb(var(--hp-surfaceDark));color:rgb(var(--hp-foreground));font:13px ui-monospace,SFMono-Regular,Consolas,monospace}
         main{height:100vh;display:flex;flex-direction:column;padding:14px;gap:10px}
-        header{display:flex;justify-content:space-between;align-items:center;font:600 14px system-ui;color:#f4f4f5}
-        #console-output{flex:1;overflow:auto;background:#050505;border:1px solid #27272a;border-radius:8px;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;line-height:1.6}
-        form{display:flex;gap:10px}input{flex:1;min-width:0;background:#18181b;color:white;border:1px solid #3f3f46;border-radius:8px;padding:12px}button{border:1px solid #3f3f46;border-radius:8px;background:#27272a;color:white;padding:10px 15px;cursor:pointer}
+        header{display:flex;justify-content:space-between;align-items:center;font:600 14px system-ui;color:rgb(var(--hp-foreground))}
+        #console-output{flex:1;overflow:auto;background:rgb(var(--hp-surfaceDark));border:1px solid rgb(var(--hp-border));border-radius:8px;padding:16px;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;line-height:1.6}
+        form{display:flex;gap:10px}input{flex:1;min-width:0;background:rgb(var(--hp-surfaceLight));color:rgb(var(--hp-foreground));border:1px solid rgb(var(--hp-border));border-radius:8px;padding:12px}button{border:1px solid rgb(var(--hp-border));border-radius:8px;background:rgb(var(--hp-border));color:rgb(var(--hp-foreground));padding:10px 15px;cursor:pointer}
         </style></head><body><main><header><span>HivePanel · Console</span><span id="connection-state"></span></header><div id="console-output"></div><form id="command-form"><input id="command-input" placeholder="Enter a command..." autocomplete="off"><button type="submit">Send</button></form></main></body></html>`);
     popup.document.close();
+    for (const [key, value] of Object.entries({ ...extensionTheme(), ...semanticTokens(designTokens.value) }))
+        popup.document.documentElement.style.setProperty(key, value);
+    popup.document.title = t('Console');
+    const send = popup.document.querySelector('button');
+    if (send) send.textContent = t('Send');
+    const commandInput = popup.document.getElementById('command-input');
+    if (commandInput) commandInput.setAttribute('placeholder', t('Enter a command...'));
     const form = popup.document.getElementById('command-form') as HTMLFormElement | null;
     form?.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -283,15 +292,16 @@ const minecraftCommandSuggestions = [
     'save-all',
 ];
 const commandSuggestions = computed<string[]>(() => {
-    const manifest = props.cell?.comb_data ?? {}
+    const manifest = props.cell?.comb_data ?? {};
     if (Array.isArray(manifest.console_commands)) {
-        return [...new Set(manifest.console_commands.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0))] as string[]
+        return [
+            ...new Set(manifest.console_commands.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)),
+        ] as string[];
     }
-    const game = String(manifest.game ?? '').toLowerCase()
-    const group = String(manifest.group ?? '').toLowerCase()
-    return game === 'minecraft' || group === 'minecraft' ? minecraftCommandSuggestions : []
-})
-
+    const game = String(manifest.game ?? '').toLowerCase();
+    const group = String(manifest.group ?? '').toLowerCase();
+    return game === 'minecraft' || group === 'minecraft' ? minecraftCommandSuggestions : [];
+});
 
 const filteredCommandSuggestions = computed(() => {
     const value = command.value.trim().toLowerCase();
@@ -603,7 +613,7 @@ function consoleLineClass(line: string) {
         return 'font-bold text-hive';
     }
 
-    return 'text-zinc-300';
+    return 'text-foreground';
 }
 
 onMounted(async () => {
@@ -794,7 +804,7 @@ async function restartCell() {
     if (!cellId.value || !canUseRuntime.value || restartBusy.value) return;
     restartBusy.value = true;
     try {
-        if (!await stopCell()) return;
+        if (!(await stopCell())) return;
         const grace = Math.max(1, Math.min(600, Number(props.cell?.comb_data?.stop?.timeout) || 30));
         const deadline = Date.now() + (grace * 2 + 10) * 1000;
         while (Date.now() < deadline) {
@@ -803,14 +813,15 @@ async function restartCell() {
                 await startCell();
                 return;
             }
-            await new Promise(resolve => window.setTimeout(resolve, 1000));
+            await new Promise((resolve) => window.setTimeout(resolve, 1000));
         }
-        consoleLines.value.push(localConsoleEntry('Restart cancelled: the worker has not confirmed that the Cell is offline. Check the shutdown command and signal.'));
+        consoleLines.value.push(
+            localConsoleEntry('Restart cancelled: the worker has not confirmed that the Cell is offline. Check the shutdown command and signal.'),
+        );
     } finally {
         restartBusy.value = false;
     }
 }
-
 </script>
 
 <template>
@@ -818,7 +829,7 @@ async function restartCell() {
         <HivePasteShare
             :open="consolePasteOpen"
             :busy="consolePasteBusy"
-            title="Console output"
+            :title="t('ui.console_output')"
             :error="consolePasteError"
             :url="consolePasteUrl"
             :description="
@@ -831,25 +842,30 @@ async function restartCell() {
         />
         <Head :title="cell.name" />
 
-        <div class="min-h-screen min-w-0 max-w-full bg-surface-dark text-white">
+        <div class="min-h-screen min-w-0 max-w-full bg-surface-dark text-foreground">
             <main class="min-w-0 max-w-full px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto w-full min-w-0 max-w-full space-y-5">
                     <CellHeader :cell="cell" :current-status="currentStatus" @start="startCell" @restart="restartCell" @stop="stopCell" />
-                    <p v-if="configurationPending" class="mt-3 rounded-button border border-status-warning/30 bg-status-warning/10 p-3 text-sm text-status-warning">Saved configuration changes will apply on the next start. Restart the Cell to publish new TCP/UDP allocations.</p>
+                    <p
+                        v-if="configurationPending"
+                        class="mt-3 rounded-button border border-status-warning/30 bg-status-warning/10 p-3 text-sm text-status-warning"
+                    >
+                        {{ t('ui.saved_configuration_changes_will_apply_on_the_next_start_restart_') }}
+                    </p>
 
                     <div class="grid min-w-0 max-w-full gap-4 xl:grid-cols-[minmax(0,1fr)_355px]">
                         <div class="min-w-0 space-y-4">
                             <section
-                                class="min-w-0 max-w-full overflow-hidden rounded-panel border border-zinc-800 bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]"
+                                class="min-w-0 max-w-full overflow-hidden rounded-panel border border-border bg-surface shadow-[0_0_30px_rgba(0,0,0,0.25)]"
                             >
                                 <div class="min-w-0 p-3">
                                     <div class="relative min-w-0 max-w-full">
                                         <div class="absolute right-3 top-2 z-20 flex items-center gap-1 font-sans">
                                             <button
                                                 type="button"
-                                                class="rounded p-1.5 text-zinc-500 transition hover:text-white focus-visible:outline focus-visible:outline-hive"
-                                                title="Pop out console"
-                                                aria-label="Pop out console"
+                                                class="rounded p-1.5 text-muted-foreground transition hover:text-foreground focus-visible:outline focus-visible:outline-hive"
+                                                :title="t('ui.pop_out_console')"
+                                                :aria-label="t('ui.pop_out_console')"
                                                 @click="popOutConsole"
                                             >
                                                 <svg
@@ -870,9 +886,9 @@ async function restartCell() {
                                             </button>
                                             <button
                                                 type="button"
-                                                class="rounded p-1.5 text-zinc-500 transition hover:text-white focus-visible:outline focus-visible:outline-hive"
-                                                title="Fullscreen console"
-                                                aria-label="Fullscreen console"
+                                                class="rounded p-1.5 text-muted-foreground transition hover:text-foreground focus-visible:outline focus-visible:outline-hive"
+                                                :title="t('ui.fullscreen_console')"
+                                                :aria-label="t('ui.fullscreen_console')"
                                                 @click="consolePoppedOut = true"
                                             >
                                                 <svg
@@ -894,23 +910,25 @@ async function restartCell() {
                                         </div>
                                         <div
                                             ref="consoleEl"
-                                            class="h-[320px] w-full min-w-0 max-w-full overflow-auto rounded-button border border-zinc-800 bg-black p-4 font-mono text-[12px] leading-6 text-zinc-300 sm:h-[385px] sm:p-6 sm:text-[13px]"
+                                            class="h-[320px] w-full min-w-0 max-w-full overflow-auto rounded-button border border-border bg-black p-4 font-mono text-[12px] leading-6 text-foreground sm:h-[385px] sm:p-6 sm:text-[13px]"
                                         >
-                                            <div v-if="visibleConsoleLines.length === 0" class="text-zinc-600">No console output yet.</div>
+                                            <div v-if="visibleConsoleLines.length === 0" class="text-muted-foreground">
+                                                {{ t('ui.no_console_output_yet') }}
+                                            </div>
 
                                             <div v-for="(line, index) in visibleConsoleLines" :key="index" :class="consoleLineClass(line.message)">
-                                                <span class="mr-3 select-text text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span
+                                                <span class="mr-3 select-text text-muted-foreground">{{ formatConsoleTime(line.timestamp) }}</span
                                                 ><span>{{ line.message }}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive">
+                                    <div class="mt-3 rounded-button border border-border bg-surface transition focus-within:border-hive">
                                         <div class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
                                             <input
                                                 v-model="command"
                                                 :disabled="isLocked || !canUseRuntime"
-                                                class="w-full bg-transparent font-mono text-sm text-zinc-300 outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:text-zinc-600"
+                                                class="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:text-muted-foreground"
                                                 :placeholder="
                                                     !canUseRuntime
                                                         ? 'Runtime unavailable until installation completes'
@@ -924,31 +942,31 @@ async function restartCell() {
                                             <div class="flex shrink-0 items-center gap-1.5 font-sans">
                                                 <button
                                                     type="button"
-                                                    class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive"
+                                                    class="rounded-md border border-border px-2 py-1.5 text-xs text-foreground transition hover:border-hive hover:text-hive"
                                                     @click="aiDialog = true"
                                                 >
-                                                    Ask AI
+                                                    {{ t('ui.ask_ai') }}
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive"
+                                                    class="rounded-md border border-border px-2 py-1.5 text-xs text-foreground transition hover:border-hive hover:text-hive"
                                                     @click="openConsolePaste"
                                                 >
-                                                    Share via HivePaste
+                                                    {{ t('ui.share_via_hivepaste') }}
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="rounded-md border border-zinc-700 px-2 py-1.5 text-xs text-zinc-300 transition hover:border-hive hover:text-hive"
-                                                    title="Download console log"
+                                                    class="rounded-md border border-border px-2 py-1.5 text-xs text-foreground transition hover:border-hive hover:text-hive"
+                                                    :title="t('ui.download_console_log')"
                                                     @click="exportConsole"
                                                 >
-                                                    Export
+                                                    {{ t('ui.export') }}
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="rounded p-1.5 text-zinc-500 transition hover:text-red-400"
-                                                    title="Clear console display"
-                                                    aria-label="Clear console display"
+                                                    class="rounded p-1.5 text-muted-foreground transition hover:text-status-danger"
+                                                    :title="t('ui.clear_console_display')"
+                                                    :aria-label="t('ui.clear_console_display')"
                                                     @click="clearVisibleConsole"
                                                 >
                                                     <svg
@@ -968,7 +986,7 @@ async function restartCell() {
                                             </div>
 
                                             <button
-                                                class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-zinc-700 disabled:hover:translate-x-0"
+                                                class="text-xl text-foreground transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:translate-x-0"
                                                 :disabled="isLocked || !canUseRuntime"
                                                 @click="sendCommand"
                                             >
@@ -976,11 +994,11 @@ async function restartCell() {
                                             </button>
                                         </div>
 
-                                        <div v-if="filteredCommandSuggestions.length && canUseRuntime" class="border-t border-zinc-800">
+                                        <div v-if="filteredCommandSuggestions.length && canUseRuntime" class="border-t border-border">
                                             <button
                                                 v-for="suggestion in filteredCommandSuggestions"
                                                 :key="suggestion"
-                                                class="block w-full px-5 py-2 text-left font-mono text-sm text-zinc-400 transition hover:bg-hive/10 hover:text-hive"
+                                                class="block w-full px-5 py-2 text-left font-mono text-sm text-muted-foreground transition hover:bg-hive/10 hover:text-hive"
                                                 @click="applyCommandSuggestion(suggestion)"
                                             >
                                                 {{ suggestion }}
@@ -992,7 +1010,7 @@ async function restartCell() {
 
                             <div class="grid min-w-0 max-w-full gap-4 md:grid-cols-3">
                                 <StatChartCard
-                                    title="CPU Load"
+                                    :title="t('ui.cpu_load')"
                                     :value="`${(liveStats.cpu ?? 0).toFixed(2)}%`"
                                     :history="cpuHistory"
                                     suffix="%"
@@ -1000,7 +1018,7 @@ async function restartCell() {
                                 />
 
                                 <StatChartCard
-                                    title="Memory"
+                                    :title="t('ui.memory')"
                                     :value="formatMemoryUsed()"
                                     :history="memoryHistory"
                                     suffix=" MB"
@@ -1008,7 +1026,7 @@ async function restartCell() {
                                 />
 
                                 <StatChartCard
-                                    title="Network"
+                                    :title="t('Network')"
                                     :value="`↓ ${formatBytes(liveStats.network_rx_bytes)} / ↑ ${formatBytes(liveStats.network_tx_bytes)}`"
                                     :history="networkRxHistory"
                                     suffix=" B"
@@ -1017,19 +1035,19 @@ async function restartCell() {
                         </div>
 
                         <aside class="min-w-0 space-y-4">
-                            <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                                <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Server Information</h2>
+                            <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{{ t('ui.server_information') }}</h2>
 
                                 <div class="mt-5 space-y-4">
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <Clock3 :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Uptime</div>
-                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.uptime') }}</div>
+                                            <div class="text-sm font-semibold tabular-nums text-foreground">
                                                 {{ formatUptime(liveStats.uptime_sec) }}
                                             </div>
                                         </div>
@@ -1037,41 +1055,43 @@ async function restartCell() {
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <Network :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Address</div>
-                                            <div class="break-all text-sm font-semibold tabular-nums text-zinc-100">
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.address') }}</div>
+                                            <div class="break-all text-sm font-semibold tabular-nums text-foreground">
                                                 {{ cell.allocation?.ip ?? '—' }}:{{ cell.allocation?.port ?? '—' }}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="border-t border-zinc-800/70" />
+                                    <div class="border-t border-border/70" />
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <Cpu :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">CPU Load</div>
-                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ (liveStats.cpu ?? 0).toFixed(2) }}%</div>
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.cpu_load') }}</div>
+                                            <div class="text-sm font-semibold tabular-nums text-foreground">
+                                                {{ (liveStats.cpu ?? 0).toFixed(2) }}%
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <MemoryStick :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Memory</div>
-                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.memory') }}</div>
+                                            <div class="text-sm font-semibold tabular-nums text-foreground">
                                                 {{ formatMemoryUsed() }} / {{ formatMemoryLimit() }}
                                             </div>
                                         </div>
@@ -1079,53 +1099,53 @@ async function restartCell() {
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <HardDrive :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Disk</div>
-                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">{{ formatDiskUsed() }}</div>
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.disk') }}</div>
+                                            <div class="text-sm font-semibold tabular-nums text-foreground">{{ formatDiskUsed() }}</div>
                                         </div>
                                     </div>
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <ArrowDownUp :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Network</div>
-                                            <div class="text-sm font-semibold tabular-nums text-zinc-100">
+                                            <div class="text-xs text-muted-foreground">{{ t('Network') }}</div>
+                                            <div class="text-sm font-semibold tabular-nums text-foreground">
                                                 ↓ {{ formatBytes(liveStats.network_rx_bytes) }} / ↑ {{ formatBytes(liveStats.network_tx_bytes) }}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="border-t border-zinc-800/70" />
+                                    <div class="border-t border-border/70" />
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <Server :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">Node</div>
-                                            <div class="break-all text-sm font-semibold text-zinc-100">{{ cell.node?.name ?? '—' }}</div>
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.node') }}</div>
+                                            <div class="break-all text-sm font-semibold text-foreground">{{ cell.node?.name ?? '—' }}</div>
                                         </div>
                                     </div>
 
                                     <div class="flex min-w-0 items-center gap-3">
                                         <div
-                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/40 text-zinc-400"
+                                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-light/40 text-muted-foreground"
                                         >
                                             <Globe2 :size="17" :stroke-width="1.75" />
                                         </div>
                                         <div class="min-w-0">
-                                            <div class="text-xs text-zinc-500">UTC Time</div>
-                                            <div class="font-mono text-sm font-semibold tabular-nums text-zinc-100">{{ formatUtcTime() }}</div>
+                                            <div class="text-xs text-muted-foreground">{{ t('ui.utc_time') }}</div>
+                                            <div class="font-mono text-sm font-semibold tabular-nums text-foreground">{{ formatUtcTime() }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1147,23 +1167,21 @@ async function restartCell() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="hive-ai-title"
-                class="flex w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#101216] shadow-2xl"
+                class="flex w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
                 :class="aiBusy || aiAnswer ? 'h-[min(90vh,960px)]' : 'h-auto max-h-[90vh]'"
             >
-                <div class="flex shrink-0 items-center gap-3 border-b border-zinc-800/80 px-5 py-4">
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-400"
-                    >
+                <div class="flex shrink-0 items-center gap-3 border-b border-border/80 px-5 py-4">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-hive/20 bg-hive/10 text-hive">
                         <Sparkles :size="20" />
                     </div>
                     <div class="min-w-0 flex-1">
-                        <h2 id="hive-ai-title" class="text-base font-semibold text-zinc-100">Hive AI</h2>
-                        <p class="text-xs text-zinc-500">Console assistant</p>
+                        <h2 id="hive-ai-title" class="text-base font-semibold text-foreground">{{ t('ui.hive_ai') }}</h2>
+                        <p class="text-xs text-muted-foreground">{{ t('ui.console_assistant') }}</p>
                     </div>
                     <button
                         type="button"
-                        aria-label="Close AI assistant"
-                        class="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+                        :aria-label="t('ui.close_ai_assistant')"
+                        class="rounded-lg p-2 text-muted-foreground transition hover:bg-surface-light hover:text-foreground"
                         @click="aiDialog = false"
                     >
                         <X :size="18" />
@@ -1173,25 +1191,28 @@ async function restartCell() {
                 <div class="min-h-0 space-y-4 overflow-y-auto px-5 py-5 lg:px-7" :class="aiBusy || aiAnswer ? 'flex-1' : ''">
                     <div class="flex flex-wrap items-center gap-2">
                         <span
-                            class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300"
+                            class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-foreground"
                         >
                             <Terminal :size="13" class="shrink-0" /><span class="truncate">{{ cell.name }}</span>
                         </span>
                         <span
-                            class="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400"
+                            class="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground"
                         >
-                            <FileText :size="13" /> Last {{ Math.min(100, visibleConsoleLines.length) }} console lines
+                            <FileText :size="13" /> {{ t('ui.last_eb970eb') }} {{ Math.min(100, visibleConsoleLines.length) }}
+                            {{ t('ui.console_lines') }}
                         </span>
                     </div>
 
-                    <div class="rounded-xl border border-zinc-800 bg-[#0b0d10] p-3 focus-within:border-orange-500/50">
-                        <label for="hive-ai-question" class="mb-2 block text-xs font-medium text-zinc-400">What would you like help with?</label>
+                    <div class="rounded-xl border border-border bg-surface p-3 focus-within:border-hive/50">
+                        <label for="hive-ai-question" class="mb-2 block text-xs font-medium text-muted-foreground">{{
+                            t('ui.what_would_you_like_help_with')
+                        }}</label>
                         <textarea
                             id="hive-ai-question"
                             v-model="aiQuestion"
                             rows="2"
-                            class="block w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0"
-                            placeholder="What caused my server to stop during startup?"
+                            class="block w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:ring-0"
+                            :placeholder="t('ui.what_caused_my_server_to_stop_during_startup')"
                             @keydown.ctrl.enter.prevent="askConsoleAI"
                             @keydown.meta.enter.prevent="askConsoleAI"
                         />
@@ -1214,7 +1235,7 @@ async function restartCell() {
                             v-for="suggestion in aiSuggestions"
                             :key="suggestion"
                             type="button"
-                            class="rounded-full border border-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition hover:border-orange-500/40 hover:text-zinc-100"
+                            class="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-hive/40 hover:text-foreground"
                             @click="aiQuestion = suggestion"
                         >
                             {{ suggestion }}
@@ -1224,34 +1245,33 @@ async function restartCell() {
                     <div
                         v-if="aiBusy"
                         role="status"
-                        class="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-400"
+                        class="flex items-center gap-2 rounded-xl border border-border bg-surface/50 p-4 text-sm text-muted-foreground"
                     >
-                        <LoaderCircle :size="16" class="animate-spin text-orange-400" /> Analysing console output…
+                        <LoaderCircle :size="16" class="animate-spin text-hive" /> {{ t('ui.analysing_console_output') }}
                     </div>
-                    <section v-if="aiAnswer" class="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
-                        <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                            <span class="inline-flex items-center gap-2 text-sm font-semibold text-zinc-200"
-                                ><Sparkles :size="15" class="text-orange-400" /> AI response</span
+                    <section v-if="aiAnswer" class="overflow-hidden rounded-xl border border-border bg-surface/40">
+                        <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                            <span class="inline-flex items-center gap-2 text-sm font-semibold text-foreground"
+                                ><Sparkles :size="15" class="text-hive" /> {{ t('ui.ai_response') }}</span
                             >
                             <button
                                 type="button"
-                                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                                class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-surface-light hover:text-foreground"
                                 @click="copyAiAnswer"
                             >
                                 <Check v-if="aiCopied" :size="14" /><Copy v-else :size="14" />{{ aiCopied ? 'Copied' : 'Copy' }}
                             </button>
                         </div>
                         <div
-                            class="hive-ai-markdown min-w-0 select-text break-words px-5 py-5 text-sm leading-7 text-zinc-300"
+                            class="hive-ai-markdown min-w-0 select-text break-words px-5 py-5 text-sm leading-7 text-foreground"
                             v-html="formattedAiAnswer"
                         ></div>
                     </section>
 
-                    <div class="flex items-start gap-2 rounded-xl border border-zinc-800/70 bg-zinc-900/40 p-3">
-                        <ShieldCheck :size="16" class="mt-0.5 shrink-0 text-zinc-400" />
-                        <p class="text-xs leading-5 text-zinc-500">
-                            The latest console output is sent with your question to the configured AI provider. Check logs for secrets before
-                            submitting.
+                    <div class="flex items-start gap-2 rounded-xl border border-border/70 bg-surface/40 p-3">
+                        <ShieldCheck :size="16" class="mt-0.5 shrink-0 text-muted-foreground" />
+                        <p class="text-xs leading-5 text-muted-foreground">
+                            {{ t('ui.the_latest_console_output_is_sent_with_your_question_to_the_confi') }}
                         </p>
                     </div>
                 </div>
@@ -1259,42 +1279,42 @@ async function restartCell() {
         </div>
 
         <div v-if="consolePoppedOut" class="fixed inset-0 z-50 bg-black/80 p-4 backdrop-blur-sm">
-            <div class="flex h-full flex-col rounded-panel border border-zinc-800 bg-surface p-4">
+            <div class="flex h-full flex-col rounded-panel border border-border bg-surface p-4">
                 <div class="mb-3 flex items-center justify-between gap-4">
                     <div>
-                        <h2 class="text-lg font-black text-white">{{ cell.name }} Console</h2>
+                        <h2 class="text-lg font-black text-foreground">{{ cell.name }} {{ t('Console') }}</h2>
 
-                        <p class="text-sm text-zinc-500">Socket: {{ socketStatus }}</p>
+                        <p class="text-sm text-muted-foreground">{{ t('ui.socket') }} {{ socketStatus }}</p>
                     </div>
 
                     <div class="flex gap-2">
                         <button
-                            class="rounded-button border border-zinc-800 bg-surface-light px-4 py-2 text-sm font-bold text-zinc-300 transition hover:border-hive hover:text-hive"
+                            class="rounded-button border border-border bg-surface-light px-4 py-2 text-sm font-bold text-foreground transition hover:border-hive hover:text-hive"
                             @click="consolePoppedOut = false"
                         >
-                            Close
+                            {{ t('ui.close') }}
                         </button>
                     </div>
                 </div>
 
                 <div
                     ref="popoutConsoleEl"
-                    class="flex-1 overflow-y-auto rounded-button border border-zinc-800 bg-black p-5 font-mono text-sm leading-6"
+                    class="flex-1 overflow-y-auto rounded-button border border-border bg-black p-5 font-mono text-sm leading-6"
                 >
                     <div v-for="(line, index) in visibleConsoleLines" :key="index" :class="consoleLineClass(line.message)">
-                        <span class="mr-3 select-text text-zinc-600">{{ formatConsoleTime(line.timestamp) }}</span
+                        <span class="mr-3 select-text text-muted-foreground">{{ formatConsoleTime(line.timestamp) }}</span
                         ><span>{{ line.message }}</span>
                     </div>
                 </div>
 
-                <div class="mt-3 rounded-button border border-zinc-800 bg-surface transition focus-within:border-hive">
+                <div class="mt-3 rounded-button border border-border bg-surface transition focus-within:border-hive">
                     <div class="flex items-center gap-3 px-4 py-3">
                         <span class="text-xl text-hive"> ⌬ </span>
 
                         <input
                             v-model="command"
                             :disabled="!canUseRuntime || isLocked"
-                            class="w-full bg-transparent font-mono text-sm text-zinc-300 outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:text-zinc-600"
+                            class="w-full bg-transparent font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:text-muted-foreground"
                             :placeholder="
                                 !canUseRuntime
                                     ? 'Runtime unavailable until installation completes'
@@ -1306,7 +1326,7 @@ async function restartCell() {
                         />
 
                         <button
-                            class="text-xl text-zinc-300 transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-zinc-700"
+                            class="text-xl text-foreground transition hover:translate-x-0.5 hover:text-hive disabled:cursor-not-allowed disabled:text-muted-foreground"
                             :disabled="!canUseRuntime || isLocked"
                             @click="sendCommand"
                         >
@@ -1314,11 +1334,11 @@ async function restartCell() {
                         </button>
                     </div>
 
-                    <div v-if="filteredCommandSuggestions.length && canUseRuntime" class="border-t border-zinc-800">
+                    <div v-if="filteredCommandSuggestions.length && canUseRuntime" class="border-t border-border">
                         <button
                             v-for="suggestion in filteredCommandSuggestions"
                             :key="suggestion"
-                            class="block w-full px-5 py-2 text-left font-mono text-sm text-zinc-400 transition hover:bg-hive/10 hover:text-hive"
+                            class="block w-full px-5 py-2 text-left font-mono text-sm text-muted-foreground transition hover:bg-hive/10 hover:text-hive"
                             @click="applyCommandSuggestion(suggestion)"
                         >
                             {{ suggestion }}
@@ -1334,7 +1354,7 @@ async function restartCell() {
 .hive-ai-markdown :deep(h2),
 .hive-ai-markdown :deep(h3),
 .hive-ai-markdown :deep(h4) {
-    color: #f4f4f5;
+    color: rgb(var(--hp-foreground));
     font-weight: 650;
     line-height: 1.35;
     margin: 1.5rem 0 0.65rem;
@@ -1357,7 +1377,7 @@ async function restartCell() {
     margin: 0.65rem 0 1rem;
 }
 .hive-ai-markdown :deep(strong) {
-    color: #fafafa;
+    color: rgb(var(--hp-foreground));
     font-weight: 650;
 }
 .hive-ai-markdown :deep(ul) {
@@ -1378,20 +1398,20 @@ async function restartCell() {
     margin: 0.25rem 0;
 }
 .hive-ai-markdown :deep(a) {
-    color: #fb923c;
+    color: rgb(var(--hp-accentLight));
     text-decoration: underline;
     overflow-wrap: anywhere;
 }
 .hive-ai-markdown :deep(blockquote) {
-    border-left: 3px solid #f97316;
+    border-left: 3px solid rgb(var(--hp-accent));
     padding: 0.35rem 1rem;
     margin: 1rem 0;
-    color: #a1a1aa;
-    background: #18181b;
+    color: rgb(var(--hp-muted));
+    background: rgb(var(--hp-surfaceLight));
 }
 .hive-ai-markdown :deep(code) {
-    background: #27272a;
-    color: #fdba74;
+    background: rgb(var(--hp-border));
+    color: rgb(var(--hp-accentLight));
     border-radius: 0.3rem;
     padding: 0.1rem 0.35rem;
     font-size: 0.88em;
@@ -1400,8 +1420,8 @@ async function restartCell() {
 .hive-ai-markdown :deep(pre) {
     overflow-x: auto;
     max-width: 100%;
-    background: #09090b;
-    border: 1px solid #3f3f46;
+    background: rgb(var(--hp-surfaceDark));
+    border: 1px solid rgb(var(--hp-border));
     border-radius: 0.65rem;
     padding: 1rem;
     margin: 1rem 0;
@@ -1409,7 +1429,7 @@ async function restartCell() {
 }
 .hive-ai-markdown :deep(pre code) {
     background: transparent;
-    color: #e4e4e7;
+    color: rgb(var(--hp-foreground));
     padding: 0;
     border-radius: 0;
     overflow-wrap: normal;
@@ -1423,17 +1443,17 @@ async function restartCell() {
 }
 .hive-ai-markdown :deep(th),
 .hive-ai-markdown :deep(td) {
-    border: 1px solid #3f3f46;
+    border: 1px solid rgb(var(--hp-border));
     padding: 0.55rem 0.8rem;
     text-align: left;
 }
 .hive-ai-markdown :deep(th) {
-    background: #27272a;
-    color: #fafafa;
+    background: rgb(var(--hp-border));
+    color: rgb(var(--hp-foreground));
 }
 .hive-ai-markdown :deep(hr) {
     border: 0;
-    border-top: 1px solid #3f3f46;
+    border-top: 1px solid rgb(var(--hp-border));
     margin: 1.5rem 0;
 }
 </style>

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import InputError from '@/components/InputError.vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
-import { ArrowLeft, Save, Server } from 'lucide-vue-next'
-import { computed, watch } from 'vue'
+import InputError from '@/components/InputError.vue';
+import { t } from '@/composables/useLanguage';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, Save, Server } from 'lucide-vue-next';
+import { computed, watch } from 'vue';
 
 const form = useForm({
     name: '',
@@ -28,129 +29,129 @@ const form = useForm({
     disk_mib: null as number | null,
     disk_overallocate: 0,
     max_upload_mib: 100,
-})
+});
 
 const connectionMode = computed({
     get: () => {
-        if (form.scheme === 'https' && form.behind_proxy) return 'proxy'
-        if (form.scheme === 'https') return 'native'
-        return 'none'
+        if (form.scheme === 'https' && form.behind_proxy) return 'proxy';
+        if (form.scheme === 'https') return 'native';
+        return 'none';
     },
     set: (mode: string) => {
         if (mode === 'proxy') {
-            form.scheme = 'https'
-            form.behind_proxy = true
-            if (Number(form.port) === Number(form.daemon_port)) form.port = 443
-            return
+            form.scheme = 'https';
+            form.behind_proxy = true;
+            if (Number(form.port) === Number(form.daemon_port)) form.port = 443;
+            return;
         }
 
         if (mode === 'native') {
-            form.scheme = 'https'
-            form.behind_proxy = false
-            if (Number(form.port) === 443) form.port = Number(form.daemon_port)
-            return
+            form.scheme = 'https';
+            form.behind_proxy = false;
+            if (Number(form.port) === 443) form.port = Number(form.daemon_port);
+            return;
         }
 
-        form.scheme = 'http'
-        form.behind_proxy = false
-        if (Number(form.port) === 443) form.port = Number(form.daemon_port)
+        form.scheme = 'http';
+        form.behind_proxy = false;
+        if (Number(form.port) === 443) form.port = Number(form.daemon_port);
     },
-})
+});
 
 watch(
     () => form.daemon_port,
     (value, previous) => {
         if (connectionMode.value !== 'proxy' && Number(form.port) === Number(previous)) {
-            form.port = Number(value)
+            form.port = Number(value);
         }
     },
-)
+);
 
 function submit() {
-    form.post('/admin/nodes')
+    form.post('/admin/nodes');
 }
 </script>
 
 <template>
     <AppLayout :context="'admin'">
-        <Head title="Create Node" />
+        <Head :title="t('ui.create_node')" />
 
-        <div class="min-h-screen bg-surface-dark text-white">
+        <div class="min-h-screen bg-surface-dark text-foreground">
             <main class="px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
                 <div class="mx-auto space-y-5">
-                    <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
+                    <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
                                 <Server class="size-6 text-hive" />
 
                                 <div>
                                     <h1 class="text-2xl font-black sm:text-3xl">
-                                        New Node
+                                        {{ t('ui.new_node') }}
                                     </h1>
 
-                                    <p class="mt-2 text-sm text-zinc-400">
-                                        Add a worker host. Registration and API token setup happens on the configuration screen.
+                                    <p class="mt-2 text-sm text-muted-foreground">
+                                        {{ t('ui.add_a_worker_host_registration_and_api_token_setup_happens_on_the') }}
                                     </p>
                                 </div>
                             </div>
 
                             <Link
                                 href="/admin/nodes"
-                                class="inline-flex items-center gap-2 rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-2 text-sm font-black text-zinc-300 transition hover:border-hive/40 hover:text-white"
+                                class="inline-flex items-center gap-2 rounded-button border border-border bg-surface-dark px-4 py-2 text-sm font-black text-foreground transition hover:border-hive/40 hover:text-foreground"
                             >
                                 <ArrowLeft class="size-4" />
-                                Back
+                                {{ t('ui.back') }}
                             </Link>
                         </div>
                     </section>
 
                     <form class="space-y-5" @submit.prevent="submit">
-                        <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                            <h2 class="text-lg font-black text-white">
-                                Node Details
+                        <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('ui.node_details') }}
                             </h2>
 
                             <div class="mt-5 grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Name
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.name') }}
                                     </label>
 
                                     <input
                                         v-model="form.name"
                                         type="text"
-                                        placeholder="EU01"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.eu01')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.name" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Location
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.location') }}
                                     </label>
 
                                     <input
                                         v-model="form.location"
                                         type="text"
-                                        placeholder="London, UK"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.london_uk')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.location" />
                                 </div>
 
                                 <div class="md:col-span-2">
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Description
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.description') }}
                                     </label>
 
                                     <textarea
                                         v-model="form.description"
                                         rows="3"
-                                        placeholder="Optional notes about this worker node..."
-                                        class="mt-2 w-full resize-none rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.optional_notes_about_this_worker_node')"
+                                        class="mt-2 w-full resize-none rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.description" />
@@ -158,72 +159,72 @@ function submit() {
                             </div>
                         </section>
 
-                        <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                            <h2 class="text-lg font-black text-white">
-                                Network
+                        <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('Network') }}
                             </h2>
 
                             <div class="mt-5 grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Public FQDN / IP
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.public_fqdn_ip') }}
                                     </label>
 
                                     <input
                                         v-model="form.public_fqdn"
                                         type="text"
-                                        placeholder="worker.example.com"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.worker_example_com')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.public_fqdn" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Internal FQDN / IP
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.internal_fqdn_ip') }}
                                     </label>
 
                                     <input
                                         v-model="form.internal_fqdn"
                                         type="text"
                                         placeholder="10.0.0.12"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.internal_fqdn" />
                                 </div>
 
                                 <div class="md:col-span-2">
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Connection / SSL Mode
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.connection_ssl_mode') }}
                                     </label>
 
                                     <select
                                         v-model="connectionMode"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     >
-                                        <option value="none">No SSL — HTTP / WS</option>
-                                        <option value="native">Native SSL — HiveWorker HTTPS / WSS</option>
-                                        <option value="proxy">Proxy SSL — reverse proxy HTTPS / WSS</option>
+                                        <option value="none">{{ t('ui.no_ssl_http_ws') }}</option>
+                                        <option value="native">{{ t('ui.native_ssl_hiveworker_https_wss') }}</option>
+                                        <option value="proxy">{{ t('ui.proxy_ssl_reverse_proxy_https_wss') }}</option>
                                     </select>
 
-                                    <p class="mt-2 text-xs text-zinc-500">
+                                    <p class="mt-2 text-xs text-muted-foreground">
                                         <template v-if="connectionMode === 'native'">
-                                            HiveWorker terminates TLS directly using /etc/hivepanel/ssl/fullchain.pem and /etc/hivepanel/ssl/privkey.pem.
+                                            {{ t('ui.hiveworker_terminates_tls_directly_using_etc_hivepanel_ssl_fullch') }}
                                         </template>
                                         <template v-else-if="connectionMode === 'proxy'">
-                                            Your reverse proxy terminates TLS. HiveWorker itself remains HTTP on the Worker port.
+                                            {{ t('ui.your_reverse_proxy_terminates_tls_hiveworker_itself_remains_http_') }}
                                         </template>
                                         <template v-else>
-                                            HiveWorker uses plain HTTP/WS. Browsers cannot use this mode for console WebSockets when HivePanel itself is HTTPS.
+                                            {{ t('ui.hiveworker_uses_plain_http_ws_browsers_cannot_use_this_mode_for_c') }}
                                         </template>
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Public Port
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.public_port_cb65c3e') }}
                                     </label>
 
                                     <input
@@ -231,19 +232,19 @@ function submit() {
                                         type="number"
                                         min="1"
                                         max="65535"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
-                                    <p class="mt-2 text-xs text-zinc-600">
-                                        Externally reachable port used by HivePanel and browser WebSockets.
+                                    <p class="mt-2 text-xs text-muted-foreground">
+                                        {{ t('ui.externally_reachable_port_used_by_hivepanel_and_browser_websocket') }}
                                     </p>
 
                                     <InputError class="mt-2" :message="form.errors.port" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Worker Port
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.worker_port') }}
                                     </label>
 
                                     <input
@@ -251,19 +252,19 @@ function submit() {
                                         type="number"
                                         min="1"
                                         max="65535"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
-                                    <p class="mt-2 text-xs text-zinc-600">
-                                        Port HiveWorker listens on locally.
+                                    <p class="mt-2 text-xs text-muted-foreground">
+                                        {{ t('ui.port_hiveworker_listens_on_locally') }}
                                     </p>
 
                                     <InputError class="mt-2" :message="form.errors.daemon_port" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        SFTP Port
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.sftp_port') }}
                                     </label>
 
                                     <input
@@ -271,7 +272,7 @@ function submit() {
                                         type="number"
                                         min="1"
                                         max="65535"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.sftp_port" />
@@ -279,19 +280,19 @@ function submit() {
                             </div>
                         </section>
 
-                        <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                            <h2 class="text-lg font-black text-white">
-                                Resource Limits
+                        <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('ui.resource_limits') }}
                             </h2>
 
-                            <p class="mt-1 text-sm text-zinc-500">
-                                Leave CPU, memory, or disk empty to use live worker-reported capacity after registration.
+                            <p class="mt-1 text-sm text-muted-foreground">
+                                {{ t('ui.leave_cpu_memory_or_disk_empty_to_use_live_worker_reported_capaci') }}
                             </p>
 
                             <div class="mt-5 grid gap-4 md:grid-cols-2">
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        CPU Threads
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.cpu_threads') }}
                                     </label>
 
                                     <input
@@ -299,32 +300,32 @@ function submit() {
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        placeholder="Auto"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.auto')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.cpu_threads" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Memory MiB
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.memory_mib') }}
                                     </label>
 
                                     <input
                                         v-model="form.memory_mib"
                                         type="number"
                                         min="0"
-                                        placeholder="Auto"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.auto')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.memory_mib" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Memory Overallocation %
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.memory_overallocation') }}
                                     </label>
 
                                     <input
@@ -332,31 +333,31 @@ function submit() {
                                         type="number"
                                         min="0"
                                         max="1000"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.memory_overallocate" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Disk MiB
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.disk_mib') }}
                                     </label>
 
                                     <input
                                         v-model="form.disk_mib"
                                         type="number"
                                         min="0"
-                                        placeholder="Auto"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        :placeholder="t('ui.auto')"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.disk_mib" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Disk Overallocation %
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.disk_overallocation') }}
                                     </label>
 
                                     <input
@@ -364,15 +365,15 @@ function submit() {
                                         type="number"
                                         min="0"
                                         max="1000"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.disk_overallocate" />
                                 </div>
 
                                 <div>
-                                    <label class="text-xs font-black uppercase tracking-wide text-zinc-500">
-                                        Max Upload MiB
+                                    <label class="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                                        {{ t('ui.max_upload_mib') }}
                                     </label>
 
                                     <input
@@ -380,7 +381,7 @@ function submit() {
                                         type="number"
                                         min="1"
                                         max="1024"
-                                        class="mt-2 w-full rounded-button border border-zinc-800 bg-[#0d0f11] px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-hive/50"
+                                        class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-sm font-bold text-foreground outline-none transition focus:border-hive/50"
                                     />
 
                                     <InputError class="mt-2" :message="form.errors.max_upload_mib" />
@@ -388,37 +389,37 @@ function submit() {
                             </div>
                         </section>
 
-                        <section class="rounded-panel border border-zinc-800 bg-surface p-5 sm:p-6">
-                            <h2 class="text-lg font-black text-white">
-                                Options
+                        <section class="rounded-panel border border-border bg-surface p-5 sm:p-6">
+                            <h2 class="text-lg font-black text-foreground">
+                                {{ t('ui.options') }}
                             </h2>
 
                             <div class="mt-5 grid gap-3 md:grid-cols-3">
-                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-border bg-surface-dark p-4">
                                     <input
                                         v-model="form.behind_proxy"
                                         type="checkbox"
-                                        class="size-4 rounded border-zinc-700 bg-[#0d0f11] text-hive focus:ring-hive"
+                                        class="size-4 rounded border-border bg-surface-dark text-hive focus:ring-hive"
                                     />
-                                    <span class="text-sm font-bold text-zinc-300">Behind proxy</span>
+                                    <span class="text-sm font-bold text-foreground">{{ t('ui.behind_proxy') }}</span>
                                 </label>
 
-                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-border bg-surface-dark p-4">
                                     <input
                                         v-model="form.maintenance_mode"
                                         type="checkbox"
-                                        class="size-4 rounded border-zinc-700 bg-[#0d0f11] text-hive focus:ring-hive"
+                                        class="size-4 rounded border-border bg-surface-dark text-hive focus:ring-hive"
                                     />
-                                    <span class="text-sm font-bold text-zinc-300">Maintenance</span>
+                                    <span class="text-sm font-bold text-foreground">{{ t('ui.maintenance') }}</span>
                                 </label>
 
-                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-zinc-800 bg-[#0d0f11] p-4">
+                                <label class="flex cursor-pointer items-center gap-3 rounded-button border border-border bg-surface-dark p-4">
                                     <input
                                         v-model="form.is_active"
                                         type="checkbox"
-                                        class="size-4 rounded border-zinc-700 bg-[#0d0f11] text-hive focus:ring-hive"
+                                        class="size-4 rounded border-border bg-surface-dark text-hive focus:ring-hive"
                                     />
-                                    <span class="text-sm font-bold text-zinc-300">Active</span>
+                                    <span class="text-sm font-bold text-foreground">{{ t('ui.active_9234069') }}</span>
                                 </label>
                             </div>
                         </section>

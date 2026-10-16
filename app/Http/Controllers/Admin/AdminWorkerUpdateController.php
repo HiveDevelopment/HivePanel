@@ -17,8 +17,7 @@ class AdminWorkerUpdateController extends Controller
     public function __construct(
         private readonly WorkerUpdateService $updates,
         private readonly WorkerReleaseService $releases,
-    ) {
-    }
+    ) {}
 
     public function update(
         Request $request,
@@ -67,7 +66,7 @@ class AdminWorkerUpdateController extends Controller
         if ($queued->isEmpty()) {
             return back()->with(
                 'error',
-                'None of the selected Workers are eligible for an update.'
+                __('None of the selected Workers are eligible for an update.')
             );
         }
 
@@ -89,7 +88,7 @@ class AdminWorkerUpdateController extends Controller
         if ($latestVersion === null) {
             return back()->with(
                 'error',
-                'The latest HiveWorker version could not be determined.'
+                __('The latest HiveWorker version could not be determined.')
             );
         }
 
@@ -118,7 +117,7 @@ class AdminWorkerUpdateController extends Controller
         if ($nodes->isEmpty()) {
             return back()->with(
                 'success',
-                'All online Workers are already up to date.'
+                __('All online Workers are already up to date.')
             );
         }
 

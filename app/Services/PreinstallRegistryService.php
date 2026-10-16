@@ -17,7 +17,7 @@ class PreinstallRegistryService
         try {
             $response = $method === 'get' ? $client->get($path, $data) : $client->post($path, $data);
         } catch (ConnectionException $exception) {
-            throw ValidationException::withMessages(['preinstall' => 'HiveRegistry is unavailable. Please try again shortly.']);
+            throw ValidationException::withMessages(['preinstall' => __('HiveRegistry is unavailable. Please try again shortly.')]);
         }
         if (! $response->successful()) {
             throw ValidationException::withMessages(['preinstall' => $response->json('message') ?: 'HiveRegistry could not complete this request.']);
