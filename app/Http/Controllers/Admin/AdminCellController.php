@@ -16,6 +16,7 @@ use App\Services\AuditLogger;
 use App\Services\Cells\CellProvisioningService;
 use App\Services\Cells\CellShutdownService;
 use App\Services\Cells\CellSyncService;
+use App\Services\Cells\CellVariableService;
 use App\Services\Node\CellNodeClient;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -235,7 +236,7 @@ class AdminCellController extends Controller
         }
 
         return Inertia::render('Admin/Cells/Edit', [
-            'cell' => $this->cellPayload($cell),
+            'cell' => $this->cellPayload($cell, (array) ($worker['cell'] ?? [])),
             'editState' => $editState,
             'variableSchema' => collect(app(CellShutdownService::class)->variableSchema((array) (Comb::query()->find(data_get($cell->metadata, 'comb_id'))?->data ?? [])))
                 ->filter(fn ($variable) => is_array($variable) && ! empty($variable['name']))
@@ -604,7 +605,7 @@ class AdminCellController extends Controller
         return strtolower((string) ($workerCell['status'] ?? '')) === 'running';
     }
 
-    private function cellPayload(Cell $cell): array
+    private function cellPayload(Cell $cell, array $worker = []): array
     {
         return [
             'id' => $cell->getRouteKey(),
@@ -666,7 +667,7 @@ class AdminCellController extends Controller
                 ->all(),
 
             'limits' => $cell->limits,
-            'variables' => $cell->variables,
+            'variables' => app(CellVariableService::class)->values($cell, $cell->comb_data, (array) ($worker['variables'] ?? [])),
             'metadata' => $cell->metadata,
 
             'created_at' => $cell->created_at?->toISOString(),

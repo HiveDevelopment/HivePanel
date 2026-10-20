@@ -86,7 +86,7 @@ class CellDashboardService
 
             'id' => $cell->id,
             'daemon_id' => $cell->daemon_id,
-            'variables' => (array) data_get($cell->metadata, 'variables', $workerCell['variables'] ?? []),
+            'variables' => app(CellVariableService::class)->values($cell, (array) ($workerCell['comb_data'] ?? data_get($cell->metadata, 'comb_data', [])), (array) ($workerCell['variables'] ?? [])),
             'docker' => (array) data_get($cell->metadata, 'docker', $workerCell['docker'] ?? []),
             'node_id' => $cell->node_id,
 

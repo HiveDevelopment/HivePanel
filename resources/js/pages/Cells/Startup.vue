@@ -3,7 +3,7 @@ import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { Box, Check, Copy, Eye, EyeOff, Rocket, RotateCcw, Save, Search, SlidersHorizontal, Terminal } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 const props = defineProps<{
     cell: any;
     schema: Array<any>;
@@ -21,6 +21,33 @@ const form = useForm({
         editable.value.map((variable) => [variable.name, String(props.variables[variable.name] ?? variable.default ?? '')]),
     ),
 });
+function currentValues() {
+    return {
+        image: props.selectedImage,
+        variables: Object.fromEntries(
+            editable.value.map((variable) => [variable.name, String(props.variables[variable.name] ?? variable.default ?? '')]),
+        ),
+    };
+}
+watch(
+    () => [props.cell.id, props.variables, props.selectedImage, props.schema],
+    (_next, old) => {
+        if (props.cell.id !== old?.[0] || !form.isDirty) {
+            form.defaults(currentValues());
+            form.reset();
+        }
+    },
+    { deep: true },
+);
+function save() {
+    form.patch(`/cells/${props.cell.id}/startup`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            form.defaults(currentValues());
+            form.reset();
+        },
+    });
+}
 const search = ref('');
 const revealed = ref<Record<string, boolean>>({});
 const templateMode = ref(false);
@@ -167,7 +194,7 @@ async function copyCommand() {
             >
                 {{ t('ui.saved_configuration_changes_are_waiting_for_the_cell_s_next_start') }}
             </p>
-            <form class="space-y-5" @submit.prevent="form.patch(`/cells/${cell.id}/startup`, { preserveScroll: true })">
+            <form class="space-y-5" @submit.prevent="save">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h2 class="flex items-center gap-2 text-sm font-semibold text-foreground">

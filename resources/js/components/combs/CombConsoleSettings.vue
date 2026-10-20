@@ -43,10 +43,10 @@ defineProps<{ form: any }>();
                         v-model="form.stop_signal"
                         class="mt-2 w-full rounded-button border border-border bg-surface-dark px-4 py-3 text-foreground"
                     >
-                        <option>{{ t('ui.sigterm') }}</option>
-                        <option>{{ t('ui.sigint') }}</option>
-                        <option>{{ t('ui.sighup') }}</option>
-                        <option>{{ t('ui.sigquit') }}</option>
+                        <option value="SIGTERM">{{ t('ui.sigterm') }}</option>
+                        <option value="SIGINT">{{ t('ui.sigint') }}</option>
+                        <option value="SIGHUP">{{ t('ui.sighup') }}</option>
+                        <option value="SIGQUIT">{{ t('ui.sigquit') }}</option>
                     </select>
                 </label>
             </div>

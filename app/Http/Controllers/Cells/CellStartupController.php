@@ -7,6 +7,7 @@ use App\Models\Cell;
 use App\Services\AuditLogger;
 use App\Services\Cells\CellShutdownService;
 use App\Services\Cells\CellSyncService;
+use App\Services\Cells\CellVariableService;
 use App\Services\Cells\CombImageService;
 use App\Services\Node\CellNodeClient;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class CellStartupController extends CellBaseController
         $frontend = $this->frontendCell($cell, $cells);
         $schema = $shutdown->variableSchema((array) ($frontend['comb_data'] ?? []));
 
-        return Inertia::render('Cells/Startup', ['cell' => $frontend, 'schema' => $schema, 'variables' => (array) data_get($cell->metadata, 'variables', []), 'images' => app(CombImageService::class)->options((array) ($frontend['comb_data'] ?? [])), 'selectedImage' => (string) data_get($cell->metadata, 'docker.image', data_get($frontend, 'comb_data.image', '')), 'canEdit' => $cell->userCan(request()->user(), 'startup.update')]);
+        return Inertia::render('Cells/Startup', ['cell' => $frontend, 'schema' => $schema, 'variables' => app(CellVariableService::class)->values($cell, (array) ($frontend['comb_data'] ?? []), (array) ($frontend['variables'] ?? [])), 'images' => app(CombImageService::class)->options((array) ($frontend['comb_data'] ?? [])), 'selectedImage' => (string) data_get($cell->metadata, 'docker.image', data_get($frontend, 'comb_data.image', '')), 'canEdit' => $cell->userCan(request()->user(), 'startup.update')]);
     }
 
     public function update(string $id, Request $request, CellNodeClient $cells, CellShutdownService $shutdown, CellSyncService $sync)

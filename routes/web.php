@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\AdminCellDatabaseLimitController;
 use App\Http\Controllers\Admin\AdminCellReinstallController;
 use App\Http\Controllers\Admin\AdminCellSyncController;
 use App\Http\Controllers\Admin\AdminCellToolsController;
+use App\Http\Controllers\Admin\AdminCellUserController;
 use App\Http\Controllers\Admin\AdminCombController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDatabaseHostController;
@@ -119,6 +120,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{cell}/edit', [AdminCellController::class, 'edit'])->name('edit');
             Route::patch('{cell}', [AdminCellController::class, 'update'])->name('update');
             Route::delete('{cell}', [AdminCellController::class, 'destroy'])->name('destroy');
+
+            Route::get('{cell}/users', [AdminCellUserController::class, 'index'])->name('users.index')->middleware('admin.permission:'.AdminPermissions::CELLS_UPDATE);
+            Route::post('{cell}/users', [AdminCellUserController::class, 'store'])->name('users.store')->middleware('admin.permission:'.AdminPermissions::CELLS_UPDATE);
+            Route::delete('{cell}/users/{user}', [AdminCellUserController::class, 'destroy'])->name('users.destroy')->middleware('admin.permission:'.AdminPermissions::CELLS_UPDATE);
 
             Route::get('{cell}/sync', [AdminCellSyncController::class, 'show'])->name('sync.show');
             Route::post('{cell}/sync', [AdminCellSyncController::class, 'repair'])->name('sync.repair');

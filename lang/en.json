@@ -149,5 +149,8 @@
     "Enter a single shutdown command of at most 1000 bytes.": "Enter a single shutdown command of at most 1000 bytes.",
     "A source node is required.": "A source node is required.",
     "Manage this generated hostname from Subdomains.": "Manage this generated hostname from Subdomains.",
-    "Remove this generated hostname from Subdomains.": "Remove this generated hostname from Subdomains."
+    "Remove this generated hostname from Subdomains.": "Remove this generated hostname from Subdomains.",
+    "The owner already has full access.": "The owner already has full access.",
+    "Account access saved.": "Account access saved.",
+    "Account access removed.": "Account access removed."
 }

@@ -1926,5 +1926,20 @@
     "ui.disable_2fa": "Disable 2FA",
     "ui.keep_enabled": "Keep enabled",
     "ui.your_existing_recovery_codes_will_immediately_stop_working_and_wi": "Your existing recovery codes will immediately stop working and will be replaced with a new set.",
-    "ui.generate_new_codes": "Generate new codes"
+    "ui.generate_new_codes": "Generate new codes",
+    "accounts.title": "Cell accounts",
+    "accounts.back": "Back to Cell",
+    "accounts.description": "Assign existing accounts to this Cell and choose their permissions. The owner keeps full access.",
+    "accounts.owner": "Owner",
+    "accounts.assigned": "Assigned accounts",
+    "accounts.empty": "No additional accounts have been assigned.",
+    "accounts.permissions": "permissions",
+    "accounts.edit": "Edit permissions",
+    "accounts.remove": "Remove access",
+    "accounts.add": "Add or update account access",
+    "accounts.email": "Account email",
+    "accounts.existing": "Enter the email of an existing panel account. Saving an assigned account replaces its permissions.",
+    "accounts.save": "Save account access",
+    "accounts.remove_description": "This account will lose its additional access to this Cell. The Cell and its files will stay intact.",
+    "accounts.manage": "Manage accounts"
 }

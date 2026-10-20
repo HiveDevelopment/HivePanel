@@ -20,8 +20,7 @@ class CellProvisioningService
     public function __construct(
         private readonly CellNodeClient $cells,
         private readonly AuditLogger $audit,
-    ) {
-    }
+    ) {}
 
     public function provision(
         array $data,
@@ -70,8 +69,7 @@ class CellProvisioningService
                 )
                     ->map(fn ($id) => (string) $id)
                     ->filter(
-                        fn ($id) =>
-                            $id !== (string) $allocation->id
+                        fn ($id) => $id !== (string) $allocation->id
                     )
                     ->unique()
                     ->values();
@@ -108,22 +106,14 @@ class CellProvisioningService
                     $comb,
                 );
 
-                $schema = $combData['variables_schema'] ?? [];
-
-                $defaults = collect($schema)
-                    ->filter(fn ($variable) => is_array($variable) && filled($variable['name'] ?? null))
-                    ->mapWithKeys(fn ($variable) => [
-                        $variable['name'] => $variable['default'] ?? '',
-                    ])
-                    ->all();
-
-                $submitted = (array) ($data['variables'] ?? []);
-
-                foreach ($submitted as $key => $value) {
-                    if (filled($value)) {
-                        $defaults[$key] = $value;
+                $defaults = [];
+                foreach (app(CellShutdownService::class)->variableSchema($combData) as $variable) {
+                    if (filled($variable['name'] ?? null)) {
+                        $defaults[$variable['name']] = $variable['default'] ?? '';
                     }
                 }
+                // An explicit empty value, false or zero is a Cell value, not a request for the default.
+                $defaults = array_replace($defaults, (array) ($data['variables'] ?? []));
 
                 $version = $data['version'] ?? null;
 
@@ -167,16 +157,15 @@ class CellProvisioningService
                             'port' => $allocation->port,
                         ],
 
-                        'additional_allocations' =>
-                            $additionalAllocations
-                                ->map(fn (
-                                    NodeAllocation $extra
-                                ) => [
-                                    'ip' => $extra->ip,
-                                    'port' => $extra->port,
-                                ])
-                                ->values()
-                                ->all(),
+                        'additional_allocations' => $additionalAllocations
+                            ->map(fn (
+                                NodeAllocation $extra
+                            ) => [
+                                'ip' => $extra->ip,
+                                'port' => $extra->port,
+                            ])
+                            ->values()
+                            ->all(),
 
                         'variables' => $variables,
 
@@ -258,18 +247,17 @@ class CellProvisioningService
                             'primary' => true,
                         ],
 
-                        'additional_allocations' =>
-                            $additionalAllocations
-                                ->map(fn (
-                                    NodeAllocation $extra
-                                ) => [
-                                    'id' => $extra->id,
-                                    'ip' => $extra->ip,
-                                    'port' => $extra->port,
-                                    'alias' => $extra->alias,
-                                ])
-                                ->values()
-                                ->all(),
+                        'additional_allocations' => $additionalAllocations
+                            ->map(fn (
+                                NodeAllocation $extra
+                            ) => [
+                                'id' => $extra->id,
+                                'ip' => $extra->ip,
+                                'port' => $extra->port,
+                                'alias' => $extra->alias,
+                            ])
+                            ->values()
+                            ->all(),
 
                         'limits' => [
                             'memory_mb' => (int) $data['memory_mb'],
@@ -293,38 +281,37 @@ class CellProvisioningService
                                 $data['oom_killer']
                                 ?? true
                             ),
-                            'exclude_from_resource_calculation' =>
-                                (bool) (
-                                    $data[
-                                        'exclude_from_resource_calculation'
-                                    ]
-                                    ?? false
-                                ),
+                            'exclude_from_resource_calculation' => (bool) (
+                                $data[
+                                    'exclude_from_resource_calculation'
+                                ]
+                                ?? false
+                            ),
                         ],
 
                         'feature_limits' => [
                             'database_limit' => $data[
-                                'database_limit'
+                            'database_limit'
                             ] ?? null,
                             'allocation_limit' => $data[
-                                'allocation_limit'
+                            'allocation_limit'
                             ] ?? null,
                             'backup_limit' => $data[
-                                'backup_limit'
+                            'backup_limit'
                             ] ?? null,
                             'backup_storage_mb' => $data[
-                                'backup_storage_mb'
+                            'backup_storage_mb'
                             ] ?? null,
                         ],
 
                         'docker' => [
                             'image' => $data['docker_image']
-                                ?? null,
+                            ?? null,
                         ],
 
                         'startup' => [
                             'command' => $data[
-                                'startup_command'
+                            'startup_command'
                             ] ?? null,
                             'skip_install_script' => (bool) (
                                 $data['skip_install_script']
@@ -387,8 +374,7 @@ class CellProvisioningService
                         'daemon_id' => $cell->daemon_id,
                         'comb' => $cell->comb,
                         'allocation_id' => $allocation->id,
-                        'allocation' =>
-                            "{$allocation->ip}:{$allocation->port}",
+                        'allocation' => "{$allocation->ip}:{$allocation->port}",
                     ],
                 );
 
@@ -502,7 +488,7 @@ class CellProvisioningService
         $combData['variables_schema'] = array_values(
             (array) (
                 $combData['variables_schema']
-                ?? []
+                ?? app(CellShutdownService::class)->variableSchema($combData)
             )
         );
 

@@ -10,39 +10,36 @@ class AdminCombImportController extends Controller
 {
     public function import($id, RegistryService $registry)
     {
-        $comb = $registry->getComb($id);
-
-        if (!$comb) {
-            return response()->json(['error' => 'Not found'], 404);
-        }
-
-        return Comb::updateOrCreate(
-            ['external_id' => $comb['id']],
-            [
-                'name' => $comb['name'],
-                'game' => $comb['game'],
-                'data' => json_encode($comb),
-            ]
-        );
+        return app(AdminCombController::class)->importFromRegistry((string) $id, $registry);
     }
 
     public function sync(RegistryService $registry)
     {
         $combs = $registry->getCombs();
 
-        foreach ($combs as $comb) {
+        $imported = 0;
+        foreach ($combs as $summary) {
+            $comb = $registry->getComb($summary['id']);
+            if (! $comb) {
+                continue;
+            }
+            if (Comb::where('external_id', $comb['id'])->whereIn('source', ['manual', 'registry_modified'])->exists()) {
+                continue;
+            }
             Comb::updateOrCreate(
                 ['external_id' => $comb['id']],
                 [
                     'name' => $comb['name'],
-                    'game' => $comb['game'],
-                    'data' => json_encode($comb),
+                    'game' => $comb['game'] ?? null,
+                    'source' => 'registry',
+                    'data' => $comb,
                 ]
             );
+            $imported++;
         }
 
         return response()->json([
-            'imported' => count($combs)
+            'imported' => $imported,
         ]);
     }
 }

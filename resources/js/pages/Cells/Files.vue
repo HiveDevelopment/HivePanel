@@ -1170,6 +1170,8 @@ async function createItem() {
 async function uploadFiles(files: FileList | null, folderUpload = false) {
     if (isReadOnly.value || !cellId.value || !files || files.length === 0) return;
 
+    const destination = currentPath.value;
+    const uploadCellId = cellId.value;
     actionLoading.value = 'upload';
     error.value = '';
 
@@ -1182,7 +1184,7 @@ async function uploadFiles(files: FileList | null, folderUpload = false) {
                 formData.append('relative_path', (file as any).webkitRelativePath || file.name);
             }
 
-            const response = await fetch(`/cells/${cellId.value}/files/upload?path=${encodeURIComponent(currentPath.value)}`, {
+            const response = await fetch(`/cells/${uploadCellId}/files/upload?path=${encodeURIComponent(destination)}`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -1199,8 +1201,8 @@ async function uploadFiles(files: FileList | null, folderUpload = false) {
             }
         }
 
-        await loadFiles(currentPath.value, true);
-        closeUpload();
+        if (cellId.value === uploadCellId && currentPath.value === destination) await loadFiles(destination, true);
+        if (cellId.value === uploadCellId) closeUpload();
         showToast(folderUpload ? 'Folder uploaded.' : 'Files uploaded.');
     } finally {
         actionLoading.value = '';

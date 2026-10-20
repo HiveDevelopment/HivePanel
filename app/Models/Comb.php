@@ -21,6 +21,27 @@ class Comb extends Model
         'data' => 'array',
     ];
 
+    // Read legacy rows written as JSON-inside-JSON without losing manifest keys.
+    public function getDataAttribute(mixed $value): array
+    {
+        for ($depth = 0; is_string($value) && $depth < 3; $depth++) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+
+        return is_array($value) ? $value : [];
+    }
+
+    public function setDataAttribute(mixed $value): void
+    {
+        for ($depth = 0; is_string($value) && $depth < 3; $depth++) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        if (! is_array($value)) {
+            throw new \InvalidArgumentException('Comb data must be a JSON object.');
+        }
+        $this->attributes['data'] = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * Get a value from the stored Comb manifest.
      */

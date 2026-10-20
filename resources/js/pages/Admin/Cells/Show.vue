@@ -483,6 +483,11 @@ onMounted(() => {
                                 </Link>
 
                                 <Link
+                                    :href="`/admin/cells/${cell.id}/users`"
+                                    class="inline-flex items-center gap-2 rounded-button border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground"
+                                    >{{ t('accounts.manage') }}</Link
+                                >
+                                <Link
                                     :href="`/admin/cells/${cell.id}/edit`"
                                     class="inline-flex items-center gap-2 rounded-button border border-hive bg-hive px-4 py-2 text-sm font-black text-black transition hover:bg-hive-light"
                                 >

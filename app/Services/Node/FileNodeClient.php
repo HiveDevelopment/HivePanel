@@ -66,7 +66,7 @@ class FileNodeClient
     {
         return $this->nodeClient
             ->client($cell->node)
-            ->delete("/cells/{$cell->daemon_id}/files/delete?path=" . urlencode($path))
+            ->delete("/cells/{$cell->daemon_id}/files/delete?path=".urlencode($path))
             ->throw()
             ->json();
     }
@@ -86,7 +86,7 @@ class FileNodeClient
     {
         return $this->nodeClient
             ->client($cell->node)
-            ->delete("/cells/{$cell->daemon_id}/files/permanent?path=" . urlencode($path))
+            ->delete("/cells/{$cell->daemon_id}/files/permanent?path=".urlencode($path))
             ->throw()
             ->json();
     }
@@ -132,9 +132,9 @@ class FileNodeClient
             ->attach(
                 'file',
                 File::get($file->getRealPath()),
-                $file->getClientOriginalName()
+                basename($path)
             )
-            ->post("/cells/{$cell->daemon_id}/files/upload", [
+            ->post("/cells/{$cell->daemon_id}/files/upload?".http_build_query(['path' => dirname($path) === '.' ? '' : dirname($path)], '', '&', PHP_QUERY_RFC3986), [
                 'path' => $path,
             ])
             ->throw()
