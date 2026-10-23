@@ -2,6 +2,40 @@
   "id": "hivepanel.hello-nectar",
   "name": "Hello Nectar",
   "version": "0.1.0",
-  "panelCompatibility": ">=1.0.0",
-  "permissions": []
+  "panelCompatibility": "dev",
+  "permissions": [
+    "cells.read",
+    "settings.read"
+  ],
+  "frontend": {
+    "entry": "dist/index.html",
+    "slots": [],
+    "pages": [
+      {
+        "slug": "hello",
+        "title": "Hello Nectar",
+        "entry": "dist/pages/hello.html",
+        "context": "dashboard",
+        "sidebar": {
+          "group": "tools",
+          "icon": "puzzle"
+        }
+      }
+    ]
+  },
+  "events": {
+    "subscribe": [
+      "cell.created",
+      "cell.updated",
+      "cell.deleted"
+    ]
+  },
+  "settings": [
+    {
+      "key": "greeting",
+      "label": "Greeting",
+      "type": "text",
+      "default": "Welcome to Nectar"
+    }
+  ]
 }

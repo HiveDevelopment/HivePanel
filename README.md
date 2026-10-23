@@ -190,6 +190,10 @@ Before starting a significant change, consider opening an issue or discussing th
 
 When submitting a pull request, please keep changes focused and provide enough information for the change to be reviewed and tested.
 
+## Nectar extension development
+
+Developers can use the separate Nectar SDK to create, validate and package extensions for the existing sandbox. See the [Nectar SDK guide](https://docs.hivepanel.dev) for setup and supported capabilities.
+
 ## Community
 
 Need help, want to contribute, or just want to follow development?

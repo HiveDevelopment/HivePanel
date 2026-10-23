@@ -289,7 +289,7 @@ class ExtensionManager
                 throw new RuntimeException('Invalid manifest');
             }
 
-            $this->validate($manifest);
+            $manifest = $this->validate($manifest);
 
             foreach ($manifest['frontend']['pages'] ?? [] as $page) {
                 if (! is_file($stage.'/'.$page['entry'])) {
