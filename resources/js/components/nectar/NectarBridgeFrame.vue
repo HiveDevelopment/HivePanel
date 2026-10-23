@@ -9,6 +9,7 @@ const props = defineProps<{
     title: string;
     cellId?: string;
     compact?: boolean;
+    autoHeight?: boolean;
 }>();
 
 type BridgeMessage = {
@@ -19,9 +20,12 @@ type BridgeMessage = {
     method?: string;
     events?: string[];
     params?: Record<string, unknown>;
+    height?: number;
 };
 
 const frame = ref<HTMLIFrameElement | null>(null);
+const contentHeight = ref(480);
+const hasReportedHeight = ref(false);
 const nonce = Array.from(crypto.getRandomValues(new Uint8Array(24)), (value) => value.toString(16).padStart(2, '0')).join('');
 const pending = new Set<string>();
 let subscriptionGeneration = 0;
@@ -127,6 +131,14 @@ async function handleMessage(event: MessageEvent) {
         return;
     }
 
+    if (message.type === 'resize' && message.nonce === nonce) {
+        if (props.autoHeight && typeof message.height === 'number' && Number.isFinite(message.height)) {
+            contentHeight.value = Math.min(12000, Math.max(80, Math.ceil(message.height)));
+            hasReportedHeight.value = true;
+        }
+        return;
+    }
+
     if (message.type === 'subscribe' && message.nonce === nonce) {
         const allowed = new Set(['cell.created', 'cell.updated', 'cell.deleted']);
         const requested = Array.isArray(message.events) ? message.events : [];
@@ -217,7 +229,8 @@ onBeforeUnmount(() => {
         :src="src"
         sandbox="allow-scripts"
         referrerpolicy="no-referrer"
-        class="w-full border-0 bg-transparent"
-        :class="compact ? 'h-96' : 'min-h-[70vh]'"
+        class="block w-full border-0 bg-transparent"
+        :class="autoHeight && hasReportedHeight ? '' : compact ? 'h-96' : 'min-h-[70vh]'"
+        :style="autoHeight && hasReportedHeight ? { height: `${contentHeight}px` } : undefined"
     />
 </template>

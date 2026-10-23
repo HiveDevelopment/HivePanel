@@ -6,13 +6,13 @@ const ts = require('typescript');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 
-function bridge(fetch) {
+function bridge(fetch, props = {}) {
     let source = fs.readFileSync(path.resolve(__dirname, '../../resources/js/components/nectar/NectarBridgeFrame.vue'), 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1];
     source = source.replace(/^import .*;\n/gm, '');
-    source += '\n;globalThis.bridge = { frame, handleMessage, nonce, subscriptions };';
+    source += '\n;globalThis.bridge = { frame, handleMessage, nonce, subscriptions, contentHeight };';
     const sent = [], cleanup = [], timers = new Set();
     const context = vm.createContext({
-        defineProps: () => ({ extensionId: 'test.example' }), ref: value => ({ value }),
+        defineProps: () => ({ extensionId: 'test.example', ...props }), ref: value => ({ value }),
         onMounted: () => {}, onBeforeUnmount: fn => cleanup.push(fn),
         extensionTheme: () => ({}), extensionMessages: () => ({}), locale: { value: 'en' },
         setTimeout, clearTimeout, AbortController,
@@ -95,4 +95,23 @@ test('closing a frame aborts its requests and ignores late subscription response
     await pending;
     assert.equal(host.subscriptions.size, 0);
     assert.equal(host.sent.length, 0);
+});
+
+test('content resize is authenticated, bounded and opt-in for full pages', async () => {
+    const host = bridge(async () => { throw Error('Resize must not fetch'); }, { autoHeight: true });
+    await host.message({ type: 'resize', height: 350, nonce: 'incorrect' });
+    assert.equal(host.contentHeight.value, 480);
+    await host.message({ type: 'resize', height: 350.5 });
+    assert.equal(host.contentHeight.value, 351);
+    await host.message({ type: 'resize', height: 9999999 });
+    assert.equal(host.contentHeight.value, 12000);
+    await host.message({ type: 'resize', height: NaN });
+    assert.equal(host.contentHeight.value, 12000);
+    await host.message({ type: 'resize', height: 1 });
+    assert.equal(host.contentHeight.value, 80);
+    host.cleanup();
+    const widget = bridge(async () => { throw Error('Unexpected fetch'); });
+    await widget.message({ type: 'resize', height: 100 });
+    assert.equal(widget.contentHeight.value, 480);
+    widget.cleanup();
 });
