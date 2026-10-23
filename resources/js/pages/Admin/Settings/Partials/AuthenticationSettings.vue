@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm';
 import { t } from '@/composables/useLanguage';
 import { router, useForm } from '@inertiajs/vue3';
 import { ExternalLink, KeyRound, Pencil, Plus, Save, ShieldCheck, Trash2, X } from 'lucide-vue-next';
 import { ref } from 'vue';
 import type { OAuthProvider, OidcProvider } from '../types';
+
+const { confirm } = useConfirm();
 
 const props = defineProps<{
     oauthProviders: Record<string, OAuthProvider>;
@@ -127,10 +130,14 @@ function submitOidc() {
     });
 }
 
-function deleteOidc(provider: OidcProvider) {
-    if (!window.confirm(`Remove ${provider.name}? Users will no longer be able to sign in using this provider.`)) {
-        return;
-    }
+async function deleteOidc(provider: OidcProvider) {
+    const accepted = await confirm({
+        title: t('dialogs.remove_provider'),
+        description: t('dialogs.remove_provider_description', { name: provider.name }),
+        confirmText: t('ui.remove'),
+        danger: true,
+    });
+    if (!accepted) return;
 
     router.delete(`/admin/settings/oidc/${provider.id}`, {
         preserveScroll: true,

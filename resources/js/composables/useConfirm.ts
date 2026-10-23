@@ -21,6 +21,7 @@ const state = reactive({
 
 export function useConfirm() {
     function confirm(options: ConfirmOptions): Promise<boolean> {
+        if (state.open) return Promise.resolve(false)
         state.open = true
         state.loading = false
         state.title = options.title

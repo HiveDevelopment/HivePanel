@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm';
 import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -22,6 +23,8 @@ type Extension = {
         author?: string;
     };
 };
+const { confirm } = useConfirm();
+
 const props = defineProps<{
     extension: Extension;
     networkAudits?: Array<{ id: number; operation: string; destination: string | null; outcome: string; created_at: string }>;
@@ -55,8 +58,15 @@ const changeState = () => {
         { preserveScroll: true, onFinish: () => (busy.value = false) },
     );
 };
-const remove = () => {
-    if (!window.confirm(`Uninstall ${props.extension.name}? This deletes its installed files.`)) return;
+const remove = async () => {
+    if (busy.value) return;
+    const accepted = await confirm({
+        title: t('dialogs.uninstall_extension'),
+        description: t('dialogs.uninstall_extension_description', { name: props.extension.name }),
+        confirmText: t('dialogs.uninstall'),
+        danger: true,
+    });
+    if (!accepted || busy.value) return;
     busy.value = true;
     router.delete(`/admin/extensions/${props.extension.id}`, { onFinish: () => (busy.value = false) });
 };

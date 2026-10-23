@@ -1941,5 +1941,16 @@
     "accounts.existing": "Enter the email of an existing panel account. Saving an assigned account replaces its permissions.",
     "accounts.save": "Save account access",
     "accounts.remove_description": "This account will lose its additional access to this Cell. The Cell and its files will stay intact.",
-    "accounts.manage": "Manage accounts"
+    "accounts.manage": "Manage accounts",
+    "dialogs.uninstall_extension": "Uninstall extension?",
+    "dialogs.uninstall_extension_description": "Uninstall {name}? This deletes its installed files.",
+    "dialogs.uninstall": "Uninstall",
+    "dialogs.run_utility": "Run server utility?",
+    "dialogs.run_utility_description": "Run {name} on this server?",
+    "dialogs.run": "Run utility",
+    "dialogs.remove_user": "Remove server user?",
+    "dialogs.remove_user_description": "Remove {email} from this server? They will lose access to this server.",
+    "dialogs.remove_provider": "Remove sign-in provider?",
+    "dialogs.remove_provider_description": "Remove {name}? Users will no longer be able to sign in using this provider.",
+    "dialogs.allow_console_popups": "Allow pop-ups for HivePanel to open the console in a separate window."
 }

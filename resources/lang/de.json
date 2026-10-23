@@ -37,5 +37,16 @@
     "votifier.ready": "Wähle die Portzuweisung für NuVotifier.",
     "votifier.noCell": "Kein kompatibler Server verfügbar.",
     "votifier.connecting": "Verbindung zum Listener wird hergestellt…",
-    "votifier.accepted": "Teststimme akzeptiert. Prüfe den Vote-Listener."
+    "votifier.accepted": "Teststimme akzeptiert. Prüfe den Vote-Listener.",
+    "dialogs.uninstall_extension": "Erweiterung deinstallieren?",
+    "dialogs.uninstall_extension_description": "{name} deinstallieren? Die installierten Dateien werden gelöscht.",
+    "dialogs.uninstall": "Deinstallieren",
+    "dialogs.run_utility": "Serverwerkzeug ausführen?",
+    "dialogs.run_utility_description": "{name} auf diesem Server ausführen?",
+    "dialogs.run": "Werkzeug ausführen",
+    "dialogs.remove_user": "Serverbenutzer entfernen?",
+    "dialogs.remove_user_description": "{email} von diesem Server entfernen? Der Zugriff auf diesen Server wird entzogen.",
+    "dialogs.remove_provider": "Anmeldeanbieter entfernen?",
+    "dialogs.remove_provider_description": "{name} entfernen? Benutzer können sich nicht mehr über diesen Anbieter anmelden.",
+    "dialogs.allow_console_popups": "Erlaube Pop-ups für HivePanel, um die Konsole in einem separaten Fenster zu öffnen."
 }

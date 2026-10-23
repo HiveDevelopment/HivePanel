@@ -142,7 +142,7 @@ function popOutConsole() {
     }
     const popup = window.open('', `hivepanel-console-${cellId.value}`, 'width=1100,height=720,resizable=yes,scrollbars=yes');
     if (!popup) {
-        window.alert('Allow pop-ups for HivePanel to open the console in a separate window.');
+        consoleLines.value.push(localConsoleEntry(t('dialogs.allow_console_popups')));
         return;
     }
     detachedConsole = popup;

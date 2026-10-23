@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm';
 import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -15,13 +16,21 @@ type SubUser = {
     };
 };
 
+const { confirm } = useConfirm();
+
 const props = defineProps<{
     cell: any;
     users: SubUser[];
 }>();
 
-function removeUser(user: SubUser) {
-    if (!confirm(`Remove ${user.user.email} from this server?`)) return;
+async function removeUser(user: SubUser) {
+    const accepted = await confirm({
+        title: t('dialogs.remove_user'),
+        description: t('dialogs.remove_user_description', { email: user.user.email }),
+        confirmText: t('ui.remove'),
+        danger: true,
+    });
+    if (!accepted) return;
 
     router.delete(`/cells/${props.cell.id}/users/${user.user.id}`, {
         preserveScroll: true,

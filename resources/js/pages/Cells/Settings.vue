@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useConfirm } from '@/composables/useConfirm';
 import { t } from '@/composables/useLanguage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Bug, HardDrive, RefreshCw, Save, Server, Trash, Wrench } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+const { confirm } = useConfirm();
 
 const props = defineProps<{
     cell: any;
@@ -92,7 +95,14 @@ async function saveSettings() {
 
 async function runUtility(utility: string) {
     if (!cellId.value) return;
-    if (!confirm(`Run ${utility.replace('-', ' ')}?`)) return;
+    if (runningUtility.value) return;
+    const accepted = await confirm({
+        title: t('dialogs.run_utility'),
+        description: t('dialogs.run_utility_description', { name: utility.replaceAll('-', ' ') }),
+        confirmText: t('dialogs.run'),
+        danger: true,
+    });
+    if (!accepted || runningUtility.value) return;
 
     runningUtility.value = utility;
     error.value = '';
